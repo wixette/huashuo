@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Generated audio and chunk cache — can be hundreds of MB to several GB.
+.novel_tts_cache/
+*.mp3
+*.wav
