@@ -217,10 +217,14 @@ def _flatten(book: Book, language: str) -> list[_Item]:
     return items
 
 
-def build(book: Book, language: str | None = None) -> Built:
+def build(book: Book, language: str | None = None, read_notes: bool = False) -> Built:
     """Lay out text.txt and the blocks. Chapters come from heading lines (第X章, Chapter N,
     unnumbered story titles) and, for EPUB, from table-of-contents entries that look like
-    titles."""
+    titles.
+
+    Editorial annotations (a 「注釋」 label and everything after it up to the next
+    chapter) are kept but not read unless `read_notes` is set.
+    """
     sample = "".join(p.text for s in book.sections for p in s.paragraphs[:200])[:20000]
     language = language or book.language or detect_language(sample)
     b = _Builder(language)
@@ -235,15 +239,17 @@ def build(book: Book, language: str | None = None) -> Built:
         return ""
 
     def unnumbered_title(i: int, text: str) -> bool:
-        return (language == "zh" and len(text) <= _UNNUMBERED_MAX_CHARS
+        return (language == "zh" and len(text) <= _UNNUMBERED_MAX_CHARS and not _NOTE_LABELS.match(text)
                 and since_chapter >= _UNNUMBERED_MIN_GAP
                 and not _SENTENCE_MARKS.search(text) and not _TITLE_PUNCT.search(text.strip("《》"))
                 and not _DATE_LIKE.search(text) and _is_prose(next_prose(i)))
 
+    in_notes = False
+
     def chapter(title: str, level: int) -> None:
-        nonlocal since_chapter
+        nonlocal since_chapter, in_notes
         b.chapter_block(title, level)
-        since_chapter = 0
+        since_chapter, in_notes = 0, False
 
     for i, item in enumerate(items):
         p, text = item.paragraph, item.paragraph.text
@@ -270,8 +276,14 @@ def build(book: Book, language: str | None = None) -> Built:
             chapter(text, 1)
             continue
         level = classify_heading(text, language)
+        if level is None and _NOTE_LABELS.match(text) and not read_notes:
+            in_notes = True
         if level is not None:
             chapter(text, level)
+        elif in_notes and not unnumbered_title(i, text):
+            b.ensure_chapter(book.title)
+            b.block("skip", text, reason="notes")
+            skipped += 1
         elif is_break(text):
             b.ensure_chapter(book.title)
             b.block("break", text)

@@ -92,8 +92,10 @@ def test_unnumbered_story_titles():
     chapters = [b["text"] for b in built.script.blocks if b["type"] == "chapter"]
     # 「短句」 looks like a title and is followed by prose, but comes right after a chapter start.
     assert chapters == ["狂人日记", "孔乙己", "明天"]
-    heading = next(b for b in built.script.blocks if b["text"] == "注释")
-    assert heading["type"] == "heading"
+    label = next(b for b in built.script.blocks if b["text"] == "注释")
+    assert (label["type"], label.get("reason")) == ("skip", "notes")          # notes skipped by default
+    read = build(_book(lines), read_notes=True)
+    assert next(b for b in read.script.blocks if b["text"] == "注释")["type"] == "heading"
     date = next(b for b in built.script.blocks if b["text"] == "一九一八年四月。")
     assert date["type"] == "narration"
 
@@ -120,4 +122,17 @@ def test_stray_kana_and_placeholders_are_not_read():
     built = build(_book(["第一章 起", "お進學︰明清科舉制度，童生經過縣考初試。"]))
     block = built.script.blocks[-1]
     assert block["say"] == "進學︰明清科舉制度，童生經過縣考初試。" and block["text"].startswith("お")
+    assert check(built.script, built.text) == []
+
+
+def test_annotation_sections_are_skipped_unless_asked():
+    story = "某君昆仲，今隐其名，皆余昔日在中学时良友；分隔多年，消息渐阙。" * 25
+    lines = ["狂人日记", story, "一九一八年四月。", "□注釋", "ぇ本篇最初發表于一九一八年五月。", "え另一条注释。",
+             "孔乙己", story]
+    built = build(_book(lines))
+    reasons = {b["text"][:4]: (b["type"], b.get("reason")) for b in built.script.blocks}
+    assert reasons["□注釋"] == ("skip", "notes") and reasons["ぇ本篇最"] == ("skip", "notes")
+    assert reasons["孔乙己"] == ("chapter", None)          # the next story ends the notes
+    read = build(_book(lines), read_notes=True)
+    assert {b["type"] for b in read.script.blocks if b["text"].startswith("ぇ本篇")} == {"narration"}
     assert check(built.script, built.text) == []

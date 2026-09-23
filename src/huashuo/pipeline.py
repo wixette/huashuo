@@ -51,10 +51,18 @@ def _sha256_file(path: Path) -> str:
 
 
 def import_book(source: Path, wd: Workdir, encoding: str | None = None,
-                language: str | None = None, cover: Path | None = None) -> ImportResult:
-    """Read the source and (re)build text.txt, the script and the cast, keeping user edits."""
+                language: str | None = None, cover: Path | None = None,
+                read_notes: bool | None = None) -> ImportResult:
+    """Read the source and (re)build text.txt, the script and the cast, keeping user edits.
+
+    Options left as None reuse what the previous import of this book recorded.
+    """
+    previous = (read_json(wd.ingest_record) or {}).get("options", {})
+    encoding = encoding if encoding is not None else previous.get("encoding")
+    language = language if language is not None else previous.get("language")
+    read_notes = read_notes if read_notes is not None else previous.get("read_notes", False)
     book = read_book(source, encoding)
-    built = build(book, language)
+    built = build(book, language, read_notes)
     header = built.script.header
     header["source"] = {"path": os.path.relpath(source.resolve(), wd.root.resolve()),
                         "format": book.format, "sha256": _sha256_file(source)}
@@ -95,8 +103,9 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
 
     write_json_atomic(wd.ingest_record, {"huashuo": __version__, "imported": time.strftime("%Y-%m-%d %H:%M:%S"),
                                          "source": str(source.resolve()), "encoding": book.encoding,
-                                         "language": header["language"], "options": {"encoding": encoding,
-                                                                                     "language": language}})
+                                         "language": header["language"],
+                                         "options": {"encoding": encoding, "language": language,
+                                                     "read_notes": read_notes}})
     return ImportResult(wd, merged, built.text, built.chapters, built.skipped, book.encoding, report)
 
 

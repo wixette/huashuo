@@ -41,6 +41,9 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument("--encoding", help="TXT encoding when detection fails, e.g. big5")
         p.add_argument("--language", choices=["zh", "en"], help="override language detection")
         p.add_argument("--cover", type=Path, help="cover image to use instead of the book's own")
+        p.add_argument("--read-notes", action=argparse.BooleanOptionalAction, default=None,
+                       help="read editorial annotations (注釋 sections); skipped by default, "
+                            "and the choice is remembered for this book")
 
     def synth_options(p):
         p.add_argument("--voice", help="narrator voice for this run, e.g. preset:vivian "
@@ -149,7 +152,7 @@ def cmd_import(args, quiet: bool = False):
         return 2
     wd = _workdir(args)
     _setup_logging(wd)
-    result = import_book(args.book, wd, args.encoding, args.language, args.cover)
+    result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes)
     h = result.script.header
     chars = sum(len(b.get("text", "")) for b in result.script.blocks if b.get("type") != "skip")
     print(f"《{h['title']}》 {h.get('author') or '(author unknown)'}  [{h['language']}"
