@@ -6,3 +6,6 @@ __pycache__/
 .novel_tts_cache/
 *.mp3
 *.wav
+
+# Local secrets (LLM API keys)
+.env

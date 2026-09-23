@@ -14,6 +14,34 @@ uv pip install --python .venv/bin/python -e ../mlx-audio   # mlx-audio @ cd605ec
 | `exp1_voice_routes.py` | EXP-1 round 2: routes for reusing a VoiceDesign voice (design doc §5.6) |
 | `exp1_candidates.py` | EXP-1 round 3a: reference candidates for the voices in `exp1_voices.json`, with a similarity report |
 | `exp1_stability.py` | EXP-1 round 3b: route C stability of the chosen voices, with ASR, identification and pause checks |
+| `exp2_batch_tagging.py` | EXP-2: batched speaker attribution, scored on `exp2_data/` (needs an LLM key) |
+| `exp3_tone_check.py` | EXP-3 attempt 1: tone-consistency accent detector (negative result, design doc §5.8) |
+
+Extra packages for these experiments: `uv pip install --python .venv/bin/python "pydantic-ai-slim[openai]" pypinyin`.
+
+## exp2_batch_tagging.py — EXP-2 batched speaker attribution
+
+Pass 1 builds the cast from ~2,500-character chunks with explicit insert/update/merge
+operations; pass 2 asks, per chunk of numbered segments, only `index -> speaker` for the
+quotes, with the speaker constrained to the cast names plus `narrator` and `unknown`;
+unanswered indices are asked again. Scored against a benchmark with hand-checked speakers:
+
+| Benchmark | Quotes | What it tests |
+|---|---|---|
+| `exp2_data/sample40.json` | 12 | The design doc §3.2 sample: forward reference, a name inside the quote, trailing tags, interrupted speech |
+| `exp2_data/kongyiji.json` | 38 | Lu Xun's 孔乙己 (traditional characters): untagged back-and-forth, an anonymous crowd, quoted phrases that are not speech, the first-person narrator speaking |
+
+The model comes from `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` (or `OPENAI_API_KEY`) and
+`HUASHUO_LLM_BASE_URL`, read from the environment or a `.env` file in the repository root
+(git-ignored). Any OpenAI-compatible endpoint works.
+
+```bash
+.venv/bin/python experiments/exp2_batch_tagging.py experiments/exp2_data/kongyiji.json \
+    --price-in 0.10 --price-out 0.50 --out result.json
+# per-line baseline with the same model and prompts:
+.venv/bin/python experiments/exp2_batch_tagging.py experiments/exp2_data/kongyiji.json \
+    --attr-chunk-chars 1 --context 8
+```
 
 ## exp1_voice_routes.py — EXP-1 voice routes
 
