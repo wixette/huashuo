@@ -9,8 +9,10 @@ a standard audiobook.
 
 **Status:** research and design. The pipeline does not exist yet.
 
+- [docs/requirements.md](docs/requirements.md): first-stage requirements (novel → M4B),
+  milestones, acceptance criteria and open questions. Start here.
 - [docs/design-and-research.md](docs/design-and-research.md): the design doc, covering
-  research, measurements, architecture decisions and naming. Start here.
+  research, measurements, architecture decisions and naming.
 - [experiments/](experiments/): working prototypes. `novel_tts.py` is a single-voice
   text-to-MP3 CLI that the real pipeline will grow from.
 

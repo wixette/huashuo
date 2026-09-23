@@ -6,7 +6,7 @@
 | 日期 | 2026-09-23 |
 | 项目名称 | **话说 Huashuo**（`huashuo`，见 §8.6；早期测试代号 `novel-tts` 已弃用） |
 | 目标许可证 | Apache-2.0 |
-| 文档作用 | 后续所有任务的起始原点。所有结论、实测数据、技术选型理由和出处都记录在此 |
+| 文档作用 | 记录调研结论、实测数据、技术选型与设计决策及其理由和出处。**要做什么、做到什么程度**见 [requirements.md](requirements.md) |
 
 ---
 
@@ -21,26 +21,16 @@
 3. **新建项目而非 fork**，采用 Apache-2.0（参考项目为 GPL-3.0）
 4. **核心架构是「剧本」中间表示（Script IR）**：文档 → 剧本 → 音频
 5. **项目命名为「话说 Huashuo」**（2026-09-23 确定，见 §8.6）
+6. **角色声音来自内置音色库**：预先设计并固化 12–20 个与输入无关的音色，随项目发布（2026-09-23 确定，固化方式待实验，见 §5.6）
+7. **LLM 只走 OpenAI 兼容接口，经 pydantic-ai 接入**，不写提供商专用适配器（2026-09-23 确定，见 §6.5）
+
+第一阶段的需求与第一轮决策见 [requirements.md](requirements.md)。
 
 ---
 
 ## 1. 项目目标与范围
 
-### 1.1 目标
-
-- **开源、公益**，暂不考虑任何商业诉求
-- **核心支持中文与英文**，其他语言暂不保证质量
-- 输入格式与 audiobook-creator 类似（EPUB / PDF / TXT 等）
-- 许可证 **Apache-2.0**，对开发者与下游项目友好
-
-### 1.2 场景路线图
-
-| 优先级 | 场景 | 说明 |
-|---|---|---|
-| **P0** | **小说有声书** | 唯一的当前交付目标 |
-| P1 | 单人 / 多人播客音频制作 | 剧本 IR 天然支持，几乎零额外成本 |
-| P2 | 复杂网页朗读 | 需要新的前端解析器 |
-| P3 | 学术论文（PDF）朗读 | 含数学公式、科技图表朗读，研究级难度 |
+项目目标、场景路线图与第一阶段需求已移至 [requirements.md](requirements.md)（§1 目标，§1.2 路线图）。本节只保留影响设计决策的范围纪律。
 
 ### 1.3 范围纪律（重要）
 
@@ -346,7 +336,49 @@ landandan fork 的 `kokoro_zh` 映射里，这两个方言音色占了 5 个槽�
 | pydub | MIT |
 | ffmpeg / calibre | GPL/LGPL，但**以子进程调用**，不构成链接 |
 
-### 5.6 其他候选（备查）
+### 5.6 Qwen3-TTS 预置音色（2026-09-23 核查）
+
+CustomVoice 模型（0.6B 与 1.7B 相同）的 `config.json` 中 `talker_config.spk_id` 列出 9 个预置音色，`spk_is_dialect` 标注了其中的方言音色：
+
+| 音色 | 语言 | 方言 |
+|---|---|---|
+| `vivian`、`serena`、`uncle_fu` | 中文 | 否（标准普通话） |
+| `dylan` | 中文 | **北京话**（`beijing_dialect`） |
+| `eric` | 中文 | **四川话**（`sichuan_dialect`） |
+| `ryan`、`aiden` | 英文 | 否 |
+| `ono_anna` | 日文 | 否 |
+| `sohee` | 韩文 | 否 |
+
+**结论：标准普通话预置音色只有 3 个，英文只有 2 个，不足以支撑多角色选角。** 与 §5.2 的 Kokoro 同理，方言音色必须默认排除。
+
+#### 预置音色的实现机制（读 mlx-audio 源码与官方微调脚本确认）
+
+三个变体共用同一个 talker，**「音色」在输入端就是一个 2048 维向量**，放在 codec 前缀里的同一个位置（mlx-audio `qwen3_tts.py` 的 `_prepare_generation_inputs()`）：
+
+| 变体 | 这个向量从哪来 | 其他能力 |
+|---|---|---|
+| **CustomVoice** | `spk_id` 查 talker 的 codec embedding 表的一行（如 `serena` → 第 3066 行） | 支持 `instruct`（情绪/语气）；**没有** speaker encoder |
+| **Base** | 内置 speaker encoder 从参考音频提取（x-vector） | 另有 ICL 模式：参考音频的 codec 码 + 参考文本一起作为提示，相似度更高 |
+| **VoiceDesign**（仅 1.7B） | 无固定向量，由 `instruct` 文字描述决定 | 每次生成的声音可能不同，**不能直接逐句使用** |
+
+官方微调脚本 [`finetuning/sft_12hz.py`](https://github.com/QwenLM/Qwen3-TTS/blob/main/finetuning/sft_12hz.py) 印证了这一点：它用 Base 的 speaker encoder 从目标说话人的音频提取向量，**写进 `codec_embedding.weight[3000]`**，在 config 里注册 `spk_id = {name: 3000}`、把 `tts_model_type` 改为 `custom_voice`，保存时删掉 speaker encoder 权重。也就是说，**CustomVoice 的预置音色和 Base 克隆用的 x-vector 位于同一个向量空间**，区别在于微调过的 talker 学会了用好这一行。
+
+#### 固化库音色的四条路线
+
+内置音色库（[requirements.md](requirements.md) CAST-1，§9.1 Q2）的每个音色都先用 VoiceDesign 按描述生成、人工挑选一段满意的参考音频，然后用下面某种方式在所有书中复用：
+
+| 路线 | 做法 | 优点 | 风险 / 未知 |
+|---|---|---|---|
+| **A. Base + ICL 克隆** | 每句都带参考音频 + 参考文本 | 相似度最高，mlx-audio 现成支持 | 每句多一段提示（10 秒参考约 125 帧）；mlx-audio 在 ICL 模式下把 repetition penalty 提到 1.5，可能影响韵律；不支持连续批处理 |
+| **B. Base + x-vector** | 只存一个 2048 维向量（约 8 KB），不带参考文本 | 最轻；机制上与预置音色完全相同 | 只靠向量，相似度与稳定性可能不如 A |
+| **C. 向量写入 CustomVoice** | 用 Base 的 speaker encoder 算出向量，追加到 CustomVoice 的 embedding 表并注册 `spk_id`（或给 mlx-audio 加一个直接传向量的入口） | **一个模型同时提供预置旁白与库音色**（无需加载两个模型）；**可能顺带获得 `instruct` 情绪控制**（SCR-12） | CustomVoice 只在 9 个音色上微调过，对没见过的向量能否泛化**完全未知**；官方做法是写入后还要微调 |
+| **D. 微调** | 用 VoiceDesign 为每个音色生成语料，按官方 SFT 流程训练 | 真正的「内置音色」，质量上限最高 | 官方脚本一次只注册一个说话人，多音色需改造；训练基于 PyTorch/CUDA，不在 Mac 上；要发布派生的 1.7B 权重。**不在第一阶段范围** |
+
+**实验 V 的做法**（[requirements.md](requirements.md) §6）：先下载 Base 与 VoiceDesign 1.7B（本机目前只有 CustomVoice），用 VoiceDesign 试做 4–6 个中文音色，同一批测试句分别走 A、B、C，按关卡标准（稳定性、可懂度、区分度、口音、速度）比较。C 若可行则优先（单模型 + instruct），否则 A 或 B。无论哪条路线，库里保存的都是**参考音频 + 参考文本 + 向量 + 标签**，不绑定某一条路线。
+
+**库音色与输入无关的好处**：质量由人工筛选兜底，所有书听到的都是同一批经过验收的声音；处理新书时不用花时间设计声音；VoiceDesign 生成的声音不属于任何真人，没有声音权属问题（NFR-10）。
+
+### 5.7 其他候选（备查）
 
 | 方案 | 中文质量 | Mac 可行性 | 备注 |
 |---|---|---|---|
@@ -392,6 +424,8 @@ Anthropic 提供 OpenAI 兼容端点（`https://api.anthropic.com/v1/`），但[
 
 **正确做法是走 pydantic-ai 的原生 Anthropic 支持**（`AnthropicModel` + `AnthropicProvider`），约 20–30 行改动，同时需去掉三个 penalty 参数（Anthropic 没有）。
 
+> 2026-09-23 决定：本项目只支持 OpenAI 兼容接口，不专门为 Anthropic 写适配（§6.5）。上述结论保留作调研记录；若用 §6.5 建议的 pydantic-ai，日后要接 Claude 也只是换一个 Model 类，不是写适配器。
+
 ### 6.3 当前价格（OpenAI，2026-09）
 
 | 模型 | 输入 $/MTok | 输出 $/MTok |
@@ -430,6 +464,18 @@ reasoning_effort to 'none'.
 **解法**：显式设 `openai_reasoning_effort: "none"`（`ReasoningEffort` 的合法值为 `none|minimal|low|medium|high|xhigh`）。
 
 **更好的解法**：这是结构化抽取任务，不需要推理模型。换非推理模型既避开问题，又便宜得多。
+
+### 6.5 LLM 接入库的选择（2026-09-23 确定：pydantic-ai）
+
+**需求**（[requirements.md](requirements.md) §3.9）：只走 OpenAI 兼容的 Chat Completions，但要覆盖 OpenAI、OpenRouter、DeepSeek、阿里云百炼，以及 LM Studio / Ollama / llama.cpp / vLLM 等本地服务；要有**带类型校验和自动重试的结构化输出**；要能统计 token 与费用。
+
+| 方案 | 结构化输出 + 校验重试 | 覆盖面 | 其他 |
+|---|---|---|---|
+| **pydantic-ai**（MIT） | ✅ 核心能力：`output_type` 用 Pydantic 模型，校验失败自动回灌重试（即 §2.4 第 2 条要继承的做法） | 任意 OpenAI 兼容端点（`OpenAIProvider(base_url=...)`），另有 DeepSeek、OpenRouter、Ollama 等现成 provider | 结构化输出可选 tool 模式或 `NativeOutput`（`response_format`），后者可绕开 §6.4 的「推理模型 + function tools」报错；返回 token usage |
+| litellm（MIT） | ❌ 只统一调用接口，校验重试仍要自己写（或再叠 instructor 之类的库） | 最广，含本地服务 | 依赖很重，主要价值在代理网关与百家提供商，本项目用不上；**2026-03-24 PyPI 上的 1.82.7 / 1.82.8 被植入后门**（[官方说明](https://docs.litellm.ai/blog/security-update-march-2026)），虽已处理，但对一个只需要一种协议的项目来说是不必要的供应链面 |
+| 官方 `openai` SDK + 自写 | 要自己写校验、错误分类与重试 | 同样覆盖所有 OpenAI 兼容端点 | 依赖最少；但会重写 pydantic-ai 已经做好的那部分 |
+
+**结论：pydantic-ai**，只用它的 OpenAI 兼容路径。它正好提供了项目最需要的「类型即校验」能力，本地端点也能直接用；分类重试（如 §2.4 第 3 条的上下文溢出识别）和对账（§7.2 第 4 点）在其外面自己写。费用统计用 usage 中的 token 数乘以可配置的单价表。
 
 ---
 
@@ -648,7 +694,7 @@ Script
 
 #### 命名原则
 
-1. **不绑死「小说 / 有声书」**——路线图含播客、网页、论文（§1.2）
+1. **不绑死「小说 / 有声书」**——路线图含播客、网页、论文（[requirements.md](requirements.md) §1.2）
 2. **不绑死技术**——不含 mlx / qwen / mac 等字样，TTS 引擎是插件
 3. **拼音名可行**——jieba、pypinyin 等中文开源项目证明拼音名能传播
 4. **有当代感**，而非仅是传统技艺
@@ -688,9 +734,11 @@ Script
 | Personae | GitHub 有 1.4k★ 同名项目 |
 | Bookcast | 可用，但过于直白，缺少文化辨识度 |
 
-#### 待定：Script IR 命名为「话本」
+#### 已定：Script IR 命名为「话本」（2026-09-23）
 
-建议剧本中间表示（§8.3）命名为 **话本**（文件扩展名如 `.huaben`）：项目叫「话说」，剧本叫「话本」，都来自说书传统，中文读者一看就明白两者关系——说书人照着话本开讲。此项在写 Script IR schema 文档（§10.2）时一并确定。
+剧本中间表示（§8.3）命名为 **话本**：项目叫「话说」，剧本叫「话本」，都来自说书传统，中文读者一看就明白两者关系——说书人照着话本开讲。
+
+**不发明新的基础格式**：话本文件是 JSONL（一行一个 block），扩展名 `*.huaben.jsonl`，任何 JSON 工具和编辑器都能直接处理。字段在 Script IR schema 设计文档（§10.2）中定义。
 
 ---
 
@@ -729,28 +777,31 @@ Script
 
 ## 10. 待办与下一步
 
+第一阶段的需求、里程碑与验收标准见 [requirements.md](requirements.md)；本节只列调研与设计层面的待办。
+
 ### 10.1 立即执行（P0）
 
 1. **在本仓库中实现段落级批量标注**（先作为 `experiments/` 下的实验脚本），与 landandan fork 的逐句实现**对拍**
    - 同一份中文文本，对比说话人归属准确率与 token 消耗
    - 输出天然就是 Script IR 的雏形——顺手验证剧本模型
-2. 对拍数据出来后，决定是否正式立项
+2. **音色实验 V**（与 M1 并行，决定多角色能否进入第一阶段）：比较 §5.6 的路线 A / B / C
+3. 对拍数据出来后，决定是否正式立项
 
 ### 10.2 立项后
 
-3. **先写 Script IR 的 schema 设计文档**（最贵的决定，改起来最痛）；同时确定 IR 是否命名为「话本」（§8.6），并参考 Alexandria 的剧本格式（§4.3）
-4. ~~项目命名讨论~~ ✅ 已定为「话说 Huashuo」（§8.6）；仓库目录已改名为 `huashuo`，原型移入 `experiments/`。正式的 `huashuo` 包与 CLI 随流水线实现一起建立
-5. 音频封装层重建（M4B / 章节 / 元数据 / 静音）
-6. 角色 → 音色分配（携带完整画像，不走 gender_score）
+4. **先写 Script IR 的 schema 设计文档**（最贵的决定，改起来最痛）。格式已定为 JSONL、名为「话本」、扩展名 `*.huaben.jsonl`（§8.6）；字段设计参考 Alexandria 的剧本格式（§4.3）
+5. ~~项目命名讨论~~ ✅ 已定为「话说 Huashuo」（§8.6）；仓库目录已改名为 `huashuo`，原型移入 `experiments/`。正式的 `huashuo` 包与 CLI 随流水线实现一起建立
+6. 音频封装层重建（M4B / 章节 / 元数据 / 静音）
+7. 角色 → 音色分配（携带完整画像，不走 gender_score），从内置音色库中选
 
 ### 10.3 待评估（有基准后）
 
-7. Jev 在中文说话人归属上的**真实准确率**与**置信度校准质量**
-8. 置信度分诊方案
+8. Jev 在中文说话人归属上的**真实准确率**与**置信度校准质量**
+9. 置信度分诊方案
 
 ### 10.4 社区回馈
 
-9. 向 landandan 提 issue：`kokoro_zh` 方言音色 bug（§5.2）
+10. 向 landandan 提 issue：`kokoro_zh` 方言音色 bug（§5.2）
 
 ---
 
