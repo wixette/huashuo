@@ -50,8 +50,9 @@ INSTRUCT_LINE = "2"
 INSTRUCT = "用惊恐、压低声音的语气说"
 PRESET_BASELINE = "uncle_fu"
 
-# CustomVoice's embedding table has 3072 rows; presets sit at 2861-3066. Row 3000 is
-# unused and is the slot Qwen's official fine-tuning script writes a new speaker into.
+# CustomVoice's embedding table has 3072 rows; presets sit at 2861-3066. Rows from 3000
+# up are unused (3000 is the slot Qwen's official fine-tuning script writes a new speaker
+# into), so injected speakers take 3000, 3001, ...
 INJECTED_SPK_ID = 3000
 
 
@@ -92,18 +93,24 @@ def as_vector(x: mx.array) -> np.ndarray:
     return np.array(x.astype(mx.float32)).reshape(-1)
 
 
-def inject_speaker(model, name: str, vector: mx.array) -> None:
-    """Make `name` a CustomVoice speaker whose embedding is `vector` (route C).
+def inject_speakers(model, voices: dict[str, mx.array]) -> None:
+    """Make each name a CustomVoice speaker whose embedding is the given vector (route C).
 
     The embedding table is quantized, so instead of editing it we intercept the lookup
     while the prompt is built. Generation steps use the real table untouched.
     """
     table = model.talker.get_input_embeddings()
-    injected = vector.reshape(1, 1, -1)
+    injected = {}
+    for offset, (name, vector) in enumerate(voices.items()):
+        spk_id = INJECTED_SPK_ID + offset
+        assert spk_id not in model.config.talker_config.spk_id.values(), spk_id
+        injected[spk_id] = vector.reshape(1, 1, -1)
+        model.config.talker_config.spk_id[name] = spk_id
+        model.supported_speakers.append(name)
 
     def lookup(ids: mx.array) -> mx.array:
-        if ids.shape == (1, 1) and int(ids[0, 0]) == INJECTED_SPK_ID:
-            return injected.astype(table.scales.dtype if hasattr(table, "scales") else mx.float32)
+        if ids.shape == (1, 1) and (key := int(ids[0, 0])) in injected:
+            return injected[key]
         return table(ids)
 
     prepare = model._prepare_generation_inputs
@@ -116,8 +123,6 @@ def inject_speaker(model, name: str, vector: mx.array) -> None:
             del model.talker.get_input_embeddings
 
     model._prepare_generation_inputs = prepare_with_injection
-    model.config.talker_config.spk_id[name] = INJECTED_SPK_ID
-    model.supported_speakers.append(name)
 
 
 class Renderer:
@@ -163,7 +168,7 @@ def main() -> None:
     cv = load("CustomVoice")
     presets = {n: as_vector(cv.talker.get_input_embeddings()(mx.array([[i]])))
                for n, i in cv.config.talker_config.spk_id.items()}
-    inject_speaker(cv, VOICE_NAME, xvec)
+    inject_speakers(cv, {VOICE_NAME: xvec})
     for key, text in LINES.items():
         r.render(f"C{key}_customvoice_injected", "C", text, cv.generate_custom_voice(
             text=text, speaker=VOICE_NAME, language=LANGUAGE), seed=int(key))

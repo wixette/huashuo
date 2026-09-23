@@ -13,6 +13,7 @@ uv pip install --python .venv/bin/python -e ../mlx-audio   # mlx-audio @ cd605ec
 | `novel_tts.py` | Single-voice text-to-MP3 prototype (below) |
 | `exp1_voice_routes.py` | EXP-1 round 2: routes for reusing a VoiceDesign voice (design doc §5.6) |
 | `exp1_candidates.py` | EXP-1 round 3a: reference candidates for the voices in `exp1_voices.json`, with a similarity report |
+| `exp1_stability.py` | EXP-1 round 3b: route C stability of the chosen voices, with ASR, identification and pause checks |
 
 ## exp1_voice_routes.py — EXP-1 voice routes
 
