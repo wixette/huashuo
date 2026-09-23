@@ -10,7 +10,7 @@ from huashuo.workdir import Workdir
 
 
 def run(*args):
-    return main([*map(str, args), "--engine", "fake"] if args[0] in ("make", "synth", "package")
+    return main([*map(str, args), "--engine", "fake"] if args[0] in ("make", "synth", "package", "redo")
                 else list(map(str, args)))
 
 
@@ -115,3 +115,32 @@ def test_limiter_only_touches_spikes():
     far = slice(0, 9000)
     assert np.allclose(out[far], spiky[far])                  # untouched away from the spike
     assert limit(speech, sr) is speech                         # nothing to do, no copy
+
+
+@needs_ffmpeg
+def test_redo_resynthesizes_the_unit_at_a_time(sample_txt, capsys):
+    from huashuo.synth import seed_for
+    assert run("make", sample_txt, "--no-asr") == 0
+    wd = Workdir.for_input(sample_txt)
+    before = {p.stem: json.loads(p.read_text()) for p in wd.units.glob("*.json")}
+    duration = float(probe(sample_txt.with_suffix(".m4b"))["format"]["duration"])
+    capsys.readouterr()
+    assert run("redo", sample_txt, "--no-asr", "--at", f"{duration * 0.6:.1f}") == 0
+    out = capsys.readouterr().out
+    assert "redo #1" in out and "synthesized 1," in out and "wrote" in out
+    rerolls = json.loads(wd.rerolls.read_text())
+    (key, times), = rerolls.items()
+    after = json.loads((wd.units / f"{key}.json").read_text())
+    assert times == 1 and after["seed"] == seed_for(key, 0, 1) != before[key]["seed"]
+    # Rebuilding from scratch keeps the redone version.
+    (wd.units / f"{key}.wav").unlink(); (wd.units / f"{key}.json").unlink()
+    assert run("synth", sample_txt, "--no-asr") == 0
+    assert json.loads((wd.units / f"{key}.json").read_text())["seed"] == after["seed"]
+    import pytest
+    with pytest.raises(SystemExit, match="outside the book"):
+        run("redo", sample_txt, "--no-asr", "--at", "99:00")
+
+
+def test_parse_time():
+    from huashuo.cli import parse_time
+    assert parse_time("1:28") == 88 and parse_time("1:02:03") == 3723 and parse_time("88.5") == 88.5

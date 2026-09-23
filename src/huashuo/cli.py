@@ -5,6 +5,7 @@
     huashuo check BOOK           verify the script against text.txt (docs/script-ir.md §5)
     huashuo synth BOOK           synthesize (resumable); --sample / --chapters for auditions
     huashuo package BOOK         write the M4B from what has been synthesized
+    huashuo redo BOOK --at 1:28  re-synthesize what plays at a time in the M4B, then repackage
     huashuo voices               list the engine's preset voices
 
 BOOK is the source file (.txt / .epub); its work directory defaults to <BOOK>.huashuo/.
@@ -20,7 +21,7 @@ from pathlib import Path
 
 from huashuo import __version__
 
-COMMANDS = ("make", "import", "check", "synth", "package", "voices")
+COMMANDS = ("make", "import", "check", "synth", "package", "redo", "voices")
 log = logging.getLogger("huashuo")
 
 
@@ -71,6 +72,10 @@ def _parser() -> argparse.ArgumentParser:
     synth_options(p)
     p = book_command("package", "encode the M4B from cached units")
     synth_options(p), package_options(p)
+    p = book_command("redo", "re-synthesize the unit playing at a time in the M4B, with new seeds")
+    p.add_argument("--at", action="append", required=True, metavar="TIME",
+                   help="time in the M4B, e.g. 1:28, 1:02:03 or 88.5; repeatable")
+    synth_options(p), package_options(p)
     p = sub.add_parser("voices", help="list preset voices")
     p.add_argument("--model", help="CustomVoice model")
     return parser
@@ -118,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         return {"make": cmd_make, "import": cmd_import, "check": cmd_check, "synth": cmd_synth,
-                "package": cmd_package, "voices": cmd_voices}[args.command](args)
+                "package": cmd_package, "redo": cmd_redo, "voices": cmd_voices}[args.command](args)
     except KeyboardInterrupt:
         print("\ninterrupted; run the same command again to continue where it stopped")
         return 130
@@ -282,6 +287,44 @@ def cmd_package(args) -> int:
     print(f"wrote {output} ({_mb(output.stat().st_size)}, {_hms(seconds)}, "
           f"{len(result.get('chapters', []))} chapters)")
     return 0
+
+
+def parse_time(value: str) -> float:
+    """「1:28」, 「1:02:03」, 「88」 or 「88.5」 -> seconds."""
+    seconds = 0.0
+    for part in value.strip().split(":"):
+        seconds = seconds * 60 + float(part)
+    return seconds
+
+
+def cmd_redo(args) -> int:
+    """Map each time in the M4B to its unit, re-roll those units, synthesize, repackage."""
+    from huashuo.post import layout, unit_at
+    from huashuo.synth import cached_ok, reroll, unit_key
+
+    wd, project, plan = _prepare(args)
+    _setup_logging(wd)
+    engine = _engine(args)
+    keys = [unit_key(u, engine.identity(), project.language) for u in plan.units]
+    if any(cached_ok(wd, k) is None for k in keys):
+        raise SystemExit("some units are not synthesized yet; run `huashuo synth` (or make) with the "
+                         "same options first, so times refer to a finished M4B")
+    timeline = layout(plan, keys, wd)
+    chosen: dict[int, str] = {}
+    for value in args.at:
+        index = unit_at(timeline, parse_time(value))
+        if index is None:
+            raise SystemExit(f"{value} is outside the book ({_hms(timeline.seconds)})")
+        chosen.setdefault(index, value)
+    for index, value in chosen.items():
+        item, unit = timeline.placed[index], plan.units[index]
+        start = item.start / timeline.sample_rate
+        end = start + (item.trim[1] - item.trim[0]) / timeline.sample_rate
+        times = reroll(wd, keys[index])
+        print(f"redo {value}: {_hms(start)}-{_hms(end)} 「{unit.text[:30]}…」 (redo #{times})")
+        log.info("redo %s -> unit %s (redo #%d)", value, keys[index], times)
+    status = cmd_synth(args)
+    return status or cmd_package(args)
 
 
 def cmd_make(args) -> int:

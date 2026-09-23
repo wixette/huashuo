@@ -88,6 +88,19 @@ def layout(plan: Plan, keys: list[str], wd: Workdir, target_lufs: float = TARGET
     return Timeline(sample_rate, placed, [tuple(c) for c in chapters], cursor)
 
 
+def unit_at(timeline: Timeline, seconds: float) -> int | None:
+    """Index of the unit heard at `seconds` in the programme. A pause belongs to the unit
+    before it; the lead-in belongs to the first unit."""
+    sample = int(seconds * timeline.sample_rate)
+    if not timeline.placed or not 0 <= sample < timeline.total:
+        return None
+    for index, item in enumerate(timeline.placed):
+        end = item.start + (item.trim[1] - item.trim[0]) + item.pause
+        if sample < end:
+            return index
+    return len(timeline.placed) - 1
+
+
 def stream(timeline: Timeline, wd: Workdir, block: int = 1 << 16) -> Iterator[bytes]:
     """The whole programme as 16-bit PCM, one unit at a time."""
     yield bytes(2 * int(LEAD_IN * timeline.sample_rate))

@@ -39,8 +39,13 @@ def unit_key(unit: Unit, engine_identity: dict, language: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
 
 
-def seed_for(key: str, attempt: int) -> int:
-    return int(key[:8], 16) + attempt
+# Each redo of a unit draws from its own block of seeds, so it never repeats a sample
+# that was already tried (automatic retries use the first few seeds of each block).
+REROLL_STRIDE = 100
+
+
+def seed_for(key: str, attempt: int, rerolls: int = 0) -> int:
+    return int(key[:8], 16) + REROLL_STRIDE * rerolls + attempt
 
 
 def duration_problem(text: str, seconds: float, language: str, max_seconds: float | None) -> str | None:
@@ -153,6 +158,7 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
     progress = Progress(len(units), sum(len(u.text) for u in units),
                         enabled=show_progress and sys.stdout.isatty(), logged=show_progress)
     max_seconds = getattr(engine, "max_unit_seconds", None)
+    rerolls = read_json(wd.rerolls, {})
 
     for voice in sorted({u.voice for u in units}):
         engine.check_voice(voice)
@@ -173,7 +179,7 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
             best = None  # (score, audio, problem, transcript, error_rate, seed)
             started = time.time()
             for attempt in range(max_attempts):
-                seed = seed_for(key, attempt)
+                seed = seed_for(key, attempt, rerolls.get(key, 0))
                 audio = engine.synthesize(unit.text, unit.voice, language, unit.instruct, seed)
                 seconds = len(audio) / engine.sample_rate
                 problem = duration_problem(unit.text, seconds, language, max_seconds)
@@ -213,6 +219,17 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
     finally:
         progress.finish()
     return stats
+
+
+def reroll(wd: Workdir, key: str) -> int:
+    """Mark a unit to be synthesized again with fresh seeds; returns how often it has
+    been redone. The cached audio is removed so the next synthesis picks it up."""
+    rerolls = read_json(wd.rerolls, {})
+    rerolls[key] = rerolls.get(key, 0) + 1
+    write_json_atomic(wd.rerolls, rerolls)
+    for suffix in (".wav", ".json"):
+        (wd.units / f"{key}{suffix}").unlink(missing_ok=True)
+    return rerolls[key]
 
 
 def unit_audio(wd: Workdir, key: str) -> tuple[np.ndarray, int]:

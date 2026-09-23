@@ -15,6 +15,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
 .venv/bin/huashuo book.epub --dry-run        # chapters, skipped text, time and size estimate
 .venv/bin/huashuo book.epub --sample         # a few minutes, to audition the voice
 .venv/bin/huashuo book.epub                  # the whole book -> book.m4b (resumable)
+.venv/bin/huashuo redo book.epub --at 1:28   # heard a glitch at 1:28? re-synthesize that part
 ```
 
 Needs an Apple Silicon Mac and ffmpeg (`brew install ffmpeg`). The work directory

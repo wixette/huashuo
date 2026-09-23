@@ -67,6 +67,11 @@ class Workdir:
         return self.state / "cast.auto.json"
 
     @property
+    def rerolls(self) -> Path:
+        """Units the listener asked to redo (`huashuo redo`): cache key -> times redone."""
+        return self.state / "rerolls.json"
+
+    @property
     def ingest_record(self) -> Path:
         return self.state / "ingest.json"
 
