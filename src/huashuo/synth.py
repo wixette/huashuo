@@ -71,8 +71,10 @@ class Stats:
 class Progress:
     """One status line with an ETA from characters synthesized so far (SYN-7)."""
 
-    def __init__(self, total_units: int, total_chars: int, enabled: bool) -> None:
+    def __init__(self, total_units: int, total_chars: int, enabled: bool, logged: bool = True) -> None:
         self.total_units, self.total_chars, self.enabled = total_units, total_chars, enabled
+        # Without a terminal (piped to a log), print a plain line every 10% instead.
+        self.logged, self.next_mark = logged and not enabled, 10
         self.done_units = self.done_chars = self.synth_chars = 0
         self.synth_seconds = self.audio_seconds = 0.0
         self.start = time.time()
@@ -93,9 +95,13 @@ class Progress:
         self.render()
 
     def render(self) -> None:
-        if not self.enabled:
-            return
         pct = 100.0 * self.done_chars / max(1, self.total_chars)
+        if not self.enabled:
+            if self.logged and pct >= self.next_mark:
+                self.next_mark = (int(pct) // 10 + 1) * 10
+                print(f"  {pct:5.1f}%  {self.done_units}/{self.total_units} units, audio "
+                      f"{_hms(self.audio_seconds)}, elapsed {_hms(time.time() - self.start)}", flush=True)
+            return
         if self.synth_chars:
             eta = _hms((self.total_chars - self.done_chars) * self.synth_seconds / self.synth_chars)
             rtf = f"{self.audio_seconds / max(self.synth_seconds, 1e-9):.2f}x"
@@ -124,13 +130,28 @@ def cached_ok(wd: Workdir, key: str) -> dict | None:
     return None
 
 
+def _rejudge(wd: Workdir, key: str, meta: dict, unit: Unit, language: str, max_cer: float) -> dict:
+    """Re-apply the current ASR comparison to a cached unit's stored transcript, so a
+    better comparison clears (or raises) flags without synthesizing again."""
+    from huashuo.asr import cer
+
+    rate = cer(unit.text, meta["asr"], language)
+    duration_only = meta.get("problem") and not str(meta["problem"]).startswith("ASR mismatch")
+    problem = meta["problem"] if duration_only else (
+        f"ASR mismatch ({rate:.0%}): heard 「{meta['asr']}」" if rate > max_cer else None)
+    if problem != meta.get("problem") or round(rate, 4) != meta.get("cer"):
+        meta = {**meta, "problem": problem, "cer": round(rate, 4)}
+        write_json_atomic(wd.units / f"{key}.json", meta)
+    return meta
+
+
 def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                max_attempts: int = 3, show_progress: bool = True) -> Stats:
     stats = Stats()
     identity = engine.identity()
     keys = [unit_key(u, identity, language) for u in units]
     progress = Progress(len(units), sum(len(u.text) for u in units),
-                        enabled=show_progress and sys.stdout.isatty())
+                        enabled=show_progress and sys.stdout.isatty(), logged=show_progress)
     max_seconds = getattr(engine, "max_unit_seconds", None)
 
     for voice in sorted({u.voice for u in units}):
@@ -139,6 +160,8 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
     try:
         for unit, key in zip(units, keys):
             meta = cached_ok(wd, key)
+            if meta is not None and asr is not None and meta.get("asr") is not None:
+                meta = _rejudge(wd, key, meta, unit, language, asr.max_cer)
             if meta is not None:
                 stats.cached += 1
                 stats.audio_seconds += meta["seconds"]

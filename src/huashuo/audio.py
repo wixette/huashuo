@@ -75,13 +75,36 @@ def true_peak_db(audio: np.ndarray) -> float:
     return 20 * np.log10(max(peak, 1e-9))
 
 
-def gain_db(measured_lufs: float | None, true_peak: float, fallback_lufs: float | None,
+def gain_db(measured_lufs: float | None, fallback_lufs: float | None,
             target: float = TARGET_LUFS) -> float:
-    """Gain that brings a unit to the target loudness without exceeding the peak limit.
+    """Gain that brings a unit to the target loudness; peaks are the limiter's job.
 
     Units too short to measure use the book's median loudness instead.
     """
     measured = measured_lufs if measured_lufs is not None else fallback_lufs
-    gain = float(np.clip(target - (measured if measured is not None else target),
+    return float(np.clip(target - (measured if measured is not None else target),
                          -MAX_GAIN_DB, MAX_GAIN_DB))
-    return min(gain, MAX_TRUE_PEAK_DB - true_peak)
+
+
+# The limiter's ceiling sits below the true-peak limit: AAC decoding overshoots peaks by
+# up to ~1 dB, and the ceiling is applied to samples, not to the oversampled signal.
+LIMITER_CEILING_DB = MAX_TRUE_PEAK_DB - 1.5
+_LOOKAHEAD = 0.005   # seconds: gain starts falling this long before a peak
+_RELEASE = 0.050     # seconds: and recovers over this long after it
+
+
+def limit(audio: np.ndarray, sample_rate: int, ceiling_db: float = LIMITER_CEILING_DB) -> np.ndarray:
+    """Look-ahead peak limiter (POST-2). Only the rare spikes above the ceiling are
+    touched, so speech brought to the target loudness keeps its dynamics."""
+    from scipy.ndimage import maximum_filter1d, minimum_filter1d, uniform_filter1d
+
+    ceiling = 10 ** (ceiling_db / 20)
+    peaks = maximum_filter1d(np.abs(audio), size=max(1, int(_LOOKAHEAD * sample_rate) * 2 + 1))
+    if peaks.max(initial=0.0) <= ceiling:
+        return audio
+    wanted = np.minimum(1.0, ceiling / np.maximum(peaks, 1e-9))
+    # Minimum then moving average of the same width: smooth, and never above `wanted`
+    # at the peak itself.
+    width = max(1, int(_RELEASE * sample_rate))
+    gain = uniform_filter1d(minimum_filter1d(wanted, size=width), size=width)
+    return (audio * np.minimum(gain, wanted)).astype(np.float32)

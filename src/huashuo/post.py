@@ -13,7 +13,7 @@ from typing import Iterator
 
 import numpy as np
 
-from huashuo.audio import TARGET_LUFS, gain_db, loudness, to_pcm16, trim_bounds, true_peak_db
+from huashuo.audio import TARGET_LUFS, gain_db, limit, loudness, to_pcm16, trim_bounds, true_peak_db
 from huashuo.synth import unit_audio
 from huashuo.units import Plan
 from huashuo.workdir import Workdir, read_json, write_json_atomic
@@ -71,7 +71,7 @@ def layout(plan: Plan, keys: list[str], wd: Workdir, target_lufs: float = TARGET
     unit_starts = []
     for unit, key, info in zip(plan.units, keys, analyses):
         start, end = info["trim"]
-        gain = gain_db(info["lufs"], info["true_peak"], fallback, target_lufs)
+        gain = gain_db(info["lufs"], fallback, target_lufs)
         pause = unit.pause_override if unit.pause_override is not None else pauses[unit.after]
         placed.append(Placed(key, cursor, (start, end), 10 ** (gain / 20), int(pause * sample_rate)))
         unit_starts.append(cursor)
@@ -93,7 +93,7 @@ def stream(timeline: Timeline, wd: Workdir, block: int = 1 << 16) -> Iterator[by
     yield bytes(2 * int(LEAD_IN * timeline.sample_rate))
     for item in timeline.placed:
         audio, _ = unit_audio(wd, item.key)
-        segment = audio[item.trim[0]:item.trim[1]] * item.gain
+        segment = limit(audio[item.trim[0]:item.trim[1]] * item.gain, timeline.sample_rate)
         for offset in range(0, len(segment), block):
             yield to_pcm16(segment[offset:offset + block])
         yield bytes(2 * item.pause)

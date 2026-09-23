@@ -45,6 +45,11 @@ class Qwen3Engine:
             except ImportError as exc:
                 raise EngineError("mlx-audio is not installed; Qwen3-TTS needs an Apple Silicon Mac "
                                   "with `pip install mlx-audio==0.5.5`") from exc
+            try:  # silence a harmless "model of type qwen3_tts" warning on every load
+                import transformers
+                transformers.logging.set_verbosity_error()
+            except ImportError:
+                pass
             self._model = load_model(self.model_id)
             if getattr(self._model.config, "tts_model_type", None) != "custom_voice":
                 raise EngineError(f"{self.model_id} is not a CustomVoice model")

@@ -12,15 +12,37 @@ import re
 import numpy as np
 
 DEFAULT_ASR_MODEL = "mlx-community/Qwen3-ASR-1.7B-8bit"
-DEFAULT_MAX_CER = 0.05       # EXP-1: clean units scored 0-4%; homophone spellings cost ~3%
+# On full 400-character units the recognizer's own mistakes (homophones, classical
+# phrasing) cost up to ~5% (M1, 《吶喊》); a dropped sentence or runaway repetition costs
+# far more. A single dropped word on a long unit is below any usable threshold.
+DEFAULT_MAX_CER = 0.10
 _LANGUAGES = {"zh": "Chinese", "en": "English"}
 _DIGITS = str.maketrans("0123456789", "零一二三四五六七八九")
 
 
+# Characters that stay distinct after traditional-to-simplified conversion but that the
+# recognizer uses interchangeably (it writes 着 where the book has 著, and so on).
+_FOLD = str.maketrans({"著": "着", "裏": "里", "麽": "么", "於": "于", "祇": "只", "纔": "才",
+                       "罷": "吧", "罢": "吧", "啦": "了", "師": "师", "傅": "父"})
+_converter = None
+
+
+def _to_simplified(text: str) -> str:
+    """The recognizer always answers in simplified characters, so traditional-character
+    books are compared after conversion (OpenCC, Apache-2.0)."""
+    global _converter
+    if _converter is None:
+        import opencc
+        _converter = opencc.OpenCC("t2s")
+    return _converter.convert(text)
+
+
 def normalize(text: str, language: str) -> str:
-    """Drop punctuation and spaces; compare Chinese digit by digit (1987 -> 一九八七)."""
+    """Drop punctuation and spaces; compare Chinese in simplified form, digit by digit
+    (1987 -> 一九八七), with interchangeable variants folded together."""
     if language == "zh":
-        return re.sub(r"[^\w]|_", "", text.translate(_DIGITS))
+        text = _to_simplified(text.translate(_DIGITS)).translate(_FOLD)
+        return re.sub(r"[^\w]|_", "", text)
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 

@@ -7,7 +7,19 @@ An open-source, Chinese-first audiobook generator: an LLM turns a novel into a m
 script, Qwen3-TTS renders it locally on Apple Silicon via MLX, and the result is packaged as
 a standard audiobook.
 
-**Status:** research and design. The pipeline does not exist yet.
+**Status:** milestone M1: a working single-voice pipeline (TXT/EPUB in, M4B out).
+Multi-voice casting is next (M2, M3).
+
+```bash
+uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
+.venv/bin/huashuo book.epub --dry-run        # chapters, skipped text, time and size estimate
+.venv/bin/huashuo book.epub --sample         # a few minutes, to audition the voice
+.venv/bin/huashuo book.epub                  # the whole book -> book.m4b (resumable)
+```
+
+Needs an Apple Silicon Mac and ffmpeg (`brew install ffmpeg`). The work directory
+`book.huashuo/` holds the editable script (`script.huaben.jsonl`, see
+[docs/script-ir.md](docs/script-ir.md)) and the voice choice (`cast.json`).
 
 - [docs/requirements.md](docs/requirements.md): first-stage requirements (novel → M4B),
   milestones, acceptance criteria and open questions. Start here.
