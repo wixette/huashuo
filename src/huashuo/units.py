@@ -37,6 +37,12 @@ class Unit:
     chapter: int                 # index into Plan.chapters
     after: str = PARAGRAPH       # boundary that follows this unit
     pause_override: float | None = None
+    reference: str | None = None  # the words on the page, when `text` has readings from pron.txt
+
+    @property
+    def page_text(self) -> str:
+        """What the ASR check compares against."""
+        return self.reference if self.reference is not None else self.text
 
 
 @dataclass

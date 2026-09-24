@@ -72,6 +72,11 @@ class Workdir:
         return self.state / "run.json"
 
     @property
+    def pron(self) -> Path:
+        """The pronunciation dictionary the user edits (PRON-1)."""
+        return self.root / "pron.txt"
+
+    @property
     def rerolls(self) -> Path:
         """Units the listener asked to redo (`huashuo redo`): cache key -> times redone."""
         return self.state / "rerolls.json"

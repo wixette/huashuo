@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from huashuo import pron
 from huashuo import __version__
 from huashuo.cast import default_cast, load_cast, merge_cast
 from huashuo.huaben import Script, check, merge, read_script, write_script
@@ -253,6 +254,8 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
         header["cover"] = cover_path.name
 
     write_text_atomic(wd.text, machine.text)
+    if not wd.pron.exists():
+        write_text_atomic(wd.pron, pron.TEMPLATE)
 
     base = read_script(wd.script_base) if wd.script_base.is_file() else None
     current = read_script(wd.script) if wd.script.is_file() else None
@@ -318,6 +321,11 @@ def make_plan(project: Project, *, read_titles: bool = True, voice: str | None =
     """The units to synthesize; optionally only the first `sample_chars` characters of
     reading, or only some chapters (1-based, as listed by `huashuo import`)."""
     full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice, emotions)
+    readings = pron.load(project.workdir.pron)
+    for unit in full.units:
+        spoken = readings.apply(unit.text)
+        if spoken != unit.text:
+            unit.reference, unit.text = unit.text, spoken
     if chapters:
         keep = [i for i, u in enumerate(full.units) if u.chapter + 1 in chapters]
         return _subset(full, keep)

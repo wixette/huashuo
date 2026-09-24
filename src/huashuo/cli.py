@@ -215,10 +215,28 @@ def cmd_import(args, quiet: bool = False):
     for line in result.merge_report:
         print(f"  merge: {line}")
     _print_llm(result.llm, wd)
+    _print_pron(wd, result.script)
     if not quiet:
         from huashuo.pipeline import load_project
         _print_structure(load_project(wd))
     return 0
+
+
+def _print_pron(wd, script) -> None:
+    """How the pronunciation dictionary matches this book, so a typo is noticed."""
+    from huashuo import pron
+    from huashuo.huaben import spoken_text
+
+    readings = pron.load(wd.pron)
+    for problem in readings.problems:
+        print(f"warning: {problem}")
+    if not readings.entries:
+        return
+    counts = readings.matches(spoken_text(b) for b in script.blocks if b.get("type") != "skip")
+    found = [f"{word} ×{n}" for word, n in counts.items() if n]
+    missing = [word for word, n in counts.items() if not n]
+    print(f"pron.txt: {len(readings.entries)} entries" + (f"; {', '.join(found)}" if found else "")
+          + (f"; not in the book: {', '.join(missing)}" if missing else ""))
 
 
 class LLMProgress:
