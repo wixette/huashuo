@@ -45,6 +45,14 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument("--read-notes", action=argparse.BooleanOptionalAction, default=None,
                        help="read editorial annotations (注釋 sections); skipped by default, "
                             "and the choice is remembered for this book")
+        g = p.add_argument_group("speaker attribution (LLM)")
+        g.add_argument("--no-llm", action="store_true",
+                       help="make no LLM calls; earlier answers are still reused from the cache")
+        g.add_argument("--llm-model", help="default: $HUASHUO_LLM_MODEL or gpt-6-sol")
+        g.add_argument("--llm-base-url", help="OpenAI-compatible endpoint (default: $HUASHUO_LLM_BASE_URL or OpenAI)")
+        g.add_argument("--max-llm-cost", type=float, help="stop before spending more than this many USD (default 5)")
+        g.add_argument("--yes", action="store_true",
+                       help="agree to send the book's text to the LLM endpoint without asking")
 
     def synth_options(p):
         p.add_argument("--voice", help="narrator voice for this run, e.g. preset:vivian "
@@ -134,13 +142,14 @@ def main(argv: list[str] | None = None) -> int:
         print("\ninterrupted; run the same command again to continue where it stopped")
         return 130
     except Exception as exc:  # user-facing errors carry their own advice (CLI-7)
+        from huashuo.attribution import LLMError
         from huashuo.cast import CastError
         from huashuo.engines import EngineError
         from huashuo.huaben import HuabenError
         from huashuo.ingest import IngestError
         from huashuo.m4b import PackageError
         from huashuo.pipeline import PipelineError
-        if isinstance(exc, (CastError, EngineError, HuabenError, IngestError, PackageError, PipelineError)):
+        if isinstance(exc, (CastError, EngineError, HuabenError, IngestError, LLMError, PackageError, PipelineError)):
             log.error("%s", exc)
             print(f"error: {exc}", file=sys.stderr)
             return 2
@@ -162,9 +171,14 @@ def cmd_import(args, quiet: bool = False):
     if not args.book.is_file():
         print(f"error: {args.book} not found", file=sys.stderr)
         return 2
+    from huashuo.pipeline import LLMOptions
+
     wd = _workdir(args)
     _setup_logging(wd)
-    result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes)
+    llm = LLMOptions(enabled=not args.no_llm, model=args.llm_model, base_url=args.llm_base_url,
+                     max_cost=args.max_llm_cost, assume_yes=args.yes,
+                     confirm=_ask if sys.stdin.isatty() else None)
+    result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes, llm)
     h = result.script.header
     chars = sum(len(b.get("text", "")) for b in result.script.blocks if b.get("type") != "skip")
     print(f"《{h['title']}》 {h.get('author') or '(author unknown)'}  [{h['language']}"
@@ -172,10 +186,42 @@ def cmd_import(args, quiet: bool = False):
     print(f"work directory: {wd.root}")
     for line in result.merge_report:
         print(f"  merge: {line}")
+    _print_llm(result.llm, wd)
     if not quiet:
         from huashuo.pipeline import load_project
         _print_structure(load_project(wd))
     return 0
+
+
+def _ask(message: str) -> bool:
+    print(message)
+    try:
+        return input("[y/N] ").strip().lower() in ("y", "yes")
+    except EOFError:
+        return False
+
+
+def _print_llm(report, wd) -> None:
+    """What speaker attribution did, cost and what needs a look (LLM-3, SCR-11)."""
+    if report is None:
+        return
+    if report.notice:
+        print(f"note: {report.notice}")
+    if report.mode == "none":
+        return
+    u = report.usage
+    if report.mode == "calls":
+        print(f"speakers ({report.model}): {u.requests} requests, {u.cached} from cache, "
+              f"{u.input_tokens:,}+{u.output_tokens:,} tokens, ${u.cost:.3f} (estimated up to ${report.estimate:.2f})")
+    else:
+        print(f"speakers: {u.cached} answers from the cache ({report.model}); no LLM calls made")
+    log.info("llm: mode=%s model=%s requests=%s cached=%s cost=%.4f", report.mode, report.model,
+             u.requests, u.cached, u.cost)
+    if report.stopped:
+        print(f"warning: speaker attribution stopped early: {report.stopped}")
+        log.warning("llm stopped: %s", report.stopped)
+    if report.review:
+        print(f"{len(report.review)} quotes need a look (unknown or uncertain speaker): {wd.root / 'review.txt'}")
 
 
 def _print_structure(project) -> None:

@@ -64,3 +64,66 @@ def make_epub(path: Path, cover: bytes | None = b"\xff\xd8fakejpeg") -> Path:
         if cover:
             z.writestr("OEBPS/images/cover.jpg", cover)
     return path
+
+
+# --------------------------------------------------------------------------------------
+# A scripted stand-in for the LLM (pydantic-ai FunctionModel); no network, no cost.
+# --------------------------------------------------------------------------------------
+
+DIALOGUE_TXT = """客栈
+
+第一章 风雪
+雪下了整整一夜。林渊推开客栈的木门。
+“店家，来一壶热酒。”他说。
+老者抬起头：“客官面生得很，是从北边来的？”
+“从哪儿来不重要。”林渊坐下。
+墙上挂着一块匾，写着“宾至如归”。
+"""
+
+# Quote text -> speaker, as a perfect model would answer.
+DIALOGUE_ANSWERS = {"“店家，来一壶热酒。”": "林渊", "“客官面生得很，是从北边来的？”": "老者",
+                    "“从哪儿来不重要。”": "林渊", "“宾至如归”": "narrator"}
+DIALOGUE_CAST = [{"op": "insert", "name": "林渊", "gender": "male", "age": "young_adult", "description": "剑客"},
+                 {"op": "insert", "name": "老者", "aliases": ["店家"], "gender": "male", "age": "elderly",
+                  "description": "客栈掌柜"}]
+
+
+class ScriptedLLM:
+    """Answers the cast pass with a fixed cast and the speaker pass from an answer key,
+    reading the requested indices out of the prompt like a real model would."""
+
+    def __init__(self, cast_ops=None, answers=None, drop_first: int | None = None, confidence: float = 0.95):
+        self.cast_ops = DIALOGUE_CAST if cast_ops is None else cast_ops
+        self.answers = DIALOGUE_ANSWERS if answers is None else answers
+        self.drop_first = drop_first      # leave out this many answers on the first speaker call
+        self.confidence = confidence
+        self.calls = {"cast": 0, "speakers": 0}
+
+    def model(self):
+        from pydantic_ai.models.function import FunctionModel
+        return FunctionModel(self)
+
+    def __call__(self, messages, info):
+        import json
+        import re
+
+        from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
+
+        prompt = "".join(getattr(part, "content", "") for m in messages for part in getattr(m, "parts", [])
+                         if isinstance(getattr(part, "content", None), str))
+        asked = re.search(r"(?:需要回答的编号：|Answer for indices: )([\d, ]+)", prompt)
+        if asked is None:                                   # the cast pass
+            self.calls["cast"] += 1
+            payload = {"operations": self.cast_ops if self.calls["cast"] == 1 else []}
+        else:
+            self.calls["speakers"] += 1
+            wanted = [int(n) for n in asked.group(1).split(",")]
+            lines = dict(re.findall(r"^\[(\d+)\] [^：:]+[：:](.*)$", prompt, re.M))
+            answers = [{"index": i, "speaker": self.answers.get(lines[str(i)].strip(), "unknown"),
+                        "confidence": self.confidence} for i in wanted]
+            if self.calls["speakers"] == 1 and self.drop_first:
+                answers = answers[self.drop_first:]
+            payload = {"answers": answers}
+        if info.output_tools:
+            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, payload)])
+        return ModelResponse(parts=[TextPart(json.dumps(payload, ensure_ascii=False))])

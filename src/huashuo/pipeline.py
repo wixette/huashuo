@@ -12,6 +12,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from huashuo import __version__
 from huashuo.cast import default_cast, load_cast, merge_cast
@@ -41,6 +42,7 @@ class ImportResult:
     skipped: int
     encoding: str | None
     merge_report: list[str] = field(default_factory=list)
+    llm: "LLMReport | None" = None
 
 
 def _sha256_file(path: Path) -> str:
@@ -52,20 +54,116 @@ def _sha256_file(path: Path) -> str:
 
 
 @dataclass
+class LLMOptions:
+    """How the import may use an LLM for speaker attribution."""
+    enabled: bool = True             # False (--no-llm): cached answers only, no calls
+    model: str | None = None
+    base_url: str | None = None
+    max_cost: float | None = None
+    assume_yes: bool = False         # --yes: agree to send the text to the endpoint
+    confirm: Callable[[str], bool] | None = None   # asks the user; None when not interactive
+    model_override: object = None    # tests: a pydantic-ai FunctionModel
+    config_override: object = None   # tests: an LLMConfig
+
+
+@dataclass
+class LLMReport:
+    mode: str                        # "calls", "cache" (no calls allowed), "none" (no quotes / nothing cached)
+    model: str | None = None
+    usage: object = None
+    estimate: float | None = None
+    stopped: str | None = None
+    review: list[dict] = field(default_factory=list)
+    notice: str | None = None
+
+
+@dataclass
 class MachineOutput:
-    """Everything the machine derives from the source. M2 adds dialogue splitting and
-    speaker attribution here, so the script and the cast are each merged once."""
+    """Everything the machine derives from the source: text, script (split into narration
+    and dialogue, with speakers) and cast. Each is merged with the user's files once."""
     text: str
     script: Script
     cast: dict
     chapters: int
     skipped: int
+    llm: LLMReport | None = None
 
 
-def machine_output(book, language: str | None, read_notes: bool) -> MachineOutput:
+def _readable_chars(script: Script) -> int:
+    return sum(len(b.get("text", "")) for b in script.blocks if b.get("type") in ("narration", "dialogue"))
+
+
+def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
+                  options: LLMOptions) -> tuple[object | None, LLMReport]:
+    """Attribute speakers, with calls if allowed and configured, else from the cache."""
+    from huashuo.attribution import Caller, attribute_script, estimate_cost, llm_config, offline_config
+
+    if not any(b.get("type") == "dialogue" for b in script.blocks):
+        return None, LLMReport("none")
+    cache = wd.state / "llm-cache"
+    config = options.config_override or (llm_config(options.model, options.base_url, options.max_cost)
+                                         if options.enabled else None)
+    if config is None:
+        notice = None if not options.enabled else (
+            "no LLM configured (HUASHUO_LLM_API_KEY / OPENAI_API_KEY); dialogue is read by the narrator. "
+            "Use --no-llm to silence this.")
+        if not cache.is_dir() or not any(cache.iterdir()):
+            return None, LLMReport("none", notice=notice)
+        caller = Caller(offline_config(options.model or record.get("llm_model")), cache, offline=True)
+        attribution = attribute_script(script, language, caller)
+        return attribution, LLMReport("cache", caller.config.model, caller.usage, None,
+                                      attribution.stopped and "some quotes are not in the answer cache and stay "
+                                                              "\"unknown\"", attribution.review, notice)
+
+    chars = _readable_chars(script)
+    estimate = estimate_cost(chars, config)
+    if estimate > config.max_cost:
+        raise PipelineError(f"speaker attribution is estimated at ${estimate:.2f} with {config.model}, above the "
+                            f"${config.max_cost:.2f} cap; raise it with --max-llm-cost, or use --no-llm")
+    consented = record.get("llm_consent", [])
+    if not config.local and config.endpoint not in consented:
+        message = (f"全书约 {chars:,} 字将发送给 {config.endpoint}（模型 {config.model}）用于说话人标注，"
+                   f"预计费用约 ${estimate:.2f}（上限 ${config.max_cost:.2f}）。\n"
+                   f"The text (about {chars:,} characters) will be sent to {config.endpoint} ({config.model}) "
+                   f"for speaker attribution, estimated ${estimate:.2f} (cap ${config.max_cost:.2f}). Continue?")
+        if not (options.assume_yes or (options.confirm is not None and options.confirm(message))):
+            raise PipelineError(f"not sending the book to {config.endpoint} without your agreement: run again "
+                                f"with --yes, or use --no-llm to skip speaker attribution")
+        record["llm_consent"] = consented + [config.endpoint]
+    caller = Caller(config, cache, model=options.model_override)
+    attribution = attribute_script(script, language, caller)
+    record["llm_model"] = config.model
+    return attribution, LLMReport("calls", config.model, caller.usage, estimate, attribution.stopped,
+                                  attribution.review)
+
+
+def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | None = None,
+                   record: dict | None = None, llm: LLMOptions | None = None) -> MachineOutput:
     built = build(book, language, read_notes)
-    cast = default_cast(built.script.header["language"])
-    return MachineOutput(built.text, built.script, cast, built.chapters, built.skipped)
+    lang = built.script.header["language"]
+    cast = default_cast(lang)
+    report = None
+    if wd is not None and llm is not None:
+        attribution, report = run_llm_stage(built.script, lang, wd, record if record is not None else {}, llm)
+        if attribution is not None:
+            built.script.blocks = attribution.blocks
+            cast["characters"] = attribution.characters
+    return MachineOutput(built.text, built.script, cast, built.chapters, built.skipped, report)
+
+
+def write_review(wd: Workdir, review: list[dict]) -> Path | None:
+    """Quotes whose speaker is unknown or uncertain, for the user to check first (SCR-11)."""
+    path = wd.root / "review.txt"
+    if not review:
+        path.unlink(missing_ok=True)
+        return None
+    lines = ["# 待审阅的对白：说话人未知或把握不高。改 script.huaben.jsonl 中对应 id 的 speaker 即可。",
+             "# Quotes with an unknown or uncertain speaker; fix `speaker` for the id in script.huaben.jsonl.", ""]
+    for item in review:
+        conf = "" if item["conf"] is None else f" ({item['conf']:.2f})"
+        lines.append(f"{item['id']}\t{item['speaker']}{conf}\t{item['text']}")
+    write_text_atomic(path, "\n".join(lines) + "\n")
+    return path
 
 
 def _place_cover(wd: Workdir, book, cover: Path | None, previous: dict) -> tuple[Path | None, str | None]:
@@ -89,7 +187,7 @@ def _place_cover(wd: Workdir, book, cover: Path | None, previous: dict) -> tuple
 
 def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                 language: str | None = None, cover: Path | None = None,
-                read_notes: bool | None = None) -> ImportResult:
+                read_notes: bool | None = None, llm: LLMOptions | None = None) -> ImportResult:
     """Read the source and (re)build text.txt, the script and the cast, keeping user edits.
 
     Options left as None reuse what the previous import of this book recorded.
@@ -100,7 +198,7 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     language = language if language is not None else previous.get("language")
     read_notes = read_notes if read_notes is not None else previous.get("read_notes", False)
     book = read_book(source, encoding)
-    machine = machine_output(book, language, read_notes)
+    machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions())
     header = machine.script.header
     header["source"] = {"path": os.path.relpath(source.resolve(), wd.root.resolve()),
                         "format": book.format, "sha256": _sha256_file(source)}
@@ -130,13 +228,17 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     write_json_atomic(wd.cast, cast)
     write_json_atomic(wd.cast_base, machine.cast)
 
+    if machine.llm is not None and machine.llm.mode != "none":
+        write_review(wd, machine.llm.review)
     write_json_atomic(wd.ingest_record, {"huashuo": __version__, "imported": time.strftime("%Y-%m-%d %H:%M:%S"),
                                          "source": str(source.resolve()), "encoding": book.encoding,
                                          "language": header["language"], "cover_from": cover_from,
+                                         "llm_model": record.get("llm_model"),
+                                         "llm_consent": record.get("llm_consent", []),
                                          "options": {"encoding": encoding, "language": language,
                                                      "read_notes": read_notes}})
     return ImportResult(wd, merged, machine.text, machine.chapters, machine.skipped, book.encoding,
-                        result.report + cast_report)
+                        result.report + cast_report, machine.llm)
 
 
 @dataclass

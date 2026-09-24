@@ -217,7 +217,7 @@ def _flatten(book: Book, language: str) -> list[_Item]:
     return items
 
 
-def build(book: Book, language: str | None = None, read_notes: bool = False) -> Built:
+def build(book: Book, language: str | None = None, read_notes: bool = False, split: bool = True) -> Built:
     """Lay out text.txt and the blocks. Chapters come from heading lines (第X章, Chapter N,
     unnumbered story titles) and, for EPUB, from table-of-contents entries that look like
     titles.
@@ -308,8 +308,11 @@ def build(book: Book, language: str | None = None, read_notes: bool = False) -> 
         if block["type"] == "chapter" and (levels != {1, 2} or block["id"] == "c000"):
             block["level"] = 1
 
+    if split:
+        from huashuo.dialogue import split_blocks
+        b.blocks = split_blocks(b.blocks, language)
     for block in b.blocks:
-        if block["type"] in ("chapter", "heading", "narration"):
+        if block["type"] in ("chapter", "heading", "narration", "dialogue"):
             say = speech_cleanup(block["text"], language)
             if say:
                 block["say"] = say
