@@ -1,11 +1,47 @@
-.venv/
+# --- Python ---
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
 
-# Generated audio and chunk cache — can be hundreds of MB to several GB.
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# Test, coverage and type-check caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# --- Project ---
+# Generated audio and chunk cache: can be hundreds of MB to several GB.
 .novel_tts_cache/
 *.mp3
 *.wav
+*.m4b
+# Per-book work directories (text, script, cache) created next to input books
+*.huashuo/
 
 # Local secrets (LLM API keys)
 .env
+.env.*
+!.env.example
