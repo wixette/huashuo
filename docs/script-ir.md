@@ -2,8 +2,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 状态 | v1.2：与代码同步（M2 完成，2026-09-24）；§10 有待定项 |
-| 日期 | 2026-09-24 |
+| 状态 | v1.3：与代码同步（M3 完成：音色库、自动选角、情绪提示，2026-09-25）；§10 有待定项 |
+| 日期 | 2026-09-24（2026-09-25 更新） |
 | 格式版本 | `huaben` 1 |
 | 文档作用 | 定义剧本中间表示「话本」、选角表与每本书工作目录的格式。需求见 [requirements.md](requirements.md)，设计背景见 [design-and-research.md](design-and-research.md) §8.3 |
 
@@ -142,7 +142,7 @@
 | `chapter` | 读（章节标题朗读，POST-5，`--no-titles` 可关） | `level`：1 = 顶层，2 = 卷下的章 | **每个 chapter block 开始一个 M4B 章节**（M4B-2） | ✅ |
 | `heading` | 读 | `level` | 章内小标题，不产生 M4B 章节。EPUB 的 h1–h6 取其级别；「一」「（二）」这类节号为 3 | ✅ |
 | `narration` | 读 | — | 旁白 / 叙述，用旁白音色 | ✅ |
-| `dialogue` | 读 | `speaker`、`emotion`、`conf` | 对白：导入时在引号处切分（`“”`「」『』与直引号，支持嵌套；段末未闭合的引语延续到段尾），再由 LLM 标注说话人 | ✅ M2 |
+| `dialogue` | 读 | `speaker`、`emotion`、`conf` | 对白：导入时在引号处切分（`“”`「」『』与直引号，支持嵌套；段末未闭合的引语延续到段尾），再由 LLM 标注说话人与情绪 | ✅ M2；`emotion` M3 |
 | `skip` | **不读** | `reason` | 保留在话本里但不朗读，保证对账时原文仍被完整覆盖（TXT-4、TXT-5）。程序写入的 `reason`：`toc`（目录）、`copyright`（版权页）、`license`（Project Gutenberg 首尾的声明）、`notes`（注释段落，`--read-notes` 时改为朗读）、`duplicate`（紧接着重复一遍的标题）。用户自己跳过时可写任意 `reason`，如 `user` | ✅ |
 | `break` | 不读，插入停顿 | — | 场景分隔（`***`、`◇◇◇` 等），对应 POST-3 的场景停顿 | ✅ |
 | `equation` / `figure` / `table` / `footnote` | — | — | **预留**给论文与网页场景，第一阶段不产生、遇到时按 `skip` 处理 | 预留 |
@@ -152,8 +152,27 @@
 | 字段 | 说明 |
 |---|---|
 | `speaker` | 选角表中的角色规范名，或 `"unknown"`（按旁白音色朗读，SCR-5）。切分后先是 `"unknown"`；LLM 判定为不是说话的引语（书名、招牌、引用的词句、心里的想法）改为 `narration` |
-| `emotion` | 可选，情绪描述，合成时作为 `instruct`（SCR-12，M3 起由程序生成；用户可手写）。取值是自然语言短语而非枚举，如 `"低声、惊恐"` |
+| `emotion` | 可选，语气提示，原样作为 TTS 的 `instruct`（SCR-12）。取值是自然语言短语，用户可手写任意描述（如 `"压低声音、惊恐地说"`），删掉即按平常语气读。程序只写下表中的 14 种，措辞刻意温和，因为强烈情绪会带动音色变化（设计文档 §5.6）。合成时 `--no-emotions` 整体忽略此字段 |
 | `conf` | 可选，0–1 的归属置信度；低于阈值的进入审阅清单（SCR-11）。EXP-2 发现便宜模型的自报置信度不可靠（设计文档 §7.2.1） |
+
+程序写入的 `emotion`（说话人标注时由 LLM 从固定标签中选择，只在原文有明确依据时填写；设计文档 §5.9）：
+
+| 标签 | 中文书写入的 `emotion` | 英文书 |
+|---|---|---|
+| 高兴 / happy | 用愉快的语气说 | Speak in a cheerful tone |
+| 兴奋 / excited | 用兴奋的语气说 | Speak with excitement |
+| 生气 / angry | 用有些生气的语气说 | Speak in a somewhat angry tone |
+| 不耐烦 / impatient | 用不耐烦的语气说 | Speak impatiently |
+| 悲伤 / sad | 用低落、伤感的语气说 | Speak in a sad, subdued tone |
+| 害怕 / afraid | 用紧张、害怕的语气说 | Speak nervously, a little afraid |
+| 惊讶 / surprised | 用惊讶的语气说 | Speak in a surprised tone |
+| 低声 / hushed | 压低声音说 | Speak in a lowered voice |
+| 温柔 / gentle | 用温柔的语气说 | Speak gently |
+| 冷淡 / cold | 用冷淡的语气说 | Speak coldly |
+| 讥讽 / sarcastic | 用讥讽的语气说 | Speak sarcastically |
+| 急切 / urgent | 用急切的语气说 | Speak urgently |
+| 疑惑 / puzzled | 用疑惑的语气说 | Speak in a puzzled tone |
+| 严厉 / stern | 用严厉的语气说 | Speak sternly |
 
 `chapter` 的 `level`：书中既有卷又有章时，卷为 1、章为 2；否则所有章节都是 1。`level: 2` 的 M4B 章节名前缀最近的 `level: 1` 标题，如「第一卷 · 第三章 风起」（TXT-3）。卷标题后面紧跟章标题时，卷标题不单独成一个 M4B 章节；只含被跳过内容的章节也不产生 M4B 章节。`huashuo import` 列出的章节编号就是 `--chapters` 用的编号。
 
@@ -187,7 +206,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 **分组规则**（由程序决定，不写进话本）：
 
 1. 相邻、可朗读、**音色与 `emotion` 都相同**的 block 合成一个单元（中文直接拼接，英文以空格拼接）
-2. 单元不跨越：`chapter`、`heading`、`break`、`skip`、音色或情绪的变化，以及带 `pause_after` 的 block
+2. 单元不跨越：`chapter`、`heading`、`break`、`skip`、音色或情绪的变化，以及带 `pause_after` 的 block（`--no-emotions` 时情绪不参与分组）
 3. 单元文字上限默认 400 字（原型的实测值）；超出时在 block 边界切，单个 block 超长时在句末、再在分句标点处切，仍超长的分句硬切
 4. `chapter` 与 `heading` 各自单独成一个单元（便于单独控制前后停顿）
 
@@ -196,7 +215,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 | 边界 | 停顿 | 何时 |
 |---|---|---|
 | `sentence` | 0.3 | 一段过长被切开的地方；同一段内因长度切开 |
-| `turn` | 0.35 | 同一段内换了说话人（他说 / “好。” / 他走了） |
+| `turn` | 0.35 | 同一段内换了音色（他说 / “好。” / 他走了）；同一人只换了语气时按 `sentence` |
 | `paragraph` | 0.7 | 段落之间 |
 | `heading` | 1.0 | 小标题之后 |
 | `title` | 1.2 | 章节标题之后 |
@@ -206,7 +225,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 
 `pause_after` 覆盖该单元之后的停顿；全书开头另有 0.5 秒。
 
-**缓存键**：`sha256(缓存版本, 引擎身份, 音色, instruct, 语言, 实际朗读文字)` 取前 20 位十六进制。引擎身份包括引擎名、模型、temperature、最大 token 数与 mlx-audio 版本。
+**缓存键**：`sha256(缓存版本, 引擎身份, 音色身份, instruct, 语言, 实际朗读文字)` 取前 20 位十六进制。引擎身份包括引擎名、模型、temperature、最大 token 数与 mlx-audio 版本；库音色的音色身份是 `library:zh/<id>@<向量文件的哈希>`，所以库里的音色一旦重做，用到它的单元自动失效（CAST-8），预置音色就是它的名字。
 
 - 改一个 block，只有它所在的单元失效（SYN-3）
 - **随机种子由缓存键派生**（`int(key[:8], 16) + 100 × 重做次数 + 重试序号`），而不是由单元序号派生：在前面插入一段不会改变后面所有单元的种子，缓存照样命中；重跑结果逐字节一致（SYN-5）。`huashuo redo` 让某个单元从一组新的种子重新开始，重做次数记在 `state/rerolls.json`，所以清空缓存后重建仍得到重做后的版本
@@ -245,8 +264,8 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
   "version": 1,
   "narrator": {"voice": "preset:serena"},
   "characters": {
-    "林渊": {"aliases": ["林公子"], "gender": "male", "age": "young_adult", "description": "青年剑客，沉稳寡言", "lines": 42, "voice": "library:zh/v5_young_man"},
-    "苏晚晴": {"aliases": ["苏姑娘"], "gender": "female", "age": "young_adult", "description": "…", "lines": 31, "voice": "library:zh/v3_young_woman"}
+    "林渊": {"aliases": ["林公子"], "gender": "male", "age": "young_adult", "description": "青年剑客，沉稳寡言", "lines": 42, "voice": "library:zh/young_man_deep"},
+    "苏晚晴": {"aliases": ["苏姑娘"], "gender": "female", "age": "young_adult", "description": "…", "lines": 31, "voice": "library:zh/young_woman_cool"}
   }
 }
 ```
@@ -255,7 +274,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 |---|---|
 | `narrator.voice` | 旁白音色；章节标题、开场结尾报幕同样使用（CAST-4）。默认中文 `preset:serena`、英文 `preset:ryan` |
 | `characters` | 以规范名为键。`aliases`、`gender`、`age`、`description`、`lines` 由剧本化阶段写入（SCR-3） |
-| `voice` | 音色引用：`preset:<名称>`（CustomVoice 预置）、`library:<语言>/<音色 id>`（内置音色库，CAST-1，M3 起可用）；以后可加 `custom:<路径>`（CAST-12、CAST-13） |
+| `voice` | 音色引用：`preset:<名称>`（CustomVoice 预置）、`library:<语言>/<音色 id>`（内置音色库，CAST-1）；以后可加 `custom:<路径>`（CAST-12、CAST-13）。`huashuo voices --library` 列出可选的音色及其描述，`huashuo audition` 用每个角色的一句真实台词试听 |
 
 `age` 取值：`child` / `teen` / `young_adult` / `middle_aged` / `elderly`（剧本化阶段也可能写 `unknown`）。`gender`：`male` / `female` / `unknown`。
 
@@ -263,18 +282,20 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 
 选角表由导入阶段生成，走与话本相同的三方合并（基准为 `state/cast.auto.json`），**按角色逐个合并**：用户改过的字段（如 `voice`）保留，用户新增或删除的角色保持原样，其余取机器的新结果（CAST-10）。
 
+**自动选角**（M3，设计文档 §8.7）：每次导入都为每个角色重新选一次音色。与基准不同的 `voice` 视为用户的选择，原样保留，选角绕开它；旁白用 `cast.json` 里当前的 `narrator.voice`，角色不会分到旁白的音色。第一人称的「我」/ "I" 用旁白音色（SCR-9）。改了某个角色的 `voice`，只有这个角色的单元需要重新合成。
+
 M1 只使用 `narrator`。
 
 ---
 
 ## 9. 各阶段使用的子集
 
-| | M1 | M2 |
-|---|---|---|
-| block 类型 | `chapter`、`heading`、`narration`、`skip`、`break` | 加上 `dialogue` |
-| 字段 | 公共字段；`pause_after` 由用户手写；`say` 可手写，导入时也会为假名与占位方框自动生成 | 加上 `speaker`、`conf` |
-| 选角表 | 只有 `narrator` | 加上 `characters`（别名、性别、年龄、描述、台词数）；音色分配在 M3 |
-| 合成 | 全书旁白音色 | 仍是旁白音色（角色没有 `voice` 时用旁白），但话本已标明谁在说话 |
+| | M1 | M2 | M3 |
+|---|---|---|---|
+| block 类型 | `chapter`、`heading`、`narration`、`skip`、`break` | 加上 `dialogue` | 同 M2 |
+| 字段 | 公共字段；`pause_after` 由用户手写；`say` 可手写，导入时也会为假名与占位方框自动生成 | 加上 `speaker`、`conf` | 加上 `emotion` |
+| 选角表 | 只有 `narrator` | 加上 `characters`（别名、性别、年龄、描述、台词数） | 每个角色加上 `voice`（自动选角） |
+| 合成 | 全书旁白音色 | 仍是旁白音色，但话本已标明谁在说话 | 每个角色用自己的音色，对白带语气提示 |
 
 说话人标注的调用方式（模型、缓存、预算、同意）见 requirements §3.9 与设计文档 §7.2.1。
 
