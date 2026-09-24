@@ -14,6 +14,7 @@ release).
 | `exp1_stability.py` | EXP-1 round 3b: route C stability of the chosen voices, with ASR, identification and pause checks |
 | `exp2_batch_tagging.py` | EXP-2: batched speaker attribution, scored on `exp2_data/` (needs an LLM key) |
 | `exp3_tone_check.py` | EXP-3 attempt 1: tone-consistency accent detector (negative result, design doc §5.8) |
+| `m2_eval.py` | M2 check: the package's speaker attribution on the EXP-2 benchmarks with a real LLM (requires `--max-cost`) |
 
 Extra packages for these experiments: `uv pip install --python .venv/bin/python "pydantic-ai-slim[openai]" pypinyin`.
 

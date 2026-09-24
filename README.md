@@ -7,8 +7,9 @@ An open-source, Chinese-first audiobook generator: an LLM turns a novel into a m
 script, Qwen3-TTS renders it locally on Apple Silicon via MLX, and the result is packaged as
 a standard audiobook.
 
-**Status:** milestone M1 done: a working single-voice pipeline (TXT/EPUB in, M4B out).
-Next: speaker attribution (M2), then per-character voices (M3).
+**Status:** M1 (TXT/EPUB in, M4B out) and M2 (dialogue splitting and LLM speaker
+attribution) are done. Next: per-character voices (M3); until then all dialogue is read by
+the narrator's voice.
 
 ```bash
 uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
@@ -36,8 +37,14 @@ pydantic-ai refuses real requests and outbound connections fail (`tests/conftest
 code is tested with mock models. Accuracy checks against a real LLM are manual scripts with
 an explicit `--max-cost` cap (see `experiments/exp2_batch_tagging.py`).
 
-LLM settings (from M2) come from `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` and
-`HUASHUO_LLM_BASE_URL`, or a git-ignored `.env` in the repository root.
+Speaker attribution uses an LLM (default `gpt-6-sol`, any OpenAI-compatible endpoint) set
+by `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` and `HUASHUO_LLM_BASE_URL`, or a git-ignored
+`.env` in the current directory. The cost is estimated first (about $3 for a
+300,000-character novel) and capped by `--max-llm-cost` (default $5); the first time a
+book is sent to an endpoint you are asked to agree (`--yes` in scripts). Answers are
+cached, so re-imports are free; without a key, or with `--no-llm`, the book is still made,
+with dialogue read by the narrator. Quotes that need a look are listed in
+`book.huashuo/review.txt`.
 
 - [docs/requirements.md](docs/requirements.md): first-stage requirements (novel → M4B),
   milestones, acceptance criteria and the decision log. Start here.
