@@ -91,3 +91,32 @@ def sample_txt(tmp_path: Path) -> Path:
     path = tmp_path / "红楼梦.txt"
     path.write_text(SAMPLE_TXT, encoding="utf-8")
     return path
+
+
+@pytest.fixture
+def tiny_library(tmp_path, monkeypatch):
+    """A small voice library in place of the packaged one: four presets (one a dialect)
+    and two library voices with random vectors. Returns its root directory."""
+    import json
+
+    import numpy as np
+
+    import huashuo.library as library
+
+    root = tmp_path / "voices"
+    (root / "zh").mkdir(parents=True)
+    (root / "presets.json").write_text(json.dumps({
+        "serena": {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置女声", "traits": ["narrator"]},
+        "vivian": {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置女声二"},
+        "uncle_fu": {"language": "zh", "gender": "male", "age": "middle_aged", "role": "预置中年男声"},
+        "dylan": {"language": "zh", "gender": "male", "age": "young_adult", "role": "北京话", "traits": ["dialect"]},
+    }, ensure_ascii=False), encoding="utf-8")
+    rng = np.random.default_rng(0)
+    for vid, gender, age in (("young_man", "male", "young_adult"), ("old_man", "male", "elderly")):
+        (root / "zh" / f"{vid}.json").write_text(json.dumps({"gender": gender, "age": age, "role": vid}),
+                                                 encoding="utf-8")
+        np.save(root / "zh" / f"{vid}.npy", rng.standard_normal(2048).astype(np.float32))
+    library._load.cache_clear()
+    monkeypatch.setattr(library, "ROOT", root)
+    yield root
+    library._load.cache_clear()

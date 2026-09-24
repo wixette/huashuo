@@ -32,6 +32,7 @@ class Qwen3Engine:
         self.temperature = temperature
         self._model = None
         self._calls = 0
+        self._injector = None
         self.sample_rate = 24000
 
     def identity(self) -> dict:
@@ -63,24 +64,50 @@ class Qwen3Engine:
     def presets(self) -> list[str]:
         return [s.lower() for s in self._load().get_supported_speakers()]
 
+    def voice_identity(self, voice: str) -> str:
+        """The voice as it goes into cache keys: a library voice includes its fingerprint,
+        so regenerating a library voice never reuses audio made with the old one."""
+        kind, _ = parse_voice(voice)
+        if kind == "library":
+            from huashuo.library import get
+            return f"{voice}@{get(voice).fingerprint()}"
+        return voice
+
     def check_voice(self, voice: str) -> None:
         kind, name = parse_voice(voice)
         if kind == "library":
-            raise EngineError(f"{voice}: library voices arrive in milestone M3; "
-                              f"use a preset for now (huashuo voices)")
+            from huashuo.library import LibraryError, get
+            try:
+                entry = get(voice)
+            except LibraryError as exc:
+                raise EngineError(str(exc)) from exc
+            self._speaker(voice, entry)              # registers it, checking the vector fits
+            return
         if name.lower() not in self.presets():
             raise EngineError(f"{voice}: no such preset; available: {', '.join(self.presets())}")
+
+    def _speaker(self, voice: str, entry=None) -> str:
+        kind, name = parse_voice(voice)
+        if kind != "library":
+            return name
+        if self._injector is None:
+            from huashuo.engines.qwen3_voices import VoiceInjector
+            self._injector = VoiceInjector(self._load())
+        if entry is None:
+            from huashuo.library import get
+            entry = get(voice)
+        return self._injector.speaker(voice, entry.vector())
 
     def synthesize(self, text: str, voice: str, language: str, instruct: str | None,
                    seed: int) -> np.ndarray:
         import mlx.core as mx
 
-        _, name = parse_voice(voice)
+        speaker = self._speaker(voice)
         model = self._load()
         mx.random.seed(seed)
         pieces = [np.asarray(result.audio, dtype=np.float32)
                   for result in model.generate_custom_voice(
-                      text=text, speaker=name, language=LANGUAGES.get(language, "auto"),
+                      text=text, speaker=speaker, language=LANGUAGES.get(language, "auto"),
                       instruct=instruct, temperature=self.temperature, max_tokens=MAX_TOKENS,
                       verbose=False)]
         self._calls += 1
@@ -95,5 +122,6 @@ class Qwen3Engine:
             import mlx.core as mx
 
             self._model = None
+            self._injector = None
             gc.collect()
             mx.clear_cache()

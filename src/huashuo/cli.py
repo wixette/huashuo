@@ -6,7 +6,8 @@
     huashuo synth BOOK           synthesize (resumable); --sample / --chapters for auditions
     huashuo package BOOK         write the M4B from what has been synthesized
     huashuo redo BOOK --at 1:28  re-synthesize what plays at a time in the M4B, then repackage
-    huashuo voices               list the engine's preset voices
+    huashuo audition BOOK        one line per character in its cast voice, as <book>.audition.m4b
+    huashuo voices               list the engine's preset voices (--library: every castable voice)
 
 BOOK is the source file (.txt / .epub); its work directory defaults to <BOOK>.huashuo/.
 """
@@ -21,7 +22,7 @@ from pathlib import Path
 
 from huashuo import __version__
 
-COMMANDS = ("make", "import", "check", "synth", "package", "redo", "voices")
+COMMANDS = ("make", "import", "check", "synth", "package", "redo", "audition", "voices")
 log = logging.getLogger("huashuo")
 
 
@@ -88,8 +89,18 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--at", action="append", required=True, metavar="TIME",
                    help="time in the M4B, e.g. 1:28, 1:02:03 or 88.5; repeatable")
     synth_options(p), package_options(p)
+    p = book_command("audition", "hear each character's voice before synthesizing the book (CAST-11)")
+    p.add_argument("--character", action="append", metavar="NAME", help="only these characters; repeatable")
+    p.add_argument("--library", action="store_true",
+                   help="instead, one probe sentence in every voice casting can choose from")
+    p.add_argument("--model", help="Qwen3-TTS CustomVoice model (default: 1.7B 8-bit)")
+    p.add_argument("-o", "--output", type=Path, help="output M4B (default: <book>.audition.m4b)")
+    p.add_argument("--engine", default="qwen3", help=argparse.SUPPRESS)
     p = sub.add_parser("voices", help="list preset voices")
     p.add_argument("--model", help="CustomVoice model")
+    p.add_argument("--library", action="store_true",
+                   help="list every voice casting can choose from (library and presets), without loading a model")
+    p.add_argument("--language", choices=["zh", "en"], default="zh", help="with --library (default zh)")
     return parser
 
 
@@ -140,7 +151,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         return {"make": cmd_make, "import": cmd_import, "check": cmd_check, "synth": cmd_synth,
-                "package": cmd_package, "redo": cmd_redo, "voices": cmd_voices}[args.command](args)
+                "package": cmd_package, "redo": cmd_redo, "audition": cmd_audition,
+                "voices": cmd_voices}[args.command](args)
     except KeyboardInterrupt:
         print("\ninterrupted; run the same command again to continue where it stopped")
         return 130
@@ -150,9 +162,11 @@ def main(argv: list[str] | None = None) -> int:
         from huashuo.engines import EngineError
         from huashuo.huaben import HuabenError
         from huashuo.ingest import IngestError
+        from huashuo.library import LibraryError
         from huashuo.m4b import PackageError
         from huashuo.pipeline import PipelineError
-        if isinstance(exc, (CastError, EngineError, HuabenError, IngestError, LLMError, PackageError, PipelineError)):
+        if isinstance(exc, (CastError, EngineError, HuabenError, IngestError, LibraryError, LLMError, PackageError,
+                            PipelineError)):
             log.error("%s", exc)
             print(f"error: {exc}", file=sys.stderr)
             return 2
@@ -379,12 +393,12 @@ def _partial_suffix(args) -> str:
 def cmd_package(args) -> int:
     from huashuo.m4b import BookInfo, make_cover, probe, write_m4b
     from huashuo.post import layout, stream
-    from huashuo.synth import cached_ok, unit_key
+    from huashuo.synth import cached_ok, unit_keys
 
     wd, project, plan = _prepare(args)
     _setup_logging(wd)
     engine = _engine(args)
-    keys = [unit_key(u, engine.identity(), project.language) for u in plan.units]
+    keys = unit_keys(plan.units, engine, project.language)
     missing = sum(1 for k in keys if cached_ok(wd, k) is None)
     if missing:
         raise SystemExit(f"{missing} of {len(keys)} units are not synthesized yet; run `huashuo synth` "
@@ -421,12 +435,12 @@ def parse_time(value: str) -> float:
 def cmd_redo(args) -> int:
     """Map each time in the M4B to its unit, re-roll those units, synthesize, repackage."""
     from huashuo.post import layout, unit_at
-    from huashuo.synth import cached_ok, reroll, unit_key
+    from huashuo.synth import cached_ok, reroll, unit_keys
 
     wd, project, plan = _prepare(args)
     _setup_logging(wd)
     engine = _engine(args)
-    keys = [unit_key(u, engine.identity(), project.language) for u in plan.units]
+    keys = unit_keys(plan.units, engine, project.language)
     if any(cached_ok(wd, k) is None for k in keys):
         raise SystemExit("some units are not synthesized yet; run `huashuo synth` (or make) with the "
                          "same options first, so times refer to a finished M4B")
@@ -466,7 +480,85 @@ def cmd_make(args) -> int:
     return status or cmd_package(args)
 
 
+PROBE = {"zh": "这条路我走过很多次，从来没有迷过路。你若信得过我，就跟紧些，天黑之前我们能赶到渡口。",
+         "en": "I have walked this road many times and never lost my way. Stay close, and we will reach the ferry before dark."}
+AUDITION_MAX_CHARS = 60
+
+
+def _audition_line(project, name: str) -> str:
+    """The character's longest line that fits in a short audition, else a probe sentence."""
+    from huashuo.huaben import spoken_text
+
+    lines = [spoken_text(b).strip() for b in project.script.blocks
+             if b.get("type") == "dialogue" and b.get("speaker") == name]
+    fitting = [t for t in lines if t and len(t) <= AUDITION_MAX_CHARS]
+    if fitting:
+        return max(fitting, key=len)
+    if lines:
+        return min(lines, key=len)[:AUDITION_MAX_CHARS]
+    return PROBE.get(project.language, PROBE["zh"])
+
+
+def cmd_audition(args) -> int:
+    """One M4B with a chapter per character (or per library voice), from the unit cache."""
+    from huashuo.library import castable
+    from huashuo.m4b import BookInfo, make_cover, probe, write_m4b
+    from huashuo.pipeline import load_project
+    from huashuo.post import layout, stream
+    from huashuo.synth import synthesize, unit_keys
+    from huashuo.units import END, PARAGRAPH, Chapter, Plan, Unit
+
+    wd = _workdir(args)
+    _setup_logging(wd)
+    project = load_project(wd)
+    language, cast = project.language, project.cast
+    narrator = cast["narrator"]["voice"]
+    items: list[tuple[str, str, str]] = []            # (chapter title, text, voice)
+    if args.library:
+        for voice in castable(language):
+            items.append((f"{voice.ref} {voice.role}".strip(), PROBE.get(language, PROBE["zh"]), voice.ref))
+    else:
+        characters = cast.get("characters", {})
+        names = args.character or sorted(characters, key=lambda n: (-int(characters[n].get("lines") or 0), n))
+        unknown = [n for n in names if n not in characters]
+        if unknown:
+            raise SystemExit(f"not in cast.json: {', '.join(unknown)}")
+        if not names:
+            raise SystemExit("cast.json has no characters yet; run `huashuo import` with an LLM configured")
+        for name in names:
+            voice = characters[name].get("voice") or narrator
+            items.append((f"{name}（{voice}）", _audition_line(project, name), voice))
+
+    units = [Unit("body", text, voice, None, [f"audition{i}"], i, after=PARAGRAPH)
+             for i, (_, text, voice) in enumerate(items)]
+    units[-1].after = END
+    plan = Plan(units=units, chapters=[Chapter(title, f"audition{i}", i) for i, (title, _, _) in enumerate(items)])
+    engine = _engine(args)
+    try:
+        synthesize(plan.units, engine, wd, language, asr=None)
+    finally:
+        engine.close()
+    keys = unit_keys(plan.units, engine, language)
+    timeline = layout(plan, keys, wd)
+    output = args.output or args.book.with_name(args.book.stem + ".audition.m4b")
+    header = project.script.header
+    cover = wd.find_cover() or make_cover(wd.cover(".jpg"), header.get("title", ""), header.get("author", ""))
+    info = BookInfo(title=f"{header.get('title', args.book.stem)}（试听 audition）", author=header.get("author", ""),
+                    language=language)
+    write_m4b(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover)
+    for title, text, _ in items:
+        print(f"  {title}: {text[:40]}")
+    print(f"wrote {output} ({len(probe(output).get('chapters', []))} chapters, {_hms(timeline.seconds)})")
+    return 0
+
+
 def cmd_voices(args) -> int:
+    if args.library:
+        from huashuo.library import castable
+
+        for voice in castable(args.language):
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}")
+        return 0
     from huashuo.engines.qwen3 import DIALECT_PRESETS, Qwen3Engine
 
     engine = Qwen3Engine(**({"model": args.model} if args.model else {}))

@@ -15,7 +15,7 @@ A candidate is flagged when it is closer than FLAG_AT to a preset or to another 
 Writes <out>/<voice>_s<seed>.wav and <out>/<voice>_s<seed>.npy (the speaker vector).
 
 Usage (from the repository root):
-    .venv/bin/python experiments/exp1_candidates.py OUT_DIR
+    .venv/bin/python experiments/exp1_candidates.py OUT_DIR [SPEC.json]   # default exp1_voices.json
 """
 
 from __future__ import annotations
@@ -45,7 +45,8 @@ def render(model_gen, seed: int, path: Path) -> float:
 def main() -> None:
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    spec = json.loads(SPEC.read_text())
+    spec_path = Path(sys.argv[2]) if len(sys.argv) > 2 else SPEC
+    spec = json.loads(spec_path.read_text())
     lang = spec["language"]
 
     clips: dict[str, Path] = {}  # label -> wav

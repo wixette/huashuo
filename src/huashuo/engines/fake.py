@@ -28,9 +28,22 @@ class FakeEngine:
     def identity(self) -> dict:
         return {"engine": self.name, "cps": self.chars_per_second}
 
+    def voice_identity(self, voice: str) -> str:
+        kind, _ = parse_voice(voice)
+        if kind == "library":
+            from huashuo.library import get
+            return f"{voice}@{get(voice).fingerprint()}"
+        return voice
+
     def check_voice(self, voice: str) -> None:
         kind, name = parse_voice(voice)
-        if kind != "preset" or name not in PRESETS:
+        if kind == "library":
+            from huashuo.library import LibraryError, get
+            try:
+                get(voice)
+            except LibraryError as exc:
+                raise EngineError(str(exc)) from exc
+        elif name not in PRESETS:
             raise EngineError(f"{voice}: not a fake-engine preset")
 
     def synthesize(self, text: str, voice: str, language: str, instruct: str | None,

@@ -1,0 +1,9 @@
+{
+  "serena":   {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置音色：青年女声，平和清晰", "traits": ["narrator"]},
+  "vivian":   {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置音色：青年女声，明亮"},
+  "uncle_fu": {"language": "zh", "gender": "male",   "age": "middle_aged", "role": "预置音色：中年男声，低沉"},
+  "dylan":    {"language": "zh", "gender": "male",   "age": "young_adult", "role": "预置音色：北京话", "traits": ["dialect"]},
+  "eric":     {"language": "zh", "gender": "male",   "age": "young_adult", "role": "预置音色：四川话", "traits": ["dialect"]},
+  "ryan":     {"language": "en", "gender": "male",   "age": "young_adult", "role": "preset: young adult male", "traits": ["narrator"]},
+  "aiden":    {"language": "en", "gender": "male",   "age": "young_adult", "role": "preset: young adult male"}
+}

@@ -140,7 +140,12 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
 
 
 def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | None = None,
-                   record: dict | None = None, llm: LLMOptions | None = None) -> MachineOutput:
+                   record: dict | None = None, llm: LLMOptions | None = None,
+                   narrator: str | None = None, fixed_voices: dict[str, str] | None = None) -> MachineOutput:
+    """build -> split -> attribute speakers -> cast voices. `narrator` and `fixed_voices`
+    are the user's current choices, which casting works around."""
+    from huashuo.casting import cast_voices, conversations
+
     built = build(book, language, read_notes)
     lang = built.script.header["language"]
     cast = default_cast(lang)
@@ -149,8 +154,22 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
         attribution, report = run_llm_stage(built.script, lang, wd, record if record is not None else {}, llm)
         if attribution is not None:
             built.script.blocks = attribution.blocks
-            cast["characters"] = attribution.characters
+            characters = attribution.characters
+            voices = cast_voices(characters, narrator or cast["narrator"]["voice"], lang,
+                                 conversations(attribution.blocks), fixed_voices)
+            cast["characters"] = {name: {**entry, "voice": voices[name]} for name, entry in characters.items()}
     return MachineOutput(built.text, built.script, cast, built.chapters, built.skipped, report)
+
+
+def _user_voice_choices(wd: Workdir, language: str) -> tuple[str | None, dict[str, str]]:
+    """The narrator voice in cast.json, and character voices the user changed by hand."""
+    if not wd.cast.is_file():
+        return None, {}
+    current = load_cast(wd.cast, language)
+    base = (read_json(wd.cast_base) or {}).get("characters", {})
+    fixed = {name: c["voice"] for name, c in current.get("characters", {}).items()
+             if c.get("voice") and base.get(name, {}).get("voice") != c["voice"]}
+    return current["narrator"]["voice"], fixed
 
 
 def write_review(wd: Workdir, review: list[dict]) -> Path | None:
@@ -200,7 +219,9 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     language = language if language is not None else previous.get("language")
     read_notes = read_notes if read_notes is not None else previous.get("read_notes", False)
     book = read_book(source, encoding)
-    machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions())
+    narrator, fixed = _user_voice_choices(wd, language or record.get("language") or "zh")
+    machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions(),
+                             narrator, fixed)
     header = machine.script.header
     header["source"] = {"path": os.path.relpath(source.resolve(), wd.root.resolve()),
                         "format": book.format, "sha256": _sha256_file(source)}

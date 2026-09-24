@@ -38,8 +38,10 @@ _COUNTED = {"zh": re.compile(r"[㐀-鿿豈-﫿A-Za-z0-9]"), "en": re.compile(r"[
 MIN_ASR_CHARS = 6
 
 
-def unit_key(unit: Unit, engine_identity: dict, language: str) -> str:
-    payload = json.dumps({"v": CACHE_VERSION, "engine": engine_identity, "voice": unit.voice,
+def unit_key(unit: Unit, engine_identity: dict, language: str, voice_identity: str | None = None) -> str:
+    """Cache key of a unit. `voice_identity` (engine.voice_identity) adds a library voice's
+    fingerprint; presets are keyed by name, as before."""
+    payload = json.dumps({"v": CACHE_VERSION, "engine": engine_identity, "voice": voice_identity or unit.voice,
                           "instruct": unit.instruct, "language": language, "text": unit.text},
                          ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:20]
@@ -48,6 +50,12 @@ def unit_key(unit: Unit, engine_identity: dict, language: str) -> str:
 # Each redo of a unit draws from its own block of seeds, so it never repeats a sample
 # that was already tried (automatic retries use the first few seeds of each block).
 REROLL_STRIDE = 100
+
+
+def unit_keys(units: list[Unit], engine, language: str) -> list[str]:
+    identity = engine.identity()
+    voice_id = getattr(engine, "voice_identity", lambda v: v)
+    return [unit_key(u, identity, language, voice_id(u.voice)) for u in units]
 
 
 def seed_for(key: str, attempt: int, rerolls: int = 0) -> int:
@@ -160,7 +168,7 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                max_attempts: int = 3, show_progress: bool = True) -> Stats:
     stats = Stats()
     identity = engine.identity()
-    keys = [unit_key(u, identity, language) for u in units]
+    keys = unit_keys(units, engine, language)
     progress = Progress(len(units), sum(len(u.text) for u in units),
                         enabled=show_progress and sys.stdout.isatty(), logged=show_progress)
     max_seconds = getattr(engine, "max_unit_seconds", None)
