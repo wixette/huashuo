@@ -9,7 +9,8 @@ jobs:
   test:
     # Linux: the fake TTS engine and ffmpeg cover the whole pipeline. mlx-audio is
     # Apple-Silicon only and is left out by its platform marker; tests that need real
-    # models (-m model) or a paid LLM API (-m llm) are opt-in and not run here.
+    # model weights (-m model) are opt-in and not run here. No test can call a paid API
+    # or the network (tests/conftest.py), and this workflow is given no secrets.
     runs-on: ubuntu-latest
     strategy:
       matrix:

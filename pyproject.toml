@@ -34,12 +34,12 @@ packages = ["src/huashuo"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Real-model and paid tests are opt-in: `pytest -m llm`, `pytest -m model`.
-addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not llm and not model"]
+# No test calls a paid API or the network (conftest.py enforces it); LLM code is tested
+# with mock models. Tests that load real local model weights are opt-in: `pytest -m model`.
+addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not model"]
 markers = [
     "ffmpeg: needs ffmpeg/ffprobe (skipped locally without it, fails in CI)",
-    "llm: calls a real LLM API and costs money",
-    "model: needs real Qwen3-TTS/ASR weights (Apple Silicon)",
+    "model: needs real Qwen3-TTS/ASR weights already downloaded (Apple Silicon, offline)",
 ]
 xfail_strict = true
 filterwarnings = ["error::ResourceWarning"]

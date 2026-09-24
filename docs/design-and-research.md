@@ -910,7 +910,7 @@ Script
 | `engines/` | Qwen3-TTS（mlx-audio）与测试用的假引擎 |
 | `cli.py` | `huashuo` 命令：make / import / check / synth / package / redo / voices |
 
-测试在 `tests/`（假引擎，无需模型，约 2 秒；`llm`、`model` 标记的测试需显式开启），CI 在 GitHub Actions（Ubuntu，Python 3.10 / 3.12）。
+测试在 `tests/`（假引擎，无需模型，约 2 秒；`model` 标记的测试需显式开启），CI 在 GitHub Actions（Ubuntu，Python 3.10 / 3.12）。**测试一律不调用付费 API、不访问网络**：密钥从环境中移除、`.env` 不加载、pydantic-ai 拒绝真实请求、非本机的网络连接直接失败；LLM 相关代码用模拟模型测试。用真实 LLM 评估准确率的是手动运行、带 `--max-cost` 上限的脚本，不属于测试集。
 
 **原型** `experiments/novel_tts.py`（单文件、单音色、输出 MP3）保留作参考；它的分块、缓存、续跑、校验思路已并入正式包（种子改为由缓存键派生，而不是按分块序号）。`experiments/` 下另有 EXP-1～3 的实验脚本。
 

@@ -28,9 +28,13 @@ Development:
 ```bash
 uv pip install --python .venv/bin/python -e ".[dev]"
 .venv/bin/python -m pytest              # ~2 s, fake TTS engine, no models or API keys needed
-.venv/bin/python -m pytest -m model     # opt-in: real Qwen3-TTS / ASR weights
-.venv/bin/python -m pytest -m llm       # opt-in: real LLM API (costs money)
+.venv/bin/python -m pytest -m model     # opt-in: real Qwen3-TTS / ASR weights (local, offline)
 ```
+
+Tests never call a paid API or the network: API keys are hidden, `.env` loading is off,
+pydantic-ai refuses real requests and outbound connections fail (`tests/conftest.py`). LLM
+code is tested with mock models. Accuracy checks against a real LLM are manual scripts with
+an explicit `--max-cost` cap (see `experiments/exp2_batch_tagging.py`).
 
 LLM settings (from M2) come from `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` and
 `HUASHUO_LLM_BASE_URL`, or a git-ignored `.env` in the repository root.
