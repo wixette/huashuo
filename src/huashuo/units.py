@@ -139,7 +139,7 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             close(CHAPTER_END)
             title = spoken_text(block).strip()
             if block.get("level") == 1:
-                volume = title
+                volume = title if block["id"] != "c000" else None    # the opening section is no volume
             name = f"{volume} · {title}" if block.get("level") == 2 and volume else title
             result.chapters.append(Chapter(name, block["id"], len(units), block.get("level", 1)))
             if read_titles:

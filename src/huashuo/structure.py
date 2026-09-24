@@ -171,6 +171,10 @@ def is_noise(text: str, language: str) -> bool:
     return bool(_URL.search(line)) and len(re.findall(r"[\u4e00-\u9fff]", _URL_TEXT.sub("", line))) <= 2
 
 
+# Front matter labels that are never the title of a story.
+_FRONT_MATTER = {"目录", "书名页", "扉页", "封面", "版权", "版权页", "版权信息", "内容简介", "简介", "前言", "序", "序言",
+                 "后记", "附录", "致谢", "目錄", "書名頁", "版權", "版權頁", "內容簡介", "簡介", "後記", "附錄"}
+
 # Unnumbered titles (short-story collections): a very short line with no punctuation,
 # followed by prose, far enough from the previous chapter that ordinary short lines
 # inside a chapter do not qualify.
@@ -294,7 +298,23 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
                 and not _SENTENCE_MARKS.search(text) and not _TITLE_PUNCT.search(text.strip("《》"))
                 and not _DATE_LIKE.search(text) and _is_prose(next_prose(i)))
 
+    def story_title(i: int, text: str) -> bool:
+        """A story in a collection that has numbered chapters of its own: 「阿Q正傳」 right
+        before 「第一章序」 (script-ir §10 S4)."""
+        following = items[i + 1].paragraph.text if i + 1 < len(items) else ""
+        # The chapter must start with prose: in a table of contents (目录 / 第一章 / 第二章 …)
+        # headings follow one another.
+        after = items[i + 2].paragraph.text if i + 2 < len(items) else ""
+        return (language == "zh" and len(text) <= _UNNUMBERED_MAX_CHARS and not _NOTE_LABELS.match(text)
+                and re.sub(r"\s", "", text) not in _FRONT_MATTER and _is_prose(after)
+                and not is_break(text) and re.search(r"[\u4e00-\u9fff]", text) is not None
+                and not _SENTENCE_MARKS.search(text) and not _TITLE_PUNCT.search(text.strip("《》"))
+                and not _DATE_LIKE.search(text) and classify_heading(text, language) is None
+                and classify_heading(following, language) == 2)
+
     in_notes = False
+    unnumbered: list[dict] = []      # chapter blocks from unnumbered titles
+    stories = volumes = 0
 
     def chapter(title: str, level: int) -> None:
         nonlocal since_chapter, in_notes
@@ -341,6 +361,10 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
             in_notes = True
         if level is not None:
             chapter(text, level)
+            volumes += level == 1
+        elif story_title(i, text):
+            chapter(text, 1)
+            stories += 1
         elif in_notes and not unnumbered_title(i, text):
             b.ensure_chapter(book.title)
             b.block("skip", text, reason="notes")
@@ -353,6 +377,7 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
             b.block("heading", text, level=3)
         elif unnumbered_title(i, text):
             chapter(text, 2)
+            unnumbered.append(b.blocks[-1])
         elif p.kind != "p" and looks_like_title(text, language):
             b.ensure_chapter(book.title)
             b.block("heading", text, level=int(p.kind[1]))
@@ -361,6 +386,12 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
             b.block("narration", text)
             since_chapter += len(text)
 
+    # In a collection where some stories have numbered chapters, every story title is top
+    # level, so a later story is not taken for a chapter of the one before. Books with
+    # numbered volumes keep unnumbered titles below them.
+    if stories and not volumes:
+        for block in unnumbered:
+            block["level"] = 1
     # Two levels only when the book has both volumes and chapters; otherwise every chapter
     # is top level (docs/script-ir.md §4). The opening section c000 is always top level
     # and does not count as a volume.

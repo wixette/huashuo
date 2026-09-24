@@ -212,3 +212,20 @@ def test_numbers_the_tts_misreads_get_a_reading():
     assert speech_cleanup("他是No.1。", "zh") == "他是第1。"
     for fine in ("要走3-5天", "日期2026-09-25", "Piano.1", "他-说"):
         assert speech_cleanup(fine, "zh") is None
+
+
+def test_a_story_with_numbered_chapters_prefixes_them_in_a_collection():
+    """script-ir §10 S4: 「阿Q正傳」 then 「第一章序」 in 《吶喊》."""
+    from huashuo.cast import default_cast
+    from huashuo.units import plan
+
+    prose = "他在门口站了很久，直到屋里的灯一盏接一盏地熄灭，才转身走进雨里。" * 25
+    paras = [Paragraph(t) for t in ["目录", "第一章 序", "第二章 优胜记略",        # a table of contents
+                                    "自序", prose, "故乡", prose,
+                                    "阿Q正传", "第一章 序", prose, "第二章 优胜记略", prose,
+                                    "社戏", prose]]
+    built = build(Book("呐喊", "鲁迅", "zh", [Section(paras)], "txt"))
+    titles = [c.title for c in plan(built.script, default_cast("zh"), "zh").chapters]
+    assert "阿Q正传 · 第一章 序" in titles and "阿Q正传 · 第二章 优胜记略" in titles
+    assert "故乡" in titles and "社戏" in titles                              # not under 阿Q正传
+    assert not any(t.startswith("目录 ·") for t in titles)
