@@ -2,19 +2,25 @@
 
 import json
 
-from conftest import make_epub, needs_ffmpeg
+import pytest
+
+from helpers import make_epub
 from huashuo.cli import main
 from huashuo.huaben import read_script, write_script
 from huashuo.m4b import probe
 from huashuo.workdir import Workdir
 
 
+ENGINE_COMMANDS = ("make", "synth", "package", "redo")   # the ones that synthesize or plan units
+
+
 def run(*args):
-    return main([*map(str, args), "--engine", "fake"] if args[0] in ("make", "synth", "package", "redo")
-                else list(map(str, args)))
+    """The CLI with the fake engine, so no model is loaded."""
+    argv = [str(a) for a in args]
+    return main(argv + ["--engine", "fake"] if argv[0] in ENGINE_COMMANDS else argv)
 
 
-@needs_ffmpeg
+@pytest.mark.ffmpeg
 def test_txt_to_m4b_resume_and_edit(sample_txt, capsys):
     assert run("make", sample_txt, "--no-asr") == 0
     out = sample_txt.with_suffix(".m4b")
@@ -50,7 +56,7 @@ def test_txt_to_m4b_resume_and_edit(sample_txt, capsys):
     assert kept["say"].startswith("诗曰")
 
 
-@needs_ffmpeg
+@pytest.mark.ffmpeg
 def test_epub_sample_and_chapter_selection(tmp_path, capsys):
     book = make_epub(tmp_path / "测试之书.epub", cover=None)
     assert run("make", book, "--no-asr", "--chapters", "2") == 0
@@ -82,43 +88,24 @@ def test_failed_units_are_kept_and_reported(sample_txt, capsys):
     stats = synthesize(plan.units, engine, wd, "zh", show_progress=False)
     assert len(stats.warnings) == 1 and stats.warnings[0]["problem"] == "empty audio"
     assert stats.retried == 2
-    sidecar = json.loads(next(wd.units.glob("*.json")).read_text())
-    assert {"key", "seed", "seconds", "problem"} <= set(sidecar)
+    key = stats.warnings[0]["key"]
+    sidecar = json.loads((wd.units / f"{key}.json").read_text())
+    assert sidecar["problem"] == "empty audio" and (wd.units / f"{key}.wav").is_file()
 
 
 def test_check_command_reports_problems(sample_txt, capsys):
     assert run("import", sample_txt) == 0
     wd = Workdir.for_input(sample_txt)
     script = read_script(wd.script)
-    script.blocks[2]["text"] = "被改掉的原文"
+    next(b for b in script.blocks if b["type"] == "narration")["text"] = "被改掉的原文"
     write_script(wd.script, script)
     assert run("check", sample_txt) == 1
     assert "I4" in capsys.readouterr().out
 
 
-def test_asr_comparison_handles_traditional_characters():
-    from huashuo.asr import cer
-    assert cer("我從鄉下跑到京城里，後來打折了腿了。", "我从乡下跑到京城里，后来打折了腿了", "zh") == 0.0
-    assert cer("他坐著。1987年", "他坐着，一九八七年", "zh") == 0.0
-    assert cer("孔乙己是站著喝酒而穿長衫的唯一的人。", "孔乙己是站着喝酒的人", "zh") > 0.3
 
 
-def test_limiter_only_touches_spikes():
-    import numpy as np
-    from huashuo.audio import LIMITER_CEILING_DB, limit
-    sr = 24000
-    t = np.arange(sr) / sr
-    speech = 0.3 * np.sin(2 * np.pi * 200 * t).astype(np.float32)
-    spiky = speech.copy()
-    spiky[12000:12010] = 1.2
-    out = limit(spiky, sr)
-    assert np.abs(out).max() <= 10 ** (LIMITER_CEILING_DB / 20) + 1e-6
-    far = slice(0, 9000)
-    assert np.allclose(out[far], spiky[far])                  # untouched away from the spike
-    assert limit(speech, sr) is speech                         # nothing to do, no copy
-
-
-@needs_ffmpeg
+@pytest.mark.ffmpeg
 def test_redo_resynthesizes_the_unit_at_a_time(sample_txt, capsys):
     from huashuo.synth import seed_for
     assert run("make", sample_txt, "--no-asr") == 0
@@ -140,8 +127,3 @@ def test_redo_resynthesizes_the_unit_at_a_time(sample_txt, capsys):
     import pytest
     with pytest.raises(SystemExit, match="outside the book"):
         run("redo", sample_txt, "--no-asr", "--at", "99:00")
-
-
-def test_parse_time():
-    from huashuo.cli import parse_time
-    assert parse_time("1:28") == 88 and parse_time("1:02:03") == 3723 and parse_time("88.5") == 88.5

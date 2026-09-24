@@ -11,12 +11,13 @@ dependencies = [
     "pyloudnorm>=0.1.1",
     "pillow>=10.1",    # the plain text cover for books without one (M4B-4)
     "opencc>=1.1",     # traditional -> simplified for the ASR check (SYN-10)
+    "pydantic-ai-slim[openai]>=2.48,<3",  # LLM stages (requirements §3.9, design doc §6.5)
     # Pinned exactly: route C (voice-vector injection) reaches into mlx-audio internals.
     "mlx-audio==0.5.5; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pytest-cov>=5"]
 
 [project.scripts]
 huashuo = "huashuo.cli:main"
@@ -33,3 +34,16 @@ packages = ["src/huashuo"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Real-model and paid tests are opt-in: `pytest -m llm`, `pytest -m model`.
+addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not llm and not model"]
+markers = [
+    "ffmpeg: needs ffmpeg/ffprobe (skipped locally without it, fails in CI)",
+    "llm: calls a real LLM API and costs money",
+    "model: needs real Qwen3-TTS/ASR weights (Apple Silicon)",
+]
+xfail_strict = true
+filterwarnings = ["error::ResourceWarning"]
+
+[tool.coverage.run]
+branch = true
+source = ["huashuo"]

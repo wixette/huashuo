@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import make_epub
+from helpers import make_epub
 from huashuo.huaben import check
 from huashuo.ingest import IngestError, detect_language, read_book
 from huashuo.ingest.txt import decode, title_author_from_name

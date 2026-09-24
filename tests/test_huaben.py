@@ -17,7 +17,6 @@ def blocks():
 
 def test_round_trip_keeps_unknown_fields_and_field_order():
     script = Script(dict(HEADER), blocks())
-    script.blocks[1]["note"] = "我的批注"
     script.blocks[1] = {"src": script.blocks[1]["src"], "note": "我的批注", "type": "narration",
                         "id": "c001.p0001", "text": "风从北边来。"}
     text = dumps(script)

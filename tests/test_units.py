@@ -65,3 +65,15 @@ def test_english_joins_with_spaces():
         {"id": "a", "type": "narration", "text": "It rained."},
         {"id": "b", "type": "narration", "text": "He left."}])
     assert plan(s, CAST, "en").units[1].text == "It rained. He left."
+
+
+def test_voice_change_inside_a_paragraph_is_a_turn():
+    cast = {**CAST, "characters": {"林渊": {"voice": "preset:uncle_fu"}}}
+    s = script(("chapter", "第一章", {"level": 1}),
+               ("narration", "他推开门，说：", {"id": "c1.p1.01"}),
+               ("dialogue", "“来一壶热酒。”", {"id": "c1.p1.02", "speaker": "林渊"}),
+               ("narration", "他坐下了。", {"id": "c1.p1.03"}),
+               ("narration", "下一段。", {"id": "c1.p2"}))
+    p = plan(s, cast, "zh")
+    assert [u.after for u in p.units] == ["title", "turn", "turn", "end"]
+    assert p.units[2].voice == "preset:uncle_fu" and p.units[3].text == "他坐下了。下一段。"
