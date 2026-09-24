@@ -16,9 +16,15 @@ from huashuo.huaben import Script, spoken_text
 
 DEFAULT_MAX_CHARS = 400
 
-# Boundary kinds, in the order post.py assigns pauses to them.
-SENTENCE, PARAGRAPH, HEADING, TITLE, BREAK, CHAPTER_END, END = (
-    "sentence", "paragraph", "heading", "title", "break", "chapter_end", "end")
+# Boundary kinds; post.py assigns each a pause. TURN is a change of voice inside one
+# paragraph (他说 / “好。” / 他走了), shorter than the pause between paragraphs.
+SENTENCE, TURN, PARAGRAPH, HEADING, TITLE, BREAK, CHAPTER_END, END = (
+    "sentence", "turn", "paragraph", "heading", "title", "break", "chapter_end", "end")
+
+
+def paragraph_of(block_id: str) -> str:
+    """c001.p0012.02 -> c001.p0012: the pieces of one source paragraph share this."""
+    return ".".join(block_id.split(".")[:2])
 
 
 @dataclass
@@ -52,8 +58,8 @@ class Plan:
 
 
 # Sentence ends, with any closing quotes or brackets that belong to the sentence.
-_ZH_SENTENCE = re.compile(r'[^。！？…\n]*(?:[。！？…]+[”’」』》）】"\')]*|$)')
-_EN_SENTENCE = re.compile(r'[^.!?\n]*(?:[.!?]+["\')\]]*\s*|$)')
+_ZH_SENTENCE = re.compile(r'[^。！？…\n]*(?:[。！？…]+[”’」』》）】"\')]*|\n|$)')
+_EN_SENTENCE = re.compile(r'[^.!?\n]*(?:[.!?]+["\')\]]*\s*|\n|$)')
 _CLAUSE = re.compile(r"[^，、；：,;]*[，、；：,;]?")
 
 
@@ -151,7 +157,11 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
                 continue
             size = sum(len(t) for _, t in group) + len(text)
             if group and (voice != group_voice or size > max_chars):
+                same_paragraph = paragraph_of(group[-1][0]["id"]) == paragraph_of(block["id"])
+                changed_voice = voice != group_voice
                 flush()
+                if same_paragraph and units[-1].after == PARAGRAPH:
+                    units[-1].after = TURN if changed_voice else SENTENCE
             group.append((block, text))
             group_voice = voice
             if isinstance(block.get("pause_after"), (int, float)):

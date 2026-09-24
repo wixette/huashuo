@@ -35,8 +35,12 @@ class Qwen3Engine:
         self.sample_rate = 24000
 
     def identity(self) -> dict:
+        try:
+            from mlx_audio.version import __version__ as backend
+        except ImportError:
+            backend = None
         return {"engine": self.name, "model": self.model_id, "temperature": self.temperature,
-                "max_tokens": MAX_TOKENS}
+                "max_tokens": MAX_TOKENS, "mlx_audio": backend}
 
     def _load(self):
         if self._model is None:

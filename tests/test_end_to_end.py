@@ -54,7 +54,8 @@ def test_txt_to_m4b_resume_and_edit(sample_txt, capsys):
 def test_epub_sample_and_chapter_selection(tmp_path, capsys):
     book = make_epub(tmp_path / "测试之书.epub", cover=None)
     assert run("make", book, "--no-asr", "--chapters", "2") == 0
-    info = probe(book.with_suffix(".m4b"))
+    assert not book.with_suffix(".m4b").exists()             # an audition never overwrites the book
+    info = probe(book.with_name("测试之书.chapters-2.m4b"))
     assert [c["tags"]["title"] for c in info["chapters"]] == ["第二章 落雨"]
     assert run("synth", book, "--no-asr", "--sample", "5") == 0
     assert run("package", book, "--no-asr", "--sample", "5") == 0

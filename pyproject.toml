@@ -9,7 +9,7 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.10",
     "pyloudnorm>=0.1.1",
-    "pillow>=10",      # the plain text cover for books without one (M4B-4)
+    "pillow>=10.1",    # the plain text cover for books without one (M4B-4)
     "opencc>=1.1",     # traditional -> simplified for the ASR check (SYN-10)
     # Pinned exactly: route C (voice-vector injection) reaches into mlx-audio internals.
     "mlx-audio==0.5.5; sys_platform == 'darwin' and platform_machine == 'arm64'",

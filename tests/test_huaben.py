@@ -67,27 +67,87 @@ def test_say_changes_what_is_read_without_breaking_invariants():
     assert check(Script(dict(HEADER), edited), TEXT) == []
 
 
-def test_merge_keeps_user_edits_additions_and_deletions():
-    base = Script(dict(HEADER), blocks())
-    current = Script(dict(HEADER, title="我改的书名"), blocks())
-    current.blocks[1]["say"] = "风从北边吹来。"                          # edited field
-    del current.blocks[2]                                               # deleted block
-    current.blocks.insert(1, {"id": "c001.x1", "type": "narration", "text": "（插入）"})  # added
-    new = Script(dict(HEADER), blocks())
-    new.blocks[1]["text"] = new.blocks[1]["text"]      # machine output unchanged here
-    new.blocks[0]["level"] = 2                          # machine changed a field the user did not touch
+def _script(texts, header=None):
+    """A script whose blocks are numbered in order, as the builder numbers them."""
+    blocks, offset = [], 0
+    for n, (kind, text) in enumerate(texts):
+        blocks.append({"id": "c000" if n == 0 else f"c000.p{n:04d}", "type": kind, "text": text,
+                       "src": [offset, offset + len(text)]})
+        offset += len(text) + 1
+    return Script(dict(header or HEADER), blocks)
 
-    merged, report = merge(base, current, new)
-    ids = [b["id"] for b in merged.blocks]
-    assert ids == ["c001", "c001.x1", "c001.p0001"]
-    assert merged.blocks[2]["say"] == "风从北边吹来。"
-    assert merged.blocks[0]["level"] == 2
-    assert merged.header["title"] == "我改的书名"
-    assert any("deletion" in line for line in report)
+
+BOOK = [("chapter", "第一章"), ("narration", "甲段。"), ("narration", "乙段。"), ("narration", "丙段。")]
+
+
+def test_merge_keeps_user_edits_additions_and_deletions():
+    base = _script(BOOK)
+    current = _script(BOOK, dict(HEADER, title="我改的书名"))
+    current.blocks[1]["say"] = "甲段（改读）。"                          # edited field
+    del current.blocks[3]                                               # deleted 丙段
+    current.blocks.insert(2, {"id": "c000.x1", "type": "narration", "text": "（插入）"})  # added
+    new = _script(BOOK)
+    new.blocks[0]["level"] = 1                                          # machine adds a field
+
+    result = merge(base, current, new)
+    assert [b["text"] for b in result.script.blocks] == ["第一章", "甲段。", "（插入）", "乙段。"]
+    assert result.script.blocks[1]["say"] == "甲段（改读）。" and result.script.blocks[0]["level"] == 1
+    assert result.script.header["title"] == "我改的书名"
+    assert any("deletion" in line for line in result.report) and not result.orphans
+
+
+def test_edits_follow_their_paragraph_when_the_source_gains_or_loses_one():
+    base = _script(BOOK)
+    current = _script(BOOK)
+    current.blocks[2]["say"] = "乙段（改读）。"                          # edit 乙段 (c000.p0002)
+    grown = _script([BOOK[0], ("narration", "新插入的一段。"), *BOOK[1:]])
+    result = merge(base, current, grown)
+    by_text = {b["text"]: b for b in result.script.blocks}
+    assert by_text["乙段。"].get("say") == "乙段（改读）。"                # not moved onto 甲段
+    assert "say" not in by_text["甲段。"] and by_text["乙段。"]["id"] == "c000.p0003"
+    assert "now c000.p0003" in " ".join(result.report)
+    shrunk = _script([BOOK[0], BOOK[2], BOOK[3]])                        # 甲段 removed upstream
+    result = merge(base, current, shrunk)
+    assert {b["text"]: b.get("say") for b in result.script.blocks}["乙段。"] == "乙段（改读）。"
+
+
+def test_edits_of_a_paragraph_that_disappeared_are_reported_not_misplaced():
+    base, current = _script(BOOK), _script(BOOK)
+    current.blocks[2]["say"] = "乙段（改读）。"
+    changed = _script([BOOK[0], BOOK[1], ("narration", "乙段被作者改写了。"), BOOK[3]])
+    result = merge(base, current, changed)
+    assert all("say" not in b for b in result.script.blocks)
+    (orphan,) = result.orphans
+    assert orphan["edits"] == {"say": "乙段（改读）。"} and orphan["text"] == "乙段。"
+
+
+def test_edits_carry_onto_a_paragraph_split_into_dialogue():
+    para = "他说：“你好。”然后走了。"
+    base = _script([BOOK[0], ("narration", para), ("narration", "下一段。")])
+    current = _script([BOOK[0], ("narration", para), ("narration", "下一段。")])
+    current.blocks[1].update(type="skip", reason="user", pause_after=2.0)
+    new = Script(dict(HEADER), [dict(base.blocks[0]),
+        {"id": "c000.p0001.01", "type": "narration", "text": "他说：", "src": [4, 7]},
+        {"id": "c000.p0001.02", "type": "dialogue", "text": "“你好。”", "speaker": "他", "src": [7, 12]},
+        {"id": "c000.p0001.03", "type": "narration", "text": "然后走了。", "src": [12, 17]},
+        dict(base.blocks[2])])
+    result = merge(base, current, new)
+    pieces = [b for b in result.script.blocks if b["id"].startswith("c000.p0001.")]
+    assert [b["type"] for b in pieces] == ["skip", "skip", "skip"]
+    assert pieces[-1]["pause_after"] == 2.0 and pieces[0]["reason"] == "user"
+    current.blocks[1] = {**base.blocks[1], "say": "改读"}
+    result = merge(base, current, new)
+    assert result.orphans and result.orphans[0]["edits"] == {"say": "改读"}
+
+
+def test_untouched_blocks_the_machine_drops_go_away():
+    base, current = _script(BOOK), _script(BOOK)
+    result = merge(base, current, _script(BOOK[:3]))
+    assert [b["text"] for b in result.script.blocks] == ["第一章", "甲段。", "乙段。"] and not result.orphans
 
 
 def test_merge_without_base_keeps_the_file():
     current = Script(dict(HEADER), blocks())
     current.blocks[1]["say"] = "x"
-    merged, report = merge(None, current, Script(dict(HEADER), blocks()))
-    assert merged.blocks[1]["say"] == "x" and report
+    result = merge(None, current, Script(dict(HEADER), blocks()))
+    assert result.script.blocks[1]["say"] == "x" and result.report

@@ -11,7 +11,7 @@ from pathlib import Path
 def write_bytes_atomic(path: Path, data: bytes) -> None:
     """Write to a temp file and rename, so a crash never leaves a half-written file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")   # unique per process
     tmp.write_bytes(data)
     os.replace(tmp, path)
 
@@ -65,6 +65,11 @@ class Workdir:
     @property
     def cast_base(self) -> Path:
         return self.state / "cast.auto.json"
+
+    @property
+    def run_options(self) -> Path:
+        """Options the last synthesis used, so package and redo lay out the same units."""
+        return self.state / "run.json"
 
     @property
     def rerolls(self) -> Path:

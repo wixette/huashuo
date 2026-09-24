@@ -23,6 +23,7 @@ KNOWN_TYPES = READABLE_TYPES | SILENT_TYPES | RESERVED_TYPES
 
 # Written first, in this order; every other field follows in insertion order, then `src`.
 LEADING_FIELDS = ("id", "type", "text")
+HEADER_FIELDS = ("type", "version", "title", "author", "language")
 
 
 class HuabenError(Exception):
@@ -70,8 +71,9 @@ def spoken_text(block: dict) -> str:
 
 
 def dump_record(record: dict) -> str:
-    ordered = {k: record[k] for k in LEADING_FIELDS if k in record}
-    ordered.update((k, v) for k, v in record.items() if k not in LEADING_FIELDS and k != "src")
+    leading = HEADER_FIELDS if record.get("type") == "huaben" else LEADING_FIELDS
+    ordered = {k: record[k] for k in leading if k in record}
+    ordered.update((k, v) for k, v in record.items() if k not in leading and k != "src")
     if "src" in record:
         ordered["src"] = record["src"]
     return json.dumps(ordered, ensure_ascii=False)
@@ -128,6 +130,7 @@ def read_script(path: Path) -> Script:
 def check(script: Script, text: str, cast: dict | None = None, limit: int = 50) -> list[Problem]:
     """Return every invariant violation, most important first; empty means the script is sound."""
     problems: list[Problem] = []
+    whole_file: list[Problem] = []   # reported first, so a long list cannot hide them
 
     def add(code, message, index=None):
         block_id = script.blocks[index].get("id") if index is not None else None
@@ -135,7 +138,7 @@ def check(script: Script, text: str, cast: dict | None = None, limit: int = 50) 
         problems.append(Problem(code, message, block_id, line))
 
     if script.header.get("text_sha256") not in (None, sha256_text(text)):
-        add("I8", "text.txt has changed since the script was built; re-run `huashuo import`")
+        whole_file.append(Problem("I8", "text.txt has changed since the script was built; re-run `huashuo import`"))
 
     seen: dict[str, int] = {}
     covered = bytearray(len(text))
@@ -190,10 +193,10 @@ def check(script: Script, text: str, cast: dict | None = None, limit: int = 50) 
                     start = b
         shown = ", ".join(f"[{s}, {e}) {text[s:e][:20]!r}" for s, e in runs[:5])
         more = f" and {len(runs) - 5} more" if len(runs) > 5 else ""
-        problems.append(Problem("I5", f"{len(missing)} characters of text.txt are in no block: "
-                                      f"{shown}{more}"))
+        whole_file.append(Problem("I5", f"{len(missing)} characters of text.txt are in no block: "
+                                        f"{shown}{more}"))
 
-    return problems[:limit]
+    return (whole_file + problems)[:limit]
 
 
 # --------------------------------------------------------------------------------------
@@ -215,59 +218,165 @@ def merge_fields(base: dict, current: dict, new: dict) -> dict:
 _MISSING = object()
 
 
-def merge(base: Script | None, current: Script | None, new: Script) -> tuple[Script, list[str]]:
+# Fields that locate a block in text.txt; they always come from the new build.
+_POSITION_FIELDS = ("id", "src")
+
+
+@dataclass
+class MergeResult:
+    script: Script
+    report: list[str] = field(default_factory=list)
+    # User edits whose paragraph no longer exists in the new build (the source text changed):
+    # never applied to some other paragraph, returned so the caller can keep them.
+    orphans: list[dict] = field(default_factory=list)
+
+
+def _squash(text: str) -> str:
+    return "".join(str(text).split())
+
+
+def _align(base: list[dict], new: list[dict]) -> tuple[dict[int, int], dict[int, list[int]]]:
+    """Map base blocks to new blocks by their text, not their id.
+
+    Returns one-to-one matches and splits (one base block whose text is now spread over
+    consecutive new blocks, e.g. a paragraph divided into narration and dialogue).
+    """
+    import difflib
+
+    a = [_squash(b.get("text", "")) for b in base]
+    b = [_squash(n.get("text", "")) for n in new]
+    one: dict[int, int] = {}
+    split: dict[int, list[int]] = {}
+    matcher = difflib.SequenceMatcher(a=a, b=b, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            one.update({i1 + k: j1 + k for k in range(i2 - i1)})
+            continue
+        j = j1
+        for i in range(i1, i2):          # inside a changed region, look for splits
+            if not a[i]:
+                continue
+            k, joined = j, ""
+            while k < j2 and len(joined) < len(a[i]):
+                joined += b[k]
+                k += 1
+            if joined == a[i] and k - j > 1:
+                split[i] = list(range(j, k))
+                j = k
+            elif j < j2 and b[j] == a[i]:
+                one[i] = j
+                j += 1
+    return one, split
+
+
+def _carry_to_pieces(edited: dict, base: dict, pieces: list[dict]) -> tuple[list[dict], dict]:
+    """Apply a user's edits of one paragraph to the pieces it was split into.
+
+    A changed type (e.g. skip) applies to every piece, pause_after to the last one, other
+    added fields to the first; a `say` cannot be divided and is returned as left over.
+    """
+    changed = {k: v for k, v in edited.items() if base.get(k, _MISSING) != v and k not in _POSITION_FIELDS}
+    removed = [k for k in base if k not in edited and k not in _POSITION_FIELDS]
+    pieces = [dict(p) for p in pieces]
+    left = {}
+    for key, value in changed.items():
+        if key == "type":
+            for piece in pieces:
+                piece["type"] = value
+        elif key == "pause_after":
+            pieces[-1]["pause_after"] = value
+        elif key in ("say", "text"):
+            left[key] = value
+        else:
+            pieces[0][key] = value
+    for key in removed:
+        for piece in pieces:
+            piece.pop(key, None)
+    return pieces, left
+
+
+def merge(base: Script | None, current: Script | None, new: Script) -> MergeResult:
     """Merge a freshly generated script into the one on disk, keeping the user's edits.
 
     `base` is what the machine wrote last time, `current` is the file as it is now (maybe
-    edited), `new` is what the machine produced this time. Returns the merged script and a
-    report of the user edits that were kept or could not be placed.
+    edited), `new` is what the machine produced this time. Blocks are matched by their
+    text, so a paragraph inserted or removed upstream does not shift edits onto the wrong
+    paragraph (docs/script-ir.md §7).
     """
     if current is None:
-        return new, []
+        return MergeResult(new)
     if base is None:
         # No record of what the machine wrote, so edits cannot be told apart from output.
         # Keep the file as the user has it rather than risk overwriting their work.
-        return current, ["no merge base in state/; kept the existing script unchanged"]
+        return MergeResult(current, ["no merge base in state/; kept the existing script unchanged"])
 
-    report: list[str] = []
-    base_by = {b["id"]: b for b in base.blocks if "id" in b}
+    result = MergeResult(Script(header={}, blocks=[]))
+    report, orphans = result.report, result.orphans
+    base_by = {b["id"]: i for i, b in enumerate(base.blocks) if "id" in b}
     cur_by = {b["id"]: b for b in current.blocks if "id" in b}
-    new_ids = {b["id"] for b in new.blocks}
+    one, split = _align(base.blocks, new.blocks)
 
-    merged: list[dict] = []
-    for block in new.blocks:
-        bid = block["id"]
-        if bid in cur_by:
-            cur = cur_by[bid]
-            out = merge_fields(base_by.get(bid, {}), cur, block)
-            if bid in base_by and cur != base_by[bid]:
-                report.append(f"kept your edit to {bid}")
-            merged.append(out)
-        elif bid in base_by:
-            report.append(f"kept your deletion of {bid}")
-        else:
-            merged.append(block)
+    # What becomes of each new block: replaced by a merged version, or dropped.
+    out: list[dict | None] = list(new.blocks)
+    origin: dict[str, int] = {}          # base id -> index in `out` where it now lives
+    for i, b in enumerate(base.blocks):
+        bid = b.get("id")
+        if i in one:
+            j = one[i]
+            origin[bid] = j
+            if bid not in cur_by:
+                out[j] = None
+                report.append(f"kept your deletion of {bid}")
+            elif cur_by[bid] != b:
+                merged = merge_fields(b, cur_by[bid], new.blocks[j])
+                merged.update({k: new.blocks[j][k] for k in _POSITION_FIELDS if k in new.blocks[j]})
+                out[j] = merged
+                report.append(f"kept your edit to {bid}" + (f" (now {new.blocks[j]['id']})"
+                                                            if new.blocks[j]["id"] != bid else ""))
+        elif i in split:
+            idx = split[i]
+            origin[bid] = idx[-1]
+            if bid not in cur_by:
+                for j in idx:
+                    out[j] = None
+                report.append(f"kept your deletion of {bid} (now split into {len(idx)} blocks)")
+            elif cur_by[bid] != b:
+                pieces, left = _carry_to_pieces(cur_by[bid], b, [new.blocks[j] for j in idx])
+                for j, piece in zip(idx, pieces):
+                    out[j] = piece
+                report.append(f"carried your edit to {bid} onto its {len(idx)} new blocks")
+                if left:
+                    orphans.append({"id": bid, "text": b.get("text"), "edits": left,
+                                    "reason": "paragraph was split; this field cannot be divided"})
+        elif bid in cur_by and cur_by[bid] != b:
+            orphans.append({"id": bid, "text": b.get("text"),
+                            "edits": {k: v for k, v in cur_by[bid].items() if b.get(k, _MISSING) != v},
+                            "reason": "its text is no longer in the book"})
 
-    # Blocks the user added, and edited blocks the machine no longer produces: place each
-    # after the nearest preceding block (in the user's order) that made it into the result.
-    position = {b["id"]: i for i, b in enumerate(merged)}
+    for orphan in orphans:
+        report.append(f"could not place your edit to {orphan['id']} ({orphan['reason']}); "
+                      f"saved in state/orphaned-edits.jsonl")
+
+    # Blocks the user added: keep each after the block it followed in the user's file.
     inserts: list[tuple[int, dict]] = []
-    previous = None
+    anchor = -1
     for block in current.blocks:
         bid = block.get("id")
-        if bid in new_ids:
-            if bid in position:  # the user may have deleted it
-                previous = bid
+        if bid in base_by:
+            anchor = origin.get(bid, anchor)
             continue
-        if bid in base_by and block == base_by[bid]:
-            continue  # untouched block the machine dropped: let it go
-        note = "added" if bid not in base_by else "edited, no longer generated"
-        report.append(f"kept block {bid} ({note}); check its position")
-        inserts.append((position[previous] + 1 if previous in position else 0, block))
-    for offset, (at, block) in enumerate(sorted(inserts, key=lambda x: x[0])):
-        merged.insert(at + offset, block)
+        report.append(f"kept block {bid} (added by you)")
+        inserts.append((anchor + 1, block))
+    final: list[dict] = []
+    pending = sorted(inserts, key=lambda x: x[0])
+    for j, block in enumerate(out):
+        while pending and pending[0][0] <= j:
+            final.append(pending.pop(0)[1])
+        if block is not None:
+            final.append(block)
+    final.extend(block for _, block in pending)
 
-    header = merge_fields(base.header, current.header, new.header)
+    result.script = Script(header=merge_fields(base.header, current.header, new.header), blocks=final)
     if current.header != base.header:
         report.append("kept your edits to the header")
-    return Script(header=header, blocks=merged), report
+    return result

@@ -15,8 +15,21 @@ _MIN_CJK_SHARE = 0.9
 _PLAUSIBLE = re.compile(r"[一-鿿　-〿＀-￯‐-‧·]")
 
 
+def _plausible(text: str) -> bool:
+    non_ascii = [c for c in text if ord(c) > 127]
+    if not non_ascii:
+        return "\x00" not in text
+    return sum(bool(_PLAUSIBLE.match(c)) for c in non_ascii) / len(non_ascii) >= _MIN_CJK_SHARE
+
+
 def decode(data: bytes, encoding: str | None = None) -> tuple[str, str]:
-    """Return (text, encoding). Strict: an ambiguous file is an error, never mojibake."""
+    """Return (text, encoding). Strict: an ambiguous file is an error, never mojibake.
+
+    Tried in order: a byte-order mark, UTF-8, GB18030 (which covers GBK and GB2312), then
+    UTF-16 without a mark. Every guess past UTF-8 must decode into text that is mostly
+    Chinese characters and punctuation, because these encodings accept byte sequences
+    that are not really theirs.
+    """
     if encoding:
         try:
             return data.decode(encoding), encoding
@@ -31,16 +44,15 @@ def decode(data: bytes, encoding: str | None = None) -> tuple[str, str]:
         return data.decode("utf-8"), "utf-8"
     except UnicodeDecodeError:
         pass
-    try:
-        text = data.decode("gb18030")
-    except UnicodeDecodeError:
-        text = None
-    if text is not None:
-        non_ascii = [c for c in text if ord(c) > 127]
-        plausible = sum(bool(_PLAUSIBLE.match(c)) for c in non_ascii)
-        if not non_ascii or plausible / len(non_ascii) >= _MIN_CJK_SHARE:
-            return text, "gb18030"
-    raise IngestError("cannot tell this file's encoding (tried UTF-8, UTF-16 and GB18030/GBK); "
+    candidates = ["gb18030"] + (["utf-16-le", "utf-16-be"] if len(data) % 2 == 0 else [])
+    for name in candidates:
+        try:
+            text = data.decode(name)
+        except UnicodeDecodeError:
+            continue
+        if _plausible(text):
+            return text, name
+    raise IngestError("cannot tell this file's encoding (tried UTF-8, GB18030/GBK and UTF-16); "
                       "pass --encoding, e.g. --encoding big5")
 
 

@@ -71,7 +71,7 @@ def write_m4b(output: Path, pcm: Iterable[bytes], sample_rate: int, info: BookIn
               chapters: list[tuple[str, int, int]], cover: Path | None,
               bitrate: str = DEFAULT_BITRATE) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    tmp_output = output.with_name(output.name + ".tmp.m4b")
+    tmp_output = output.with_name(f"{output.name}.{os.getpid()}.tmp.m4b")
     with tempfile.TemporaryDirectory() as tmp:
         meta_path = Path(tmp) / "metadata.txt"
         meta_path.write_text(ffmetadata(info, chapters, sample_rate), encoding="utf-8")
@@ -88,17 +88,26 @@ def write_m4b(output: Path, pcm: Iterable[bytes], sample_rate: int, info: BookIn
         # Major brand "M4B " marks the file as an audiobook for players that look (M4B-5).
         command += ["-movflags", "+faststart", "-brand", "M4B ", "-f", "ipod", str(tmp_output)]
 
-        process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        try:
-            for chunk in pcm:
-                process.stdin.write(chunk)
-            process.stdin.close()
-        except BrokenPipeError:
-            pass
-        stderr = process.stderr.read().decode("utf-8", errors="replace")
-        if process.wait() != 0:
+        # ffmpeg's messages go to a file: an unread pipe could fill up and stall both sides.
+        with open(Path(tmp) / "ffmpeg.log", "w+b") as log_file:
+            process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=log_file)
+            try:
+                for chunk in pcm:
+                    process.stdin.write(chunk)
+                process.stdin.close()
+            except BrokenPipeError:
+                pass
+            except BaseException:
+                process.kill()
+                process.wait()
+                tmp_output.unlink(missing_ok=True)
+                raise
+            code = process.wait()
+            log_file.seek(0)
+            messages = log_file.read().decode("utf-8", errors="replace")
+        if code != 0:
             tmp_output.unlink(missing_ok=True)
-            raise PackageError(f"ffmpeg failed ({process.returncode}): {stderr.strip()[-800:]}")
+            raise PackageError(f"ffmpeg failed ({code}): {messages.strip()[-800:]}")
     os.replace(tmp_output, output)
 
 
@@ -125,7 +134,7 @@ def make_cover(path: Path, title: str, author: str, size: int = 1400) -> Path:
     font_path = next((f for f in _FONTS if Path(f).is_file()), None)
 
     def font(px: int):
-        return ImageFont.truetype(font_path, px) if font_path else ImageFont.load_default()
+        return ImageFont.truetype(font_path, px) if font_path else ImageFont.load_default(size=px)
 
     image = Image.new("RGB", (size, size), (38, 42, 48))
     draw = ImageDraw.Draw(image)

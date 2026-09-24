@@ -52,7 +52,8 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument("--model", help="Qwen3-TTS CustomVoice model (default: 1.7B 8-bit)")
         p.add_argument("--no-asr", action="store_true",
                        help="skip the speech-recognition check of each unit (~5-10%% faster)")
-        p.add_argument("--no-titles", action="store_true", help="do not read chapter titles aloud")
+        p.add_argument("--titles", action=argparse.BooleanOptionalAction, default=None,
+                       help="read chapter titles aloud (default: yes)")
         p.add_argument("--sample", type=int, nargs="?", const=600, metavar="CHARS",
                        help="only the first CHARS characters (default 600), to <book>.sample.m4b")
         p.add_argument("--chapters", help="only these chapters, e.g. 1,3-5 (numbers from `import`)")
@@ -101,9 +102,14 @@ def _mb(n: float) -> str:
 
 
 def _setup_logging(wd) -> None:
-    """A detailed log per run in <workdir>/logs/ (CLI-7); set up once per process."""
-    if log.handlers:
-        return
+    """A detailed log per run in <workdir>/logs/ (CLI-7). Attached to this work directory:
+    a handler left by an earlier run in the same process (tests, `make`) is kept only if
+    it already writes there."""
+    for handler in list(log.handlers):
+        if Path(getattr(handler, "baseFilename", "")).parent == wd.logs.resolve():
+            return
+        log.removeHandler(handler)
+        handler.close()
     wd.logs.mkdir(parents=True, exist_ok=True)
     path = wd.logs / f"run-{time.strftime('%Y%m%d-%H%M%S')}.log"
     handler = logging.FileHandler(path, encoding="utf-8")
@@ -128,12 +134,13 @@ def main(argv: list[str] | None = None) -> int:
         print("\ninterrupted; run the same command again to continue where it stopped")
         return 130
     except Exception as exc:  # user-facing errors carry their own advice (CLI-7)
+        from huashuo.cast import CastError
         from huashuo.engines import EngineError
         from huashuo.huaben import HuabenError
         from huashuo.ingest import IngestError
         from huashuo.m4b import PackageError
         from huashuo.pipeline import PipelineError
-        if isinstance(exc, (EngineError, HuabenError, IngestError, PackageError, PipelineError)):
+        if isinstance(exc, (CastError, EngineError, HuabenError, IngestError, PackageError, PipelineError)):
             log.error("%s", exc)
             print(f"error: {exc}", file=sys.stderr)
             return 2
@@ -166,23 +173,26 @@ def cmd_import(args, quiet: bool = False):
     for line in result.merge_report:
         print(f"  merge: {line}")
     if not quiet:
-        _print_structure(result.script)
+        from huashuo.pipeline import load_project
+        _print_structure(load_project(wd))
     return 0
 
 
-def _print_structure(script) -> None:
-    """Chapters with sizes, and everything that will not be read (TXT-8)."""
-    chapters, current = [], None
-    for block in script.blocks:
-        if block.get("type") == "chapter":
-            current = [block.get("text", ""), 0, block.get("level", 1)]
-            chapters.append(current)
-        elif current is not None and block.get("type") in ("narration", "dialogue", "heading"):
-            current[1] += len(block.get("text", ""))
-    print(f"\n{len(chapters)} chapters:")
-    for number, (title, chars, level) in enumerate(chapters, 1):
-        print(f"  {number:4d}  {'  ' if level == 2 else ''}{title[:40]:<40} {chars:>8,} 字")
-    skipped = [b for b in script.blocks if b.get("type") == "skip"]
+def _print_structure(project) -> None:
+    """Chapters as `--chapters` numbers them, with sizes, and everything that will not be
+    read (TXT-8). Numbers come from the plan, which drops chapters with nothing to read and
+    folds a volume title into its first chapter."""
+    from huashuo.units import plan
+
+    p = plan(project.script, project.cast, project.language)
+    sizes = [0] * len(p.chapters)
+    for unit in p.units:
+        if unit.kind == "body":
+            sizes[unit.chapter] += len(unit.text)
+    print(f"\n{len(p.chapters)} chapters:")
+    for number, (chapter, chars) in enumerate(zip(p.chapters, sizes), 1):
+        print(f"  {number:4d}  {chapter.title[:44]:<44} {chars:>8,} 字")
+    skipped = [b for b in project.script.blocks if b.get("type") == "skip"]
     if skipped:
         print(f"\n{len(skipped)} paragraphs kept but not read:")
         for block in skipped[:15]:
@@ -194,7 +204,9 @@ def _print_structure(script) -> None:
 def cmd_check(args) -> int:
     from huashuo.pipeline import check_project, load_project
 
-    problems = check_project(load_project(_workdir(args)))
+    wd = _workdir(args)
+    _setup_logging(wd)
+    problems = check_project(load_project(wd))
     for problem in problems:
         print(problem)
     print("script OK" if not problems else f"{len(problems)} problem(s)")
@@ -208,18 +220,35 @@ def _engine(args):
     return create_engine(args.engine, **options)
 
 
-def _prepare(args):
-    """Load, check and plan; shared by synth, package and make."""
+# Options that change which units exist. synth records them in state/run.json and package
+# and redo reuse them, so a flag need not be repeated to find the same units again.
+_RUN_OPTIONS = {"voice": None, "model": None, "titles": True}
+
+
+def _resolve_run_options(args, wd, save: bool) -> None:
+    from huashuo.workdir import read_json, write_json_atomic
+
+    stored = read_json(wd.run_options, {}) or {}
+    for name, default in _RUN_OPTIONS.items():
+        if getattr(args, name, None) is None:
+            setattr(args, name, stored.get(name, default))
+    if save:
+        write_json_atomic(wd.run_options, {name: getattr(args, name) for name in _RUN_OPTIONS})
+
+
+def _prepare(args, save_options: bool = False):
+    """Load, check and plan; shared by synth, package, redo and make."""
     from huashuo.pipeline import check_project, load_project, make_plan
 
     wd = _workdir(args)
+    _resolve_run_options(args, wd, save_options)
     project = load_project(wd)
     problems = check_project(project)
     if problems:
         for problem in problems[:20]:
             print(problem, file=sys.stderr)
         raise SystemExit("the script has problems (above); fix them or re-run `huashuo import`")
-    plan = make_plan(project, read_titles=not args.no_titles, voice=args.voice,
+    plan = make_plan(project, read_titles=args.titles, voice=args.voice,
                      sample_chars=args.sample, chapters=_parse_chapters(args.chapters))
     if not plan.units:
         raise SystemExit("nothing to read")
@@ -230,7 +259,7 @@ def cmd_synth(args) -> int:
     from huashuo.pipeline import estimate
     from huashuo.synth import synthesize
 
-    wd, project, plan = _prepare(args)
+    wd, project, plan = _prepare(args, save_options=True)
     _setup_logging(wd)
     est = estimate(plan, project.language)
     print(f"{len(plan.units)} units, {plan.chars:,} characters: about {_hms(est.audio_seconds)} of audio, "
@@ -256,12 +285,22 @@ def cmd_synth(args) -> int:
     return 0
 
 
+def _partial_suffix(args) -> str:
+    """Auditions never overwrite the finished book: .sample / .chapters-3-8 in the name."""
+    if args.sample is not None:
+        return ".sample"
+    if args.chapters:
+        return ".chapters-" + args.chapters.replace(",", "_").replace(" ", "")
+    return ""
+
+
 def cmd_package(args) -> int:
     from huashuo.m4b import BookInfo, make_cover, probe, write_m4b
     from huashuo.post import layout, stream
     from huashuo.synth import cached_ok, unit_key
 
     wd, project, plan = _prepare(args)
+    _setup_logging(wd)
     engine = _engine(args)
     keys = [unit_key(u, engine.identity(), project.language) for u in plan.units]
     missing = sum(1 for k in keys if cached_ok(wd, k) is None)
@@ -269,7 +308,7 @@ def cmd_package(args) -> int:
         raise SystemExit(f"{missing} of {len(keys)} units are not synthesized yet; run `huashuo synth` "
                          f"with the same options first")
     header = project.script.header
-    default_name = args.book.stem + (".sample" if args.sample is not None else "") + ".m4b"
+    default_name = args.book.stem + _partial_suffix(args) + ".m4b"
     output = args.output or args.book.with_name(default_name)
 
     cover = wd.find_cover()

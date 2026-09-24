@@ -18,7 +18,7 @@ TRIM_MARGIN = 0.03           # keep a little air so word onsets and tails are no
 def write_wav(path: Path, audio: np.ndarray, sample_rate: int) -> None:
     """16-bit mono WAV, written to a temp file and renamed so it is never half-written."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     pcm = (np.clip(np.asarray(audio, dtype=np.float32), -1.0, 1.0) * 32767.0).astype("<i2")
     with wave.open(str(tmp), "wb") as handle:
         handle.setnchannels(1)
