@@ -104,7 +104,53 @@ def normalize(text: str, language: str) -> str:
         text = re.sub(r"百分之(?=[零〇一幺二两三四五六七八九十百千万亿])", "", text)
         text = _CN_NUMBER.sub(_arabic, text)
         return re.sub(r"[^\w]|_", "", text)
-    return re.sub(r"[^a-z0-9]", "", text.lower())
+    return "".join(_english_words(text))
+
+
+def _english_words(text: str) -> list[str]:
+    text = _ROMAN_AFTER.sub(lambda m: f"{m.group(1)} {_roman(m.group(2))}", text.lower().replace("’", "'"))
+    text = _EN_NUMBER.sub(_english_number, text)
+    return re.sub(r"[^a-z0-9' ]", " ", text).replace("'", "").split()       # don’t = don't = dont
+
+
+# English: number words become digits on both sides (Chapter 1 is read "Chapter One"), and
+# Roman numerals after chapter / part / book / volume too (Chapter IV).
+_EN_UNITS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve "
+                                         "thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+_EN_TENS = {w: 10 * i for i, w in enumerate("_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()) if i > 1}
+_EN_WORD = "|".join(sorted(list(_EN_UNITS) + list(_EN_TENS) + ["hundred", "thousand"], key=len, reverse=True))
+_EN_NUMBER = re.compile(rf"\b(?:{_EN_WORD})(?:[\s-]+(?:and[\s-]+)?(?:{_EN_WORD}))*\b")
+_ROMAN_AFTER = re.compile(r"\b(chapter|part|book|volume)\s+([ivxlc]+)\b")
+_ROMAN = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100}
+
+
+def _roman(numeral: str) -> str:
+    values = [_ROMAN[ch] for ch in numeral]
+    return str(sum(-v if i + 1 < len(values) and v < values[i + 1] else v for i, v in enumerate(values)))
+
+
+def _english_number(match: re.Match) -> str:
+    """twenty-one -> 21, one hundred and five -> 105; years are read in pairs, so a teen or
+    tens word after a complete 10-99 starts a new group: nineteen ninety eight -> 1998."""
+    groups: list[str] = []
+    total = current = 0
+    for word in re.split(r"[\s-]+", match.group(0)):
+        if word == "and":
+            continue
+        pair_break = (10 <= total + current <= 99 and not total
+                      and (word in _EN_TENS or 10 <= _EN_UNITS.get(word, 0) <= 19))
+        if pair_break:
+            groups.append(str(current))
+            current = 0
+        if word in _EN_UNITS:
+            current += _EN_UNITS[word]
+        elif word in _EN_TENS:
+            current += _EN_TENS[word]
+        elif word == "hundred":
+            current = (current or 1) * 100
+        else:                                               # thousand
+            total, current = total + (current or 1) * 1000, 0
+    return "".join(groups) + str(total + current)
 
 
 def cer(reference: str, hypothesis: str, language: str) -> float:
@@ -148,8 +194,7 @@ def lost_ending(reference: str, hypothesis: str, language: str) -> bool:
         ref, hyp = normalize(reference, language), normalize(hypothesis, language)
         ref = ref.rstrip("".join(_REGIONAL_PARTICLES))
     else:
-        ref = re.sub(r"[^a-z0-9 ]", "", reference.lower()).split()
-        hyp = re.sub(r"[^a-z0-9 ]", "", hypothesis.lower()).split()
+        ref, hyp = _english_words(reference), _english_words(hypothesis)
     return bool(ref) and ref[-1] not in hyp[-3:]
 
 

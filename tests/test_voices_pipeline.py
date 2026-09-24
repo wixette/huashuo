@@ -285,3 +285,14 @@ def test_first_person_narrator_keeps_the_narrator_voice(tmp_path, tiny_library):
     import_book(path, Workdir.for_input(path), llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
     narrator, voices = _voices(path)
     assert voices["林默"] == narrator and voices["周强"] != narrator
+
+
+def test_the_chosen_title_names_the_opening_section(tmp_path, tiny_library):
+    from huashuo.pipeline import load_project, make_plan
+
+    path = tmp_path / "lane.txt"
+    path.write_text("The Lane\n\nChapter 1\nThe rain had not stopped for three days.\n", encoding="utf-8")
+    import_book(path, Workdir.for_input(path), title="The Lane", author="M. Hart")
+    p = make_plan(load_project(Workdir.for_input(path)))
+    assert [u.text for u in p.units][:2] == ["The Lane, by M. Hart.", "Chapter 1"]   # the title line is not read twice
+    assert [c.title for c in p.chapters] == ["Chapter 1"]

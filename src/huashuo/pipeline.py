@@ -335,6 +335,9 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     title = title if title is not None else previous.get("title")
     author = author if author is not None else previous.get("author")
     book = read_book(source, encoding)
+    # The chosen title and author are also what structure detection looks for (a title
+    # line naming the opening section, an author line to skip).
+    book.title, book.author = title or book.title, author or book.author
     narrator, fixed = _user_voice_choices(wd, language or record.get("language") or "zh")
     previous = read_script(wd.script_base) if wd.script_base.is_file() else None
     machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions(),

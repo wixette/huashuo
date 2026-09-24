@@ -68,3 +68,14 @@ def test_a_dialect_remark_inside_standard_prose_keeps_the_checks():
     assert dialect_line("“侬晓得伐？阿拉明朝就要走了。”")
     prose = "信是从长安寄来的，信封上写着请于三月十五日前回电。他把信读了三遍，又看了看落款。" * 2
     assert not dialect_line(prose + "“侬晓得伐？”一个商人说。")
+
+
+def test_english_numbers_compare_however_they_were_read():
+    for text, heard in [("Chapter 1", "Chapter One."), ("CHAPTER IV", "Chapter four."),
+                        ("He was twenty-one in 1998.", "He was 21 in nineteen ninety eight."),
+                        ("It cost 105 pounds.", "It cost one hundred and five pounds."),
+                        ("In 2006 they left.", "In two thousand and six they left.")]:
+        assert cer(text, heard, "en") == 0.0, text
+    assert cer("I said so.", "I said so.", "en") == 0.0         # the pronoun is not a numeral
+    assert judge("Chapter 1", "Chapter One.", "en", 0.10)[1] is None
+    assert cer("‘You’re late,’ said Tom.", "You're late, said Tom.", "en") == 0.0
