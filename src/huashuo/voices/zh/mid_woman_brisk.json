@@ -1,0 +1,21 @@
+{
+  "id": "mid_woman_brisk",
+  "role": "中年女，四十多岁，响亮泼辣",
+  "gender": "female",
+  "age": "middle_aged",
+  "traits": [
+    "响亮",
+    "泼辣",
+    "精明"
+  ],
+  "description": "一位四十多岁的中年妇女，客栈老板娘，嗓门响亮，音色略微粗厚，说话干脆利落，带点泼辣和精明。",
+  "ref_text": "哎哟，客官里边请！今儿个刚到的新酒，您要是不尝一口，可就白来我们这镇子一趟了。",
+  "seed": 0,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  },
+  "listening_notes": "s0 情绪好（稍夸张），略显老，泼辣劲儿好 > s2 显年轻稳重，不够泼辣 > s1 表演痕迹重"
+}

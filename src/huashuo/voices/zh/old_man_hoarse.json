@@ -1,0 +1,20 @@
+{
+  "id": "old_man_hoarse",
+  "role": "老年男，六十多岁，略沙哑，语速慢",
+  "gender": "male",
+  "age": "elderly",
+  "traits": [
+    "沙哑",
+    "语速慢",
+    "热情"
+  ],
+  "description": "一位六十多岁的老年男性客栈掌柜，声音略带沙哑，语速偏慢，语气热情又带几分警惕。",
+  "ref_text": "老朽在这条官道上开了四十年客栈，南来北往的客人见得多了。今夜风雪太大，山路怕是走不得了，客官还是早些歇息吧。",
+  "seed": 0,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

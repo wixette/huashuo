@@ -1,0 +1,20 @@
+{
+  "id": "teen_girl",
+  "role": "少女，十六岁左右",
+  "gender": "female",
+  "age": "teen",
+  "traits": [
+    "清脆",
+    "活泼",
+    "小脾气"
+  ],
+  "description": "一个十六岁左右的高中女生，声音清脆明亮，带着青春期的活泼和一点小脾气，吐字干净。",
+  "ref_text": "你们怎么又不等我就走了？说好了一起去图书馆的，我在门口站了半个小时。",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

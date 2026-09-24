@@ -1,0 +1,21 @@
+{
+  "id": "teen_boy",
+  "role": "少年男，十五六岁，爽朗",
+  "gender": "male",
+  "age": "teen",
+  "traits": [
+    "清亮",
+    "爽朗",
+    "倔强"
+  ],
+  "description": "一个十五六岁的少年，嗓音清亮，略带青涩，说话爽朗有朝气，带着少年人的意气和一点倔强。",
+  "ref_text": "师父，我已经能一口气练完整套剑法了！您再教我一招吧，我保证不会再偷懒。",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  },
+  "listening_notes": "s0 不太好；s1 很好；s2 也很好，但显得憨厚，不够爽朗"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "old_man_kind",
+  "role": "老年男，七十岁左右，慈祥温和",
+  "gender": "male",
+  "age": "elderly",
+  "traits": [
+    "慈祥",
+    "温和",
+    "语速慢"
+  ],
+  "description": "一位七十岁左右的老爷爷，声音苍老但温和慈祥，语速缓慢，说话时带着笑意。",
+  "ref_text": "你小时候最爱吃我做的红烧肉，每回都吃得满嘴是油。现在长大了，还记不记得？",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

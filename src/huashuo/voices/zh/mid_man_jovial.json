@@ -1,0 +1,20 @@
+{
+  "id": "mid_man_jovial",
+  "role": "中年男，五十岁左右，洪亮爽朗",
+  "gender": "male",
+  "age": "middle_aged",
+  "traits": [
+    "洪亮",
+    "爽快",
+    "市井气"
+  ],
+  "description": "一位五十岁左右的中年男子，嗓门洪亮，说话爽快，带点市井气和圆滑，笑声多。",
+  "ref_text": "哎呀，老同学，多少年没见了！走走走，今天我请客，咱们好好喝两杯。",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

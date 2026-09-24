@@ -101,9 +101,10 @@ def inject_speakers(model, voices: dict[str, mx.array]) -> None:
     """
     table = model.talker.get_input_embeddings()
     injected = {}
-    for offset, (name, vector) in enumerate(voices.items()):
-        spk_id = INJECTED_SPK_ID + offset
-        assert spk_id not in model.config.talker_config.spk_id.values(), spk_id
+    taken = set(model.config.talker_config.spk_id.values())
+    free = (r for r in range(INJECTED_SPK_ID, 3072) if r not in taken)   # presets are scattered (uncle_fu = 3010)
+    for name, vector in voices.items():
+        spk_id = next(free)
         injected[spk_id] = vector.reshape(1, 1, -1)
         model.config.talker_config.spk_id[name] = spk_id
         model.supported_speakers.append(name)

@@ -1,0 +1,21 @@
+{
+  "id": "young_man_deep",
+  "role": "青年男，二十七八岁，低沉",
+  "gender": "male",
+  "age": "young_adult",
+  "traits": [
+    "低沉",
+    "醇厚",
+    "沉稳"
+  ],
+  "description": "一位二十七八岁的青年男子，嗓音低沉醇厚，略带磁性，说话沉稳冷静，语速不快，语气克制。",
+  "ref_text": "我答应过他，一定把这封信送到。不管前面有多少人拦着，这条路，我都会走下去。",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  },
+  "listening_notes": "s1 低沉醇厚最好、节奏最好 > s0 还行 > s2 低沉没太听出来"
+}

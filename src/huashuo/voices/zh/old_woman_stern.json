@@ -1,0 +1,20 @@
+{
+  "id": "old_woman_stern",
+  "role": "老年女，六十五岁左右，严厉干练",
+  "gender": "female",
+  "age": "elderly",
+  "traits": [
+    "中气足",
+    "严厉",
+    "干脆"
+  ],
+  "description": "一位六十五岁左右的老年妇女，声音略显苍老但中气十足，说话干脆，带着长辈的严厉。",
+  "ref_text": "这么大的人了，做事还这么毛躁。你爸当年像你这个年纪，早就撑起一个家了。",
+  "seed": 0,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

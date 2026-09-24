@@ -1,0 +1,21 @@
+{
+  "id": "girl",
+  "role": "女童，八岁左右，活泼",
+  "gender": "female",
+  "age": "child",
+  "traits": [
+    "清脆",
+    "活泼",
+    "撒娇"
+  ],
+  "description": "一个八岁左右的小女孩，声音清脆稚嫩，音调偏高，说话天真活泼，语速稍快，偶尔带点撒娇。",
+  "ref_text": "娘，你看，后院的梅花开了！我昨天偷偷去摘了一枝，插在窗台的小瓶子里，可香啦。",
+  "seed": 2,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  },
+  "listening_notes": "s0 太快太娇气；s1 一般；s2 很好，很有小女孩特点"
+}

@@ -19,8 +19,9 @@ import numpy as np
 from huashuo.engines import EngineError
 
 SUPPORTED_MLX_AUDIO = "0.5.5"
-# Rows from 3000 up are unused in the 3072-row table (presets sit at 2861-3066; 3000 is
-# the slot Qwen's own fine-tuning script writes a new speaker into).
+# Library voices take rows from 3000 up (the slot Qwen's own fine-tuning script writes a
+# new speaker into), skipping the rows presets use: they are scattered over 2861-3066,
+# e.g. uncle_fu is row 3010, so rows cannot simply be counted up from 3000.
 FIRST_FREE_ROW = 3000
 
 
@@ -69,10 +70,12 @@ class VoiceInjector:
                               f"{self.width}; library voices were made for the 1.7B model")
         import mlx.core as mx
 
-        row = FIRST_FREE_ROW + len(self.rows)
         spk_ids = self.model.config.talker_config.spk_id
-        if row in spk_ids.values():
-            raise EngineError(f"row {row} of the speaker table is already used by a preset")
+        taken = set(spk_ids.values()) | set(self.rows)
+        size = int(getattr(self.model.config.talker_config, "vocab_size", 3072))
+        row = next((r for r in range(FIRST_FREE_ROW, size) if r not in taken), None)
+        if row is None:
+            raise EngineError(f"no free row left in the speaker table for {ref}")
         name = f"huashuo_{len(self.rows)}"
         self.rows[row] = mx.array(vector.reshape(1, 1, -1))
         spk_ids[name] = row

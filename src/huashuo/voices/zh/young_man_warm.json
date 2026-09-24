@@ -1,0 +1,20 @@
+{
+  "id": "young_man_warm",
+  "role": "青年男，二十五岁左右，清朗温和",
+  "gender": "male",
+  "age": "young_adult",
+  "traits": [
+    "清朗",
+    "温和",
+    "书卷气"
+  ],
+  "description": "一位二十五岁左右的年轻男子，嗓音清朗温和，带着书卷气，说话不紧不慢，语气真诚。",
+  "ref_text": "其实我一直想跟你说声谢谢。那年要不是你借我那笔钱，我大概早就回老家了。",
+  "seed": 0,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "mid_woman_calm",
+  "role": "中年女，四十岁左右，知性冷静",
+  "gender": "female",
+  "age": "middle_aged",
+  "traits": [
+    "知性",
+    "冷静"
+  ],
+  "description": "一位四十岁左右的中年女性，声音知性沉稳，语速平缓，条理清楚，带着职业女性的冷静。",
+  "ref_text": "我看过你的报告了。数据没有问题，但结论下得太早，这一部分需要重新论证。",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

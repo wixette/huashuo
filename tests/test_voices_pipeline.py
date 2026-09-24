@@ -122,6 +122,41 @@ def test_injector_answers_only_its_rows_and_only_while_the_prompt_is_built(monke
         injector.speaker("library:zh/b", np.ones(4, dtype=np.float32))
 
 
+def test_injector_skips_rows_that_presets_use(monkeypatch):
+    """Presets are scattered over the table (uncle_fu is row 3010); a book with more than ten
+    library voices once collided with it."""
+    mx = pytest.importorskip("mlx.core")
+    pytest.importorskip("mlx_audio")
+    import mlx_audio.version
+
+    from huashuo.engines import qwen3_voices
+
+    monkeypatch.setattr(qwen3_voices, "SUPPORTED_MLX_AUDIO", mlx_audio.version.__version__)
+
+    class Talker:
+        def get_input_embeddings(self):
+            return lambda ids: mx.zeros((1, ids.shape[1], 4))
+
+    class Config:
+        class talker_config:
+            spk_id = {"uncle_fu": 3010, "other": 3003}
+            vocab_size = 3072
+
+    class Model:
+        def __init__(self):
+            self.talker, self.config, self.supported_speakers = Talker(), Config(), ["uncle_fu", "other"]
+
+        def _prepare_generation_inputs(self, row):
+            return self.talker.get_input_embeddings()(mx.array([[row]]))
+
+    model = Model()
+    injector = qwen3_voices.VoiceInjector(model)
+    names = [injector.speaker(f"library:zh/v{i}", np.full(4, i, dtype=np.float32)) for i in range(20)]
+    rows = [model.config.talker_config.spk_id[n] for n in names]
+    assert len(set(rows)) == 20 and 3010 not in rows and 3003 not in rows and max(rows) < 3072
+    assert model.config.talker_config.spk_id["uncle_fu"] == 3010
+
+
 def test_injector_refuses_other_mlx_audio_versions(monkeypatch):
     pytest.importorskip("mlx.core")
     pytest.importorskip("mlx_audio")

@@ -1,0 +1,20 @@
+{
+  "id": "mid_man_steady",
+  "role": "中年男，四十五岁左右，浑厚沉稳",
+  "gender": "male",
+  "age": "middle_aged",
+  "traits": [
+    "浑厚",
+    "沉稳",
+    "威严"
+  ],
+  "description": "一位四十五岁左右的中年男子，嗓音浑厚沉稳，略带沙哑，说话有分量，语气平静但有威严。",
+  "ref_text": "这件事我考虑了很久。公司现在的情况，大家心里都有数，再拖下去对谁都没有好处。",
+  "seed": 2,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

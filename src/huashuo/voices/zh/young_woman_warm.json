@@ -1,0 +1,20 @@
+{
+  "id": "young_woman_warm",
+  "role": "青年女，二十七八岁，温柔明快",
+  "gender": "female",
+  "age": "young_adult",
+  "traits": [
+    "温柔",
+    "明快",
+    "亲切"
+  ],
+  "description": "一位二十七八岁的年轻女性，声音温柔明快，亲切自然，带一点笑意，语速适中。",
+  "ref_text": "别担心，我已经跟房东说好了，下个月再交房租也可以。你先把身体养好再说。",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  }
+}

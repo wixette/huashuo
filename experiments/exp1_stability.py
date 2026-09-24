@@ -20,7 +20,7 @@ For listening, each voice's clips are also joined into one <voice>_all.wav with 
 beep before each clip, in the order above.
 
 Usage (from the repository root):
-    .venv/bin/python experiments/exp1_stability.py ROUND3A_DIR OUT_DIR
+    .venv/bin/python experiments/exp1_stability.py ROUND3A_DIR OUT_DIR [--spec SPEC.json] [--only ID ...]
 """
 
 from __future__ import annotations
@@ -112,12 +112,21 @@ def beep(sr: int = SR) -> np.ndarray:
 
 
 def main() -> None:
-    refs_dir, out = Path(sys.argv[1]), Path(sys.argv[2])
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("refs_dir", type=Path)
+    parser.add_argument("out", type=Path)
+    parser.add_argument("--spec", type=Path, default=SPEC)
+    parser.add_argument("--only", nargs="*", help="render only these voice ids (all chosen voices stay anchors)")
+    args = parser.parse_args()
+    refs_dir, out = args.refs_dir, args.out
     out.mkdir(parents=True, exist_ok=True)
-    spec = json.loads(SPEC.read_text())
+    spec = json.loads(args.spec.read_text())
     lang = spec["language"]
-    voices = [v["id"] for v in spec["voices"]]
-    ref_wav = {v["id"]: refs_dir / f"{v['id']}_s{v['chosen_seed']}.wav" for v in spec["voices"]}
+    chosen = [v for v in spec["voices"] if "chosen_seed" in v]
+    ref_wav = {v["id"]: refs_dir / f"{v['id']}_s{v['chosen_seed']}.wav" for v in chosen}
+    voices = [v["id"] for v in chosen if not args.only or v["id"] in args.only]
     probe_wav = {f"preset_{n}": refs_dir / f"preset_{n}.wav" for n in spec["chinese_presets"]}
 
     base = load("Base")
