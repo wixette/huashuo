@@ -85,3 +85,20 @@ def test_fades_silence_both_ends_and_leave_the_middle():
     assert out[int(0.005 * sr)] == 1.0 and out[-int(0.015 * sr) - 1] == 1.0
     assert np.all(np.diff(out[: int(0.005 * sr)]) > 0) and audio[0] == 1.0      # input untouched
     assert len(fade(np.ones(10, dtype=np.float32), sr)) == 10                  # shorter than a fade
+
+
+def test_loudness_target_and_pauses_are_configurable(tmp_path):
+    blocks = [{"id": "c001", "type": "chapter", "text": "第一章", "level": 1},
+              {"id": "c001.p0001", "type": "narration", "text": "雪下了整整一夜。"},
+              {"id": "c002", "type": "chapter", "text": "第二章", "level": 1},
+              {"id": "c002.p0001", "type": "narration", "text": "天亮了。"}]
+    p, default = _timeline(tmp_path, blocks)
+    keys = [item.key for item in default.placed]
+    wd = Workdir(tmp_path / "book.huashuo")
+    louder = layout(p, keys, wd, target_lufs=-16.0, pauses={"chapter_end": 3.5})
+    sr = default.sample_rate
+    gap = lambda tl, i: (tl.placed[i + 1].start - (tl.placed[i].start + tl.placed[i].trim[1] - tl.placed[i].trim[0])) / sr
+    assert gap(default, 1) == PAUSES["chapter_end"] and gap(louder, 1) == 3.5
+    assert gap(louder, 0) == PAUSES["title"]                # the others keep their defaults
+    for a, b in zip(default.placed, louder.placed):
+        assert abs(b.gain / a.gain - 10 ** (2 / 20)) < 1e-6  # 2 dB more for every unit

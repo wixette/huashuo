@@ -78,6 +78,12 @@ def _parser() -> argparse.ArgumentParser:
     def package_options(p):
         p.add_argument("-o", "--output", type=Path, help="output M4B (default: next to the book)")
         p.add_argument("--bitrate", default="64k", help="AAC bitrate (default 64k)")
+        p.add_argument("--loudness", type=float, metavar="LUFS",
+                       help="loudness target (default -18; remembered for this book)")
+        p.add_argument("--pause", action="append", metavar="KIND=SECONDS",
+                       help="pause after a kind of boundary: " + ", ".join(
+                           f"{k} ({v:g})" for k, v in _default_pauses().items())
+                            + "; repeatable, remembered for this book")
 
     p = book_command("make", "import, check, synthesize and package (the default)")
     import_options(p), synth_options(p), package_options(p)
@@ -338,7 +344,43 @@ def _resolve_run_options(args, wd, save: bool) -> None:
         if getattr(args, name, None) is None:
             setattr(args, name, stored.get(name, default))
     if save:
-        write_json_atomic(wd.run_options, {name: getattr(args, name) for name in _RUN_OPTIONS})
+        write_json_atomic(wd.run_options, {**stored, **{name: getattr(args, name) for name in _RUN_OPTIONS}})
+
+
+def _default_pauses() -> dict[str, float]:
+    from huashuo.post import PAUSES
+    return PAUSES
+
+
+def _post_options(args, wd) -> tuple[float, dict[str, float]]:
+    """Loudness target and pauses (POST-1, POST-3): given ones are merged into those
+    remembered in state/run.json. They only change packaging, never the synthesized units."""
+    from huashuo.audio import TARGET_LUFS
+    from huashuo.workdir import read_json, write_json_atomic
+
+    stored = read_json(wd.run_options, {}) or {}
+    loudness = stored.get("loudness", TARGET_LUFS)
+    pauses = dict(stored.get("pauses", {}))
+    given = getattr(args, "loudness", None)
+    if given is not None:
+        if not -30 <= given <= -10:
+            raise SystemExit(f"--loudness {given:g}: choose a target between -30 and -10 LUFS")
+        loudness = given
+    for item in getattr(args, "pause", None) or []:
+        kind, _, value = item.partition("=")
+        kind = kind.strip()
+        if kind not in _default_pauses():
+            raise SystemExit(f"--pause {item}: unknown kind {kind!r}; choose from {', '.join(_default_pauses())}")
+        try:
+            seconds = float(value)
+        except ValueError:
+            raise SystemExit(f"--pause {item}: expected KIND=SECONDS, e.g. paragraph=0.8") from None
+        if not 0 <= seconds <= 10:
+            raise SystemExit(f"--pause {item}: choose between 0 and 10 seconds")
+        pauses[kind] = seconds
+    if given is not None or getattr(args, "pause", None):
+        write_json_atomic(wd.run_options, {**stored, "loudness": loudness, "pauses": pauses})
+    return loudness, pauses
 
 
 def _prepare(args, save_options: bool = False):
@@ -422,7 +464,8 @@ def cmd_package(args) -> int:
     info = BookInfo(title=header.get("title", args.book.stem), author=header.get("author", ""),
                     language=project.language, description=header.get("meta", {}).get("description", ""),
                     date=header.get("meta", {}).get("date", ""))
-    timeline = layout(plan, keys, wd)
+    loudness, pauses = _post_options(args, wd)
+    timeline = layout(plan, keys, wd, loudness, pauses)
     print(f"encoding {output.name}: {_hms(timeline.seconds)}, {len(timeline.chapters)} chapters …")
     write_m4b(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover,
               args.bitrate)
@@ -453,7 +496,8 @@ def cmd_redo(args) -> int:
     if any(cached_ok(wd, k) is None for k in keys):
         raise SystemExit("some units are not synthesized yet; run `huashuo synth` (or make) with the "
                          "same options first, so times refer to a finished M4B")
-    timeline = layout(plan, keys, wd)
+    loudness, pauses = _post_options(args, wd)
+    timeline = layout(plan, keys, wd, loudness, pauses)
     chosen: dict[int, str] = {}
     for value in args.at:
         index = unit_at(timeline, parse_time(value))
@@ -548,7 +592,8 @@ def cmd_audition(args) -> int:
     finally:
         engine.close()
     keys = unit_keys(plan.units, engine, language)
-    timeline = layout(plan, keys, wd)
+    loudness, pauses = _post_options(args, wd)
+    timeline = layout(plan, keys, wd, loudness, pauses)
     output = args.output or args.book.with_name(args.book.stem + ".audition.m4b")
     header = project.script.header
     cover = wd.find_cover() or make_cover(wd.cover(".jpg"), header.get("title", ""), header.get("author", ""))

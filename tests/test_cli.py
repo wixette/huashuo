@@ -95,3 +95,22 @@ def test_title_and_author_flags_are_remembered_and_hand_edits_still_win(sample_t
     assert read_script(wd.script).header["author"] == "曹雪芹、高鹗"
     assert run("import", sample_txt, "--title", "红楼梦") == 0
     assert read_script(wd.script).header["title"] == "红楼梦"
+
+
+@pytest.mark.ffmpeg
+def test_loudness_and_pauses_are_remembered_and_checked(sample_txt, capsys):
+    from huashuo.m4b import probe
+
+    assert run("make", sample_txt, "--no-asr") == 0
+    before = float(probe(sample_txt.with_suffix(".m4b"))["format"]["duration"])
+    assert run("package", sample_txt, "--loudness", "-16", "--pause", "paragraph=2.5") == 0
+    wd = Workdir.for_input(sample_txt)
+    stored = json.loads(wd.run_options.read_text())
+    assert stored["loudness"] == -16 and stored["pauses"] == {"paragraph": 2.5} and stored["titles"] is True
+    assert run("package", sample_txt, "--pause", "title=2") == 0          # merged with what is remembered
+    assert json.loads(wd.run_options.read_text())["pauses"] == {"paragraph": 2.5, "title": 2.0}
+    after = float(probe(sample_txt.with_suffix(".m4b"))["format"]["duration"])
+    assert after > before + 1
+    for bad in (["--loudness", "-3"], ["--pause", "nap=1"], ["--pause", "paragraph=long"], ["--pause", "title=60"]):
+        with pytest.raises(SystemExit):
+            run("package", sample_txt, *bad)
