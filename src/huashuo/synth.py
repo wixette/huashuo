@@ -88,17 +88,36 @@ class Stats:
 
 
 class Progress:
-    """One status line with an ETA from characters synthesized so far (SYN-7)."""
+    """One status line with an ETA from characters synthesized so far, for the whole run
+    and for the chapter being synthesized (SYN-7)."""
 
-    def __init__(self, total_units: int, total_chars: int, enabled: bool, logged: bool = True) -> None:
+    def __init__(self, total_units: int, total_chars: int, enabled: bool, logged: bool = True,
+                 chapters: list[tuple[int, int]] | None = None) -> None:
         self.total_units, self.total_chars, self.enabled = total_units, total_chars, enabled
         # Without a terminal (piped to a log), print a plain line every 10% instead.
         self.logged, self.next_mark = logged and not enabled, 10
         self.done_units = self.done_chars = self.synth_chars = 0
         self.synth_seconds = self.audio_seconds = 0.0
         self.start = time.time()
+        # (chapter index, characters) of each unit, in order; chapters are numbered 1..N
+        # in the order they occur, so a --chapters run counts only the chosen ones.
+        self.unit_chapters = chapters or []
+        order = list(dict.fromkeys(c for c, _ in self.unit_chapters))
+        self.chapter_number = {c: i + 1 for i, c in enumerate(order)}
+        self.chapter_chars: dict[int, int] = {}
+        for c, n in self.unit_chapters:
+            self.chapter_chars[c] = self.chapter_chars.get(c, 0) + n
+        self.chapter_done: dict[int, int] = {}
+        self.current: int | None = None
 
     def advance(self, chars: int, audio_seconds: float, elapsed: float | None) -> None:
+        if self.done_units < len(self.unit_chapters):
+            chapter = self.unit_chapters[self.done_units][0]
+            self.current = chapter
+            self.chapter_done[chapter] = self.chapter_done.get(chapter, 0) + chars
+            if self.logged and self.chapter_done[chapter] >= self.chapter_chars[chapter] and len(self.chapter_chars) > 1:
+                print(f"  chapter {self.chapter_number[chapter]}/{len(self.chapter_chars)} done, "
+                      f"elapsed {_hms(time.time() - self.start)}", flush=True)
         self.done_units += 1
         self.done_chars += chars
         self.audio_seconds += audio_seconds
@@ -106,6 +125,14 @@ class Progress:
             self.synth_chars += chars
             self.synth_seconds += elapsed
         self.render()
+
+    def chapter_status(self) -> str:
+        """「chapter 3/12 45%」 for the chapter being synthesized, or "" for a single chapter."""
+        upcoming = self.unit_chapters[self.done_units][0] if self.done_units < len(self.unit_chapters) else self.current
+        if upcoming is None or len(self.chapter_chars) < 2:
+            return ""
+        pct = 100.0 * self.chapter_done.get(upcoming, 0) / max(1, self.chapter_chars[upcoming])
+        return f"chapter {self.chapter_number[upcoming]}/{len(self.chapter_chars)} {pct:3.0f}%  "
 
     def note(self, message: str) -> None:
         if self.enabled:
@@ -126,7 +153,7 @@ class Progress:
             rtf = f"{self.audio_seconds / max(self.synth_seconds, 1e-9):.2f}x"
         else:
             eta, rtf = "--:--:--", "--"
-        sys.stdout.write(f"\r\033[K[{self.done_units}/{self.total_units}] {pct:5.1f}%  audio "
+        sys.stdout.write(f"\r\033[K[{self.done_units}/{self.total_units}] {pct:5.1f}%  {self.chapter_status()}audio "
                          f"{_hms(self.audio_seconds)}  elapsed {_hms(time.time() - self.start)}  "
                          f"eta {eta}  rtf {rtf}")
         sys.stdout.flush()
@@ -169,7 +196,8 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
     identity = engine.identity()
     keys = unit_keys(units, engine, language)
     progress = Progress(len(units), sum(len(u.text) for u in units),
-                        enabled=show_progress and sys.stdout.isatty(), logged=show_progress)
+                        enabled=show_progress and sys.stdout.isatty(), logged=show_progress,
+                        chapters=[(u.chapter, len(u.text)) for u in units])
     max_seconds = getattr(engine, "max_unit_seconds", None)
     rerolls = read_json(wd.rerolls, {})
 

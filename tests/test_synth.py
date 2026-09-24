@@ -93,3 +93,20 @@ def test_asr_skips_units_too_short_to_judge(tmp_path):
     title = Unit("title", "吶喊", "preset:serena", None, ["c001"], 0)
     stats = synthesize([title], FakeEngine(), Workdir(tmp_path), "zh", asr=asr, show_progress=False)
     assert asr.calls == 0 and stats.retried == 0 and not stats.warnings
+
+
+def test_progress_shows_the_chapter_being_synthesized(capsys):
+    from huashuo.synth import Progress
+
+    # Units of chapters 2, 2, 5 (a --chapters run): numbered 1 and 2 of 2.
+    p = Progress(3, 30, enabled=False, logged=True, chapters=[(2, 10), (2, 10), (5, 10)])
+    assert p.chapter_status() == "chapter 1/2   0%  "
+    p.advance(10, 1.0, 1.0)
+    assert p.chapter_status() == "chapter 1/2  50%  "
+    p.advance(10, 1.0, 1.0)
+    assert p.chapter_status() == "chapter 2/2   0%  "
+    p.advance(10, 1.0, 1.0)
+    out = capsys.readouterr().out
+    assert "chapter 1/2 done" in out and "chapter 2/2 done" in out
+    single = Progress(1, 10, enabled=False, logged=True, chapters=[(0, 10)])
+    assert single.chapter_status() == ""
