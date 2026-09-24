@@ -92,11 +92,13 @@ class ScriptedLLM:
     """Answers the cast pass with a fixed cast and the speaker pass from an answer key,
     reading the requested indices out of the prompt like a real model would."""
 
-    def __init__(self, cast_ops=None, answers=None, drop_first: int | None = None, confidence: float = 0.95):
+    def __init__(self, cast_ops=None, answers=None, drop_first: int | None = None, confidence: float = 0.95,
+                 tokens_per_call: int | None = None):
         self.cast_ops = DIALOGUE_CAST if cast_ops is None else cast_ops
         self.answers = DIALOGUE_ANSWERS if answers is None else answers
         self.drop_first = drop_first      # leave out this many answers on the first speaker call
         self.confidence = confidence
+        self.tokens_per_call = tokens_per_call   # report this usage, so budgets behave as with a real model
         self.calls = {"cast": 0, "speakers": 0}
 
     def model(self):
@@ -124,6 +126,10 @@ class ScriptedLLM:
             if self.calls["speakers"] == 1 and self.drop_first:
                 answers = answers[self.drop_first:]
             payload = {"answers": answers}
+        extra = {}
+        if self.tokens_per_call:
+            from pydantic_ai.usage import RequestUsage
+            extra["usage"] = RequestUsage(input_tokens=self.tokens_per_call, output_tokens=0)
         if info.output_tools:
-            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, payload)])
-        return ModelResponse(parts=[TextPart(json.dumps(payload, ensure_ascii=False))])
+            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, payload)], **extra)
+        return ModelResponse(parts=[TextPart(json.dumps(payload, ensure_ascii=False))], **extra)

@@ -64,7 +64,7 @@ def test_epub_sample_and_chapter_selection(tmp_path, capsys):
     info = probe(book.with_name("测试之书.chapters-2.m4b"))
     assert [c["tags"]["title"] for c in info["chapters"]] == ["第二章 落雨"]
     assert run("synth", book, "--no-asr", "--sample", "5") == 0
-    assert run("package", book, "--no-asr", "--sample", "5") == 0
+    assert run("package", book, "--sample", "5") == 0
     assert book.with_name("测试之书.sample.m4b").is_file()
 
 

@@ -62,6 +62,8 @@ class LLMOptions:
     max_cost: float | None = None
     assume_yes: bool = False         # --yes: agree to send the text to the endpoint
     confirm: Callable[[str], bool] | None = None   # asks the user; None when not interactive
+    concurrency: int | None = None   # pass-2 calls in flight (default 6)
+    progress: Callable | None = None # (stage, done, total, usage) after each chunk
     model_override: object = None    # tests: a pydantic-ai FunctionModel
     config_override: object = None   # tests: an LLMConfig
 
@@ -101,8 +103,8 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
     if not any(b.get("type") == "dialogue" for b in script.blocks):
         return None, LLMReport("none")
     cache = wd.state / "llm-cache"
-    config = options.config_override or (llm_config(options.model, options.base_url, options.max_cost)
-                                         if options.enabled else None)
+    config = options.config_override or (llm_config(options.model, options.base_url, options.max_cost,
+                                                    options.concurrency) if options.enabled else None)
     if config is None:
         notice = None if not options.enabled else (
             "no LLM configured (HUASHUO_LLM_API_KEY / OPENAI_API_KEY); dialogue is read by the narrator. "
@@ -110,7 +112,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
         if not cache.is_dir() or not any(cache.iterdir()):
             return None, LLMReport("none", notice=notice)
         caller = Caller(offline_config(options.model or record.get("llm_model")), cache, offline=True)
-        attribution = attribute_script(script, language, caller)
+        attribution = attribute_script(script, language, caller, options.progress)
         return attribution, LLMReport("cache", caller.config.model, caller.usage, None,
                                       attribution.stopped and "some quotes are not in the answer cache and stay "
                                                               "\"unknown\"", attribution.review, notice)
@@ -131,7 +133,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                                 f"with --yes, or use --no-llm to skip speaker attribution")
         record["llm_consent"] = consented + [config.endpoint]
     caller = Caller(config, cache, model=options.model_override)
-    attribution = attribute_script(script, language, caller)
+    attribution = attribute_script(script, language, caller, options.progress)
     record["llm_model"] = config.model
     return attribution, LLMReport("calls", config.model, caller.usage, estimate, attribution.stopped,
                                   attribution.review)

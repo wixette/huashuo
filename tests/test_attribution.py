@@ -173,3 +173,54 @@ def test_one_event_loop_serves_every_call(tmp_path):
 
     result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, model=FunctionModel(remember_loop)))
     assert len(loops) >= 2 and len(set(map(id, loops))) == 1 and not result.stopped
+
+
+def long_script(paragraphs=150):
+    lines = ["第一章 风雪"]
+    for n in range(paragraphs):
+        lines.append(f"雪下了整整一夜，这是第{n}段叙述，写得足够长以便分成多个块。“店家，来一壶热酒。”他说。")
+    paras = [Paragraph(t) for t in lines]
+    return build(Book("客栈", "", "zh", [Section(paras)], "txt"))
+
+
+def test_progress_is_reported_for_each_pass(tmp_path):
+    events = []
+    result = attribute_script(long_script().script, "zh", Caller(LOCAL, tmp_path, model=ScriptedLLM().model()),
+                              progress=lambda stage, done, total, usage: events.append((stage, done, total)))
+    stages = [e[0] for e in events]
+    assert "cast" in stages and "speakers" in stages and not result.stopped
+    speakers_events = [e for e in events if e[0] == "speakers"]
+    assert speakers_events[-1][1] == speakers_events[-1][2] > 1           # ends at total, several chunks
+    assert sorted(e[1] for e in speakers_events) == list(range(1, speakers_events[-1][2] + 1))
+
+
+def test_speaker_calls_run_concurrently_within_the_limit(tmp_path):
+    import asyncio
+
+    from pydantic_ai.models.function import FunctionModel
+
+    inner, state = ScriptedLLM(), {"now": 0, "peak": 0}
+
+    async def slow(messages, info):
+        state["now"] += 1
+        state["peak"] = max(state["peak"], state["now"])
+        await asyncio.sleep(0.01)
+        state["now"] -= 1
+        return inner(messages, info)
+
+    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 1.0, 1.0, max_cost=10.0, concurrency=3)
+    result = attribute_script(long_script().script, "zh", Caller(config, tmp_path, model=FunctionModel(slow)))
+    assert not result.stopped and state["peak"] == 3                       # parallel, but never above 3
+
+
+def test_budget_holds_under_concurrency_and_keeps_partial_answers(tmp_path):
+    # Every call reports 3,000 input tokens at $100/M: $0.30 a call. The cap leaves room for
+    # the cast pass and a few speaker calls, not all of them.
+    llm = ScriptedLLM(tokens_per_call=3000)
+    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 100.0, 0.0, max_cost=2.0, concurrency=6)
+    caller = Caller(config, tmp_path, model=llm.model())
+    result = attribute_script(long_script().script, "zh", caller)
+    assert result.stopped and "cap" in result.stopped
+    assert caller.usage.cost <= config.max_cost + 1e-9                     # never over the cap
+    got = [b["speaker"] for b in result.blocks if b["type"] == "dialogue"]
+    assert 0 < got.count("unknown") < len(got)                             # answered chunks are kept

@@ -42,6 +42,7 @@ CAST_CHUNK_CHARS = 2500
 ATTR_CHUNK_CHARS = 1500
 CONTEXT_SEGMENTS = 3
 MAX_OUTPUT_TOKENS = {"cast": 3000, "speakers": 2000}
+DEFAULT_CONCURRENCY = 6              # pass-2 calls in flight at once
 
 # USD per million tokens (input, output), design doc §6.3 (2026-09).
 PRICES = {"gpt-6-luna": (0.10, 0.50), "gpt-6-sol": (2.00, 10.00), "gpt-6-astra": (10.00, 50.00),
@@ -90,6 +91,7 @@ class LLMConfig:
     max_cost: float = DEFAULT_MAX_COST
     output_mode: str = "native"      # response_format; avoids the reasoning + tools error (§6.4)
     reasoning_effort: str | None = "none"
+    concurrency: int = DEFAULT_CONCURRENCY
 
     @property
     def endpoint(self) -> str:
@@ -106,7 +108,7 @@ def is_local(url: str) -> bool:
 
 
 def llm_config(model: str | None = None, base_url: str | None = None,
-               max_cost: float | None = None) -> LLMConfig | None:
+               max_cost: float | None = None, concurrency: int | None = None) -> LLMConfig | None:
     """Settings from arguments, then HUASHUO_LLM_* / OPENAI_API_KEY (and .env files).
     None when no key is configured and the endpoint is not local: run without the LLM."""
     load_dotenv()
@@ -125,8 +127,9 @@ def llm_config(model: str | None = None, base_url: str | None = None,
     else:
         raise LLMError(f"no price known for model {model!r}, so the budget cannot be enforced; set "
                        f"HUASHUO_LLM_PRICE_IN and HUASHUO_LLM_PRICE_OUT (USD per million tokens)")
+    concurrency = concurrency or int(os.environ.get("HUASHUO_LLM_CONCURRENCY") or DEFAULT_CONCURRENCY)
     return LLMConfig(model, base_url, key or "local", price[0], price[1],
-                     max_cost if max_cost is not None else DEFAULT_MAX_COST)
+                     max_cost if max_cost is not None else DEFAULT_MAX_COST, concurrency=max(1, concurrency))
 
 
 def offline_config(model: str | None) -> LLMConfig:
@@ -179,6 +182,8 @@ class Caller:
         # One event loop for the caller's lifetime: the model's HTTP client binds to the loop
         # it first runs on, so a fresh loop per call (asyncio.run) breaks the second call.
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._reserved = 0.0             # worst-case cost of calls in flight
+        self._budget: asyncio.Condition | None = None
 
     def close(self) -> None:
         if self._loop is not None and not self._loop.is_closed():
@@ -188,6 +193,7 @@ class Caller:
     def _run(self, coroutine):
         if self._loop is None or self._loop.is_closed():
             self._loop = asyncio.new_event_loop()
+            self._budget = None
         return self._loop.run_until_complete(coroutine)
 
     def _key(self, stage: str, instructions: str, prompt: str, output_type) -> str:
@@ -197,6 +203,21 @@ class Caller:
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
     def call(self, stage: str, instructions: str, prompt: str, output_type):
+        return self._run(self.acall(stage, instructions, prompt, output_type))
+
+    def run_many(self, jobs: list[Callable]) -> list:
+        """Run coroutine factories with at most `config.concurrency` in flight; returns
+        each result or the exception it raised, in the order given."""
+        async def everything():
+            gate = asyncio.Semaphore(max(1, self.config.concurrency))
+
+            async def one(job):
+                async with gate:
+                    return await job()
+            return await asyncio.gather(*(one(job) for job in jobs), return_exceptions=True)
+        return self._run(everything())
+
+    async def acall(self, stage: str, instructions: str, prompt: str, output_type):
         from pydantic_ai import Agent, NativeOutput, PromptedOutput, ToolOutput
         from pydantic_ai.usage import UsageLimits
 
@@ -211,12 +232,23 @@ class Caller:
         if self.offline:
             raise LLMError("no LLM calls allowed and the answer is not cached")
 
+        # Reserve the worst case before calling, so concurrent calls can never jointly
+        # exceed the cap. A call that does not fit waits for calls in flight to settle
+        # (their actual cost is usually far below the reservation) and fails only when
+        # nothing is in flight and it still does not fit.
         max_output = MAX_OUTPUT_TOKENS[stage]
         worst = ((len(prompt) + len(instructions) + 500) * self.config.price_in
                  + max_output * 4 * self.config.price_out) / 1e6       # up to 3 validation retries
-        if self.usage.cost + worst > self.config.max_cost:
-            raise BudgetExceeded(f"the next call could cost up to ${worst:.3f}; ${self.usage.cost:.3f} of the "
-                                 f"${self.config.max_cost:.2f} cap is spent (raise it with --max-llm-cost)")
+        if self._budget is None:
+            self._budget = asyncio.Condition()
+        async with self._budget:
+            while self.usage.cost + self._reserved + worst > self.config.max_cost:
+                if self._reserved <= 0:
+                    raise BudgetExceeded(f"the next call could cost up to ${worst:.3f}; ${self.usage.cost:.3f} "
+                                         f"of the ${self.config.max_cost:.2f} cap is spent "
+                                         f"(raise it with --max-llm-cost)")
+                await self._budget.wait()
+            self._reserved += worst
 
         wrap = {"native": NativeOutput, "tool": ToolOutput, "prompted": PromptedOutput}[self.config.output_mode]
         agent = Agent(self.model, output_type=wrap(output_type), instructions=instructions, retries=3)
@@ -224,17 +256,23 @@ class Caller:
         if self.config.reasoning_effort and not self.config.local:
             settings["openai_reasoning_effort"] = self.config.reasoning_effort
         started = time.time()
+        result = None
         try:
-            result = self._run(agent.run(prompt, model_settings=settings,
-                                         usage_limits=UsageLimits(request_limit=4)))
+            result = await agent.run(prompt, model_settings=settings, usage_limits=UsageLimits(request_limit=4))
         except Exception as exc:
             raise LLMError(f"{stage} call to {self.config.model} failed: {exc}") from exc
-        usage = result.usage() if callable(result.usage) else result.usage
-        cost = ((usage.input_tokens or 0) * self.config.price_in + (usage.output_tokens or 0) * self.config.price_out) / 1e6
-        self.usage.requests += usage.requests
-        self.usage.input_tokens += usage.input_tokens or 0
-        self.usage.output_tokens += usage.output_tokens or 0
-        self.usage.cost += cost
+        finally:
+            async with self._budget:
+                if result is not None:          # count the cost before releasing the reservation
+                    usage = result.usage() if callable(result.usage) else result.usage
+                    cost = ((usage.input_tokens or 0) * self.config.price_in
+                            + (usage.output_tokens or 0) * self.config.price_out) / 1e6
+                    self.usage.requests += usage.requests
+                    self.usage.input_tokens += usage.input_tokens or 0
+                    self.usage.output_tokens += usage.output_tokens or 0
+                    self.usage.cost += cost
+                self._reserved -= worst
+                self._budget.notify_all()
         self.usage.seconds += time.time() - started
         write_json_atomic(path, {"stage": stage, "model": self.config.model, "output": result.output.model_dump(),
                                  "usage": {"input": usage.input_tokens, "output": usage.output_tokens, "cost": cost}})
@@ -345,13 +383,21 @@ def _chunks(items: list, size: int, length: Callable) -> list[list]:
     return out + ([current] if current else [])
 
 
-def build_cast(paragraphs: list[str], language: str, caller: Caller) -> dict[str, dict]:
+Progress = Callable[[str, int, int, Usage], None]    # (stage, done, total, usage so far)
+
+
+def build_cast(paragraphs: list[str], language: str, caller: Caller,
+               progress: Progress | None = None) -> dict[str, dict]:
+    """Sequential by nature: each chunk is read against the cast built so far."""
     instructions = CAST_INSTRUCTIONS.get(language, CAST_INSTRUCTIONS["zh"])
     label = ("目前的角色表：", "原文：") if language == "zh" else ("Current cast:", "Passage:")
     cast: dict[str, dict] = {}
-    for chunk in _chunks(paragraphs, CAST_CHUNK_CHARS, len):
+    chunks = _chunks(paragraphs, CAST_CHUNK_CHARS, len)
+    for done, chunk in enumerate(chunks, 1):
         prompt = f"{label[0]}\n{json.dumps(cast, ensure_ascii=False)}\n\n{label[1]}\n" + "\n".join(chunk)
         apply_ops(cast, caller.call("cast", instructions, prompt, CastUpdate).operations)
+        if progress:
+            progress("cast", done, len(chunks), caller.usage)
     return cast
 
 
@@ -415,31 +461,50 @@ class Segment:
 
 
 def attribute_segments(segments: list[Segment], cast: dict[str, dict], language: str,
-                       caller: Caller) -> dict[int, tuple[str, float]]:
+                       caller: Caller, progress: Progress | None = None,
+                       answers: dict[int, tuple[str, float]] | None = None) -> dict[int, tuple[str, float]]:
+    """Chunks are independent once the cast is known, so they run concurrently. The first
+    error (budget, API) is raised after everything else has finished; answers so far stay."""
     instructions = SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])
     output_type = _answers_type(list(cast))
     zh = language == "zh"
     header = ("角色表：\n" if zh else "Cast:\n") + _cast_summary(cast, language) + "\n\n"
     tag = {"quote": "引" if zh else "Q", "narration": "叙" if zh else "N"}
-    answers: dict[int, tuple[str, float]] = {}
+    answers = {} if answers is None else answers        # filled in place: kept if a call fails
 
-    def ask(core: list[Segment], wanted: list[int]) -> None:
+    def job(core: list[Segment], wanted: list[int], stage: str, total: int, done: list[int]):
         lo = max(0, core[0].index - CONTEXT_SEGMENTS)
         hi = min(len(segments), core[-1].index + 1 + CONTEXT_SEGMENTS)
         body = "\n".join(f"[{s.index}] {tag[s.kind]}：{s.text}" if zh else f"[{s.index}] {tag[s.kind]}: {s.text}"
                          for s in segments[lo:hi])
         ask_line = ("需要回答的编号：" if zh else "Answer for indices: ") + ", ".join(map(str, wanted))
         prompt = header + ("原文（编号片段）：\n" if zh else "Segments:\n") + body + "\n\n" + ask_line
-        for a in caller.call("speakers", instructions, prompt, output_type).answers:
-            if a.index in wanted:                       # drop answers nobody asked for
-                answers[a.index] = (a.speaker, round(float(a.confidence), 2))
 
-    for core in _chunks(segments, ATTR_CHUNK_CHARS, lambda s: len(s.text)):
-        wanted = [s.index for s in core if s.kind == "quote"]
-        if wanted:
-            ask(core, wanted)
-    for index in [s.index for s in segments if s.kind == "quote" and s.index not in answers]:
-        ask([segments[index]], [index])                 # reconcile, one at a time
+        async def run():
+            try:
+                result = await caller.acall("speakers", instructions, prompt, output_type)
+                for a in result.answers:
+                    if a.index in wanted:               # drop answers nobody asked for
+                        answers[a.index] = (a.speaker, round(float(a.confidence), 2))
+            finally:
+                done[0] += 1
+                if progress:
+                    progress(stage, done[0], total, caller.usage)
+        return run
+
+    def run_all(pairs: list[tuple[list[Segment], list[int]]], stage: str) -> None:
+        done = [0]
+        results = caller.run_many([job(core, wanted, stage, len(pairs), done) for core, wanted in pairs])
+        errors = [r for r in results if isinstance(r, BaseException)]
+        if errors:
+            raise next((e for e in errors if isinstance(e, LLMError)), errors[0])
+
+    batches = [(core, [s.index for s in core if s.kind == "quote"])
+               for core in _chunks(segments, ATTR_CHUNK_CHARS, lambda s: len(s.text))]
+    run_all([b for b in batches if b[1]], "speakers")
+    missing = [s.index for s in segments if s.kind == "quote" and s.index not in answers]
+    if missing:                                          # reconcile, one quote per call
+        run_all([([segments[i]], [i]) for i in missing], "retry")
     return answers
 
 
@@ -460,7 +525,8 @@ class Attribution:
 LOW_CONFIDENCE = 0.6
 
 
-def attribute_script(script: Script, language: str, caller: Caller) -> Attribution:
+def attribute_script(script: Script, language: str, caller: Caller,
+                     progress: Progress | None = None) -> Attribution:
     """Fill in `speaker` and `conf` on the script's dialogue blocks and derive the cast.
 
     Returns new blocks (the input is not changed). Quotes the model calls "narrator" become
@@ -486,8 +552,8 @@ def attribute_script(script: Script, language: str, caller: Caller) -> Attributi
     stopped = None
     if any(s.kind == "quote" for s in segments):
         try:
-            cast = build_cast(paragraphs, language, caller)
-            answers = attribute_segments(segments, cast, language, caller)
+            cast = build_cast(paragraphs, language, caller, progress)
+            attribute_segments(segments, cast, language, caller, progress, answers)
         except LLMError as exc:
             stopped = str(exc)
         finally:

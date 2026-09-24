@@ -32,6 +32,12 @@ _RATE_LIMITS = {"zh": (1.5, 9.0), "en": (5.0, 30.0)}
 _COUNTED = {"zh": re.compile(r"[㐀-鿿豈-﫿A-Za-z0-9]"), "en": re.compile(r"[A-Za-z0-9]")}
 
 
+# Below this many counted characters one misheard character is a 20-100% error rate, so
+# the ASR comparison says nothing and would only trigger pointless retries (a two-character
+# chapter title, for instance).
+MIN_ASR_CHARS = 6
+
+
 def unit_key(unit: Unit, engine_identity: dict, language: str) -> str:
     payload = json.dumps({"v": CACHE_VERSION, "engine": engine_identity, "voice": unit.voice,
                           "instruct": unit.instruct, "language": language, "text": unit.text},
@@ -184,7 +190,8 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                 seconds = len(audio) / engine.sample_rate
                 problem = duration_problem(unit.text, seconds, language, max_seconds)
                 transcript = error_rate = None
-                if problem is None and asr is not None:
+                long_enough = len(_COUNTED.get(language, _COUNTED["zh"]).findall(unit.text)) >= MIN_ASR_CHARS
+                if problem is None and asr is not None and long_enough:
                     transcript = asr.transcribe(audio, engine.sample_rate, language)
                     from huashuo.asr import cer
                     error_rate = cer(unit.text, transcript, language)

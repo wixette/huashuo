@@ -79,3 +79,10 @@ def test_same_input_same_audio(tmp_path):
         synthesize([unit()], FakeEngine(), wd, "zh", show_progress=False)
     wav = lambda wd: next(wd.units.glob("*.wav")).read_bytes()
     assert wav(a) == wav(b)
+
+
+def test_asr_skips_units_too_short_to_judge(tmp_path):
+    asr = FakeAsr(["爹汉。"] * 3)
+    title = Unit("title", "吶喊", "preset:serena", None, ["c001"], 0)
+    stats = synthesize([title], FakeEngine(), Workdir(tmp_path), "zh", asr=asr, show_progress=False)
+    assert asr.calls == 0 and stats.retried == 0 and not stats.warnings

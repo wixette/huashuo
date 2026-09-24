@@ -51,20 +51,23 @@ def _parser() -> argparse.ArgumentParser:
         g.add_argument("--llm-model", help="default: $HUASHUO_LLM_MODEL or gpt-6-sol")
         g.add_argument("--llm-base-url", help="OpenAI-compatible endpoint (default: $HUASHUO_LLM_BASE_URL or OpenAI)")
         g.add_argument("--max-llm-cost", type=float, help="stop before spending more than this many USD (default 5)")
+        g.add_argument("--llm-concurrency", type=int, help="speaker-attribution calls in flight at once (default 6)")
         g.add_argument("--yes", action="store_true",
                        help="agree to send the book's text to the LLM endpoint without asking")
 
-    def synth_options(p):
+    def synth_options(p, asr: bool = True):
         p.add_argument("--voice", help="narrator voice for this run, e.g. preset:vivian "
                                        "(to keep it, edit cast.json)")
         p.add_argument("--model", help="Qwen3-TTS CustomVoice model (default: 1.7B 8-bit)")
-        p.add_argument("--no-asr", action="store_true",
-                       help="skip the speech-recognition check of each unit (~5-10%% faster)")
+        if asr:
+            p.add_argument("--no-asr", action="store_true",
+                           help="skip the speech-recognition check of each unit (~5-10%% faster)")
         p.add_argument("--titles", action=argparse.BooleanOptionalAction, default=None,
                        help="read chapter titles aloud (default: yes)")
         p.add_argument("--sample", type=int, nargs="?", const=600, metavar="CHARS",
-                       help="only the first CHARS characters (default 600), to <book>.sample.m4b")
-        p.add_argument("--chapters", help="only these chapters, e.g. 1,3-5 (numbers from `import`)")
+                       help="only the first CHARS characters (default 600); packaged as <book>.sample.m4b")
+        p.add_argument("--chapters", help="only these chapters, e.g. 1,3-5 (numbers from `import`); "
+                                          "packaged as <book>.chapters-1_3-5.m4b")
         p.add_argument("--engine", default="qwen3", help=argparse.SUPPRESS)
 
     def package_options(p):
@@ -80,7 +83,7 @@ def _parser() -> argparse.ArgumentParser:
     p = book_command("synth", "synthesize units into the cache")
     synth_options(p)
     p = book_command("package", "encode the M4B from cached units")
-    synth_options(p), package_options(p)
+    synth_options(p, asr=False), package_options(p)
     p = book_command("redo", "re-synthesize the unit playing at a time in the M4B, with new seeds")
     p.add_argument("--at", action="append", required=True, metavar="TIME",
                    help="time in the M4B, e.g. 1:28, 1:02:03 or 88.5; repeatable")
@@ -176,8 +179,8 @@ def cmd_import(args, quiet: bool = False):
     wd = _workdir(args)
     _setup_logging(wd)
     llm = LLMOptions(enabled=not args.no_llm, model=args.llm_model, base_url=args.llm_base_url,
-                     max_cost=args.max_llm_cost, assume_yes=args.yes,
-                     confirm=_ask if sys.stdin.isatty() else None)
+                     max_cost=args.max_llm_cost, assume_yes=args.yes, concurrency=args.llm_concurrency,
+                     confirm=_ask if sys.stdin.isatty() else None, progress=LLMProgress())
     result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes, llm)
     h = result.script.header
     chars = sum(len(b.get("text", "")) for b in result.script.blocks if b.get("type") != "skip")
@@ -191,6 +194,39 @@ def cmd_import(args, quiet: bool = False):
         from huashuo.pipeline import load_project
         _print_structure(load_project(wd))
     return 0
+
+
+class LLMProgress:
+    """Where speaker attribution is (it can take several minutes on a long book): one
+    updating line on a terminal, a line per 10% of each pass otherwise."""
+
+    STAGES = {"cast": "pass 1/2, cast", "speakers": "pass 2/2, speakers", "retry": "re-asking missed quotes"}
+
+    def __init__(self) -> None:
+        self.tty = sys.stdout.isatty()
+        self.stage = None
+        self.mark = 0
+        self.started = None              # set by the first report: after any consent question
+
+    def __call__(self, stage: str, done: int, total: int, usage) -> None:
+        if self.started is None:
+            self.started = time.time()
+        if stage != self.stage:
+            if self.tty and self.stage is not None:
+                sys.stdout.write("\n")
+            self.stage, self.mark = stage, 0
+        line = (f"  speaker attribution, {self.STAGES.get(stage, stage)}: {done}/{total} "
+                f"({100 * done // max(total, 1)}%), {usage.requests} requests, ${usage.cost:.3f}, "
+                f"{_hms(time.time() - self.started)}")
+        if self.tty:
+            sys.stdout.write("\r\033[K" + line)
+            if done == total:
+                sys.stdout.write("\n")
+                self.stage = None
+            sys.stdout.flush()
+        elif done == total or 100 * done // max(total, 1) >= self.mark + 10:
+            self.mark = 100 * done // max(total, 1)
+            print(line, flush=True)
 
 
 def _ask(message: str) -> bool:
