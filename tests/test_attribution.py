@@ -224,3 +224,35 @@ def test_budget_holds_under_concurrency_and_keeps_partial_answers(tmp_path):
     assert caller.usage.cost <= config.max_cost + 1e-9                     # never over the cap
     got = [b["speaker"] for b in result.blocks if b["type"] == "dialogue"]
     assert 0 < got.count("unknown") < len(got)                             # answered chunks are kept
+
+
+# ---- emotion hints (SCR-12) ----------------------------------------------------------------
+
+
+def test_emotion_hints_come_with_the_speakers(tmp_path):
+    llm = ScriptedLLM(emotions={"“从哪儿来不重要。”": "冷淡"})
+    result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, model=llm.model()))
+    emotion = {b["text"]: b.get("emotion") for b in result.blocks if b["type"] == "dialogue"}
+    assert emotion == {"“店家，来一壶热酒。”": None, "“客官面生得很，是从北边来的？”": None,
+                       "“从哪儿来不重要。”": "用冷淡的语气说"}
+    assert llm.calls["speakers"] == 1                          # no extra call for them
+
+
+def test_answers_cached_before_emotion_hints_still_serve_offline(tmp_path):
+    """Books imported before SCR-12 have plain answers cached; without a key they must keep
+    their speakers (a key would buy fresh answers with emotions)."""
+    attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, model=ScriptedLLM().model()), emotions=False)
+    result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, offline=True))
+    assert speakers(result.blocks)["“客官面生得很，是从北边来的？”"] == "老者" and not result.stopped
+    assert not any(b.get("emotion") for b in result.blocks)
+    online = ScriptedLLM(emotions={"“从哪儿来不重要。”": "冷淡"})
+    result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, model=online.model()))
+    assert online.calls["speakers"] == 1 and any(b.get("emotion") for b in result.blocks)
+
+
+def test_the_prompt_without_emotions_is_unchanged():
+    """Its cache keys must match answers cached before emotion hints existed."""
+    from huashuo.attribution import SPEAKER_INSTRUCTIONS, _answers_type
+
+    assert "emotion" not in SPEAKER_INSTRUCTIONS["zh"] and "emotion" not in SPEAKER_INSTRUCTIONS["en"]
+    assert "emotion" not in json.dumps(_answers_type(["甲"]).model_json_schema())

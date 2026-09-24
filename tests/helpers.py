@@ -93,14 +93,17 @@ class ScriptedLLM:
     reading the requested indices out of the prompt like a real model would."""
 
     def __init__(self, cast_ops=None, answers=None, drop_first: int | None = None, confidence: float = 0.95,
-                 tokens_per_call: int | None = None, voice_choices: dict | None = None):
+                 tokens_per_call: int | None = None, voice_choices: dict | None = None,
+                 emotions: dict | None = None):
         self.cast_ops = DIALOGUE_CAST if cast_ops is None else cast_ops
         self.answers = DIALOGUE_ANSWERS if answers is None else answers
         self.drop_first = drop_first      # leave out this many answers on the first speaker call
         self.confidence = confidence
         self.tokens_per_call = tokens_per_call   # report this usage, so budgets behave as with a real model
         self.voice_choices = voice_choices or {}   # name -> voice ref, for the casting call
+        self.emotions = emotions or {}             # quote text -> emotion label
         self.calls = {"cast": 0, "speakers": 0, "voices": 0}
+        self.prompts: list[str] = []
 
     def model(self):
         from pydantic_ai.models.function import FunctionModel
@@ -114,6 +117,7 @@ class ScriptedLLM:
 
         prompt = "".join(getattr(part, "content", "") for m in messages for part in getattr(m, "parts", [])
                          if isinstance(getattr(part, "content", None), str))
+        self.prompts.append(prompt)
         asked = re.search(r"(?:需要回答的编号：|Answer for indices: )([\d, ]+)", prompt)
         if "可用的音色" in prompt or "Available voices" in prompt:   # casting suggestions
             self.calls["voices"] += 1
@@ -127,6 +131,8 @@ class ScriptedLLM:
             lines = dict(re.findall(r"^\[(\d+)\] [^：:]+[：:](.*)$", prompt, re.M))
             answers = [{"index": i, "speaker": self.answers.get(lines[str(i)].strip(), "unknown"),
                         "confidence": self.confidence} for i in wanted]
+            for a in answers:                               # ignored by the schema without emotions
+                a["emotion"] = self.emotions.get(lines[str(a["index"])].strip(), "")
             if self.calls["speakers"] == 1 and self.drop_first:
                 answers = answers[self.drop_first:]
             payload = {"answers": answers}

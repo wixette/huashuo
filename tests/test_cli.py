@@ -71,7 +71,9 @@ def test_user_cover_survives_reimport(tmp_path):
 @pytest.mark.ffmpeg
 def test_package_and_redo_reuse_the_synthesis_options(sample_txt):
     assert run("import", sample_txt) == 0
-    assert run("synth", sample_txt, "--no-asr", "--voice", "preset:vivian", "--no-titles") == 0
+    assert run("synth", sample_txt, "--no-asr", "--voice", "preset:vivian", "--no-titles",
+               "--no-emotions") == 0
     wd = Workdir.for_input(sample_txt)
-    assert json.loads(wd.run_options.read_text()) == {"voice": "preset:vivian", "model": None, "titles": False}
+    assert json.loads(wd.run_options.read_text()) == {"voice": "preset:vivian", "model": None, "titles": False,
+                                                         "emotions": False}
     assert run("package", sample_txt) == 0                 # finds the same units without repeating flags

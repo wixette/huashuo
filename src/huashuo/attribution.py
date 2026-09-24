@@ -438,10 +438,40 @@ Keep in mind:
 }
 
 
-def _answers_type(names: list[str]):
+# Emotion hints (SCR-12), asked for in the same call as the speaker. The model picks a
+# label; the label's phrase, worded moderately because strong emotions pull a voice's
+# timbre (design doc §5.6), becomes the block's `emotion` and the TTS `instruct`.
+EMOTIONS = {
+    "zh": {"高兴": "用愉快的语气说", "兴奋": "用兴奋的语气说", "生气": "用有些生气的语气说",
+           "不耐烦": "用不耐烦的语气说", "悲伤": "用低落、伤感的语气说", "害怕": "用紧张、害怕的语气说",
+           "惊讶": "用惊讶的语气说", "低声": "压低声音说", "温柔": "用温柔的语气说", "冷淡": "用冷淡的语气说",
+           "讥讽": "用讥讽的语气说", "急切": "用急切的语气说", "疑惑": "用疑惑的语气说", "严厉": "用严厉的语气说"},
+    "en": {"happy": "Speak in a cheerful tone", "excited": "Speak with excitement",
+           "angry": "Speak in a somewhat angry tone", "impatient": "Speak impatiently",
+           "sad": "Speak in a sad, subdued tone", "afraid": "Speak nervously, a little afraid",
+           "surprised": "Speak in a surprised tone", "hushed": "Speak in a lowered voice",
+           "gentle": "Speak gently", "cold": "Speak coldly", "sarcastic": "Speak sarcastically",
+           "urgent": "Speak urgently", "puzzled": "Speak in a puzzled tone", "stern": "Speak sternly"},
+}
+EMOTION_INSTRUCTIONS = {
+    "zh": """
+
+另外给出 emotion：这句话的语气。只在原文有明确依据时填写（叙述写了「怒道」「低声说」「哭着说」之类，
+或者话语本身明显带着情绪），否则留空字符串。大多数对白应当留空；拿不准时留空。""",
+    "en": """
+
+Also give emotion: how the line is said. Fill it in only when the text clearly shows it (a tag such as
+"she snapped" or "he whispered", or unmistakable feeling in the words); otherwise leave it an empty string.
+Most lines should be left empty; when unsure, leave it empty.""",
+}
+
+
+def _answers_type(names: list[str], emotions: list[str] | None = None):
     speaker = Literal[tuple(names + ["narrator", "unknown"])]  # type: ignore[misc]
-    answer = create_model("Answer", index=(int, ...), speaker=(speaker, ...),
-                          confidence=(float, Field(0.5, ge=0, le=1)))
+    fields: dict = {"index": (int, ...), "speaker": (speaker, ...), "confidence": (float, Field(0.5, ge=0, le=1))}
+    if emotions:
+        fields["emotion"] = (Literal[tuple([""] + emotions)], "")  # type: ignore[misc]
+    answer = create_model("Answer", **fields)
     return create_model("Answers", answers=(list[answer], ...))
 
 
@@ -461,13 +491,24 @@ class Segment:
     text: str
 
 
+Answer = tuple[str, float, str]     # speaker, confidence, emotion label ("" for none)
+
+
 def attribute_segments(segments: list[Segment], cast: dict[str, dict], language: str,
                        caller: Caller, progress: Progress | None = None,
-                       answers: dict[int, tuple[str, float]] | None = None) -> dict[int, tuple[str, float]]:
+                       answers: dict[int, Answer] | None = None, emotions: bool = True) -> dict[int, Answer]:
     """Chunks are independent once the cast is known, so they run concurrently. The first
-    error (budget, API) is raised after everything else has finished; answers so far stay."""
-    instructions = SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])
-    output_type = _answers_type(list(cast))
+    error (budget, API) is raised after everything else has finished; answers so far stay.
+
+    With `emotions`, each answer also carries an emotion label. The prompt without them is
+    kept exactly as before, so answers cached before emotion hints existed stay valid: with
+    no calls allowed, a chunk not cached with emotions falls back to the plain answer."""
+    plain_instructions = SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])
+    plain_type = _answers_type(list(cast))
+    labels = list(EMOTIONS.get(language, EMOTIONS["zh"])) if emotions else []
+    instructions = plain_instructions + EMOTION_INSTRUCTIONS.get(language, EMOTION_INSTRUCTIONS["zh"]) \
+        if emotions else plain_instructions
+    output_type = _answers_type(list(cast), labels) if emotions else plain_type
     zh = language == "zh"
     header = ("角色表：\n" if zh else "Cast:\n") + _cast_summary(cast, language) + "\n\n"
     tag = {"quote": "引" if zh else "Q", "narration": "叙" if zh else "N"}
@@ -483,10 +524,15 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
 
         async def run():
             try:
-                result = await caller.acall("speakers", instructions, prompt, output_type)
+                try:
+                    result = await caller.acall("speakers", instructions, prompt, output_type)
+                except LLMError:
+                    if not (caller.offline and emotions):
+                        raise
+                    result = await caller.acall("speakers", plain_instructions, prompt, plain_type)
                 for a in result.answers:
                     if a.index in wanted:               # drop answers nobody asked for
-                        answers[a.index] = (a.speaker, round(float(a.confidence), 2))
+                        answers[a.index] = (a.speaker, round(float(a.confidence), 2), getattr(a, "emotion", ""))
             finally:
                 done[0] += 1
                 if progress:
@@ -574,8 +620,8 @@ LOW_CONFIDENCE = 0.6
 
 def attribute_script(script: Script, language: str, caller: Caller,
                      progress: Progress | None = None, voices: list | None = None,
-                     narrator: str | None = None) -> Attribution:
-    """Fill in `speaker` and `conf` on the script's dialogue blocks and derive the cast.
+                     narrator: str | None = None, emotions: bool = True) -> Attribution:
+    """Fill in `speaker`, `conf` and `emotion` on the script's dialogue blocks and derive the cast.
 
     Returns new blocks (the input is not changed). Quotes the model calls "narrator" become
     narration. If a call fails or the budget runs out, everything answered so far is kept,
@@ -596,18 +642,18 @@ def attribute_script(script: Script, language: str, caller: Caller,
                 for n, i in enumerate(readable)]
 
     cast: dict[str, dict] = {}
-    answers: dict[int, tuple[str, float]] = {}
+    answers: dict[int, Answer] = {}
     stopped = None
     suggested: dict[str, str] = {}
     suggestions_failed = None
     if any(s.kind == "quote" for s in segments):
         try:
             cast = build_cast(paragraphs, language, caller, progress)
-            attribute_segments(segments, cast, language, caller, progress, answers)
+            attribute_segments(segments, cast, language, caller, progress, answers, emotions)
         except LLMError as exc:
             stopped = str(exc)
         if voices and narrator and not stopped:
-            counts = Counter(speaker for speaker, _ in answers.values())
+            counts = Counter(answer[0] for answer in answers.values())
             with_lines = {name: {**entry, "lines": counts.get(name, 0)} for name, entry in cast.items()}
             try:
                 suggested = suggest_voices(with_lines, voices, narrator, language, caller)
@@ -620,12 +666,14 @@ def attribute_script(script: Script, language: str, caller: Caller,
         block = blocks[i]
         if block["type"] != "dialogue":
             continue
-        speaker, conf = answers.get(n, ("unknown", None))
+        speaker, conf, emotion = answers.get(n, ("unknown", None, ""))
         if speaker == "narrator":
             block["type"] = "narration"
             block.pop("speaker", None)
             continue
         block["speaker"] = speaker
+        if emotion:
+            block["emotion"] = EMOTIONS.get(language, EMOTIONS["zh"])[emotion]
         if conf is not None:
             block["conf"] = conf
         if speaker == "unknown" or (conf is not None and conf < LOW_CONFIDENCE):

@@ -298,10 +298,10 @@ def check_project(project: Project) -> list:
 
 def make_plan(project: Project, *, read_titles: bool = True, voice: str | None = None,
               max_chars: int = DEFAULT_MAX_CHARS, sample_chars: int | None = None,
-              chapters: set[int] | None = None) -> Plan:
+              chapters: set[int] | None = None, emotions: bool = True) -> Plan:
     """The units to synthesize; optionally only the first `sample_chars` characters of
     reading, or only some chapters (1-based, as listed by `huashuo import`)."""
-    full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice)
+    full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice, emotions)
     if chapters:
         keep = [i for i, u in enumerate(full.units) if u.chapter + 1 in chapters]
         return _subset(full, keep)

@@ -88,17 +88,17 @@ def split_long(text: str, max_chars: int, language: str) -> list[str]:
     return [p.strip() for p in out if p.strip()]
 
 
-def voice_of(block: dict, cast: dict) -> tuple[str, str | None]:
+def voice_of(block: dict, cast: dict, emotions: bool = True) -> tuple[str, str | None]:
     narrator = cast["narrator"]["voice"]
     if block.get("type") != "dialogue":
         return narrator, None
     character = cast.get("characters", {}).get(block.get("speaker"))
     voice = character.get("voice") if character else None
-    return voice or narrator, block.get("emotion") or None
+    return voice or narrator, (block.get("emotion") or None) if emotions else None
 
 
 def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX_CHARS,
-         read_titles: bool = True, voice_override: str | None = None) -> Plan:
+         read_titles: bool = True, voice_override: str | None = None, emotions: bool = True) -> Plan:
     result = Plan()
     units = result.units
     joiner = "" if language == "zh" else " "
@@ -149,7 +149,7 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             flush()
             close(BREAK)
         elif kind in ("narration", "dialogue"):
-            voice = voice_of(block, cast)
+            voice = voice_of(block, cast, emotions)
             if voice_override and voice[0] == cast["narrator"]["voice"]:
                 voice = (voice_override, voice[1])
             text = spoken_text(block).strip()
@@ -158,7 +158,7 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             size = sum(len(t) for _, t in group) + len(text)
             if group and (voice != group_voice or size > max_chars):
                 same_paragraph = paragraph_of(group[-1][0]["id"]) == paragraph_of(block["id"])
-                changed_voice = voice != group_voice
+                changed_voice = voice[0] != group_voice[0]     # not just the emotion
                 flush()
                 if same_paragraph and units[-1].after == PARAGRAPH:
                     units[-1].after = TURN if changed_voice else SENTENCE

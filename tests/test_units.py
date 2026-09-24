@@ -77,3 +77,16 @@ def test_voice_change_inside_a_paragraph_is_a_turn():
     p = plan(s, cast, "zh")
     assert [u.after for u in p.units] == ["title", "turn", "turn", "end"]
     assert p.units[2].voice == "preset:uncle_fu" and p.units[3].text == "他坐下了。下一段。"
+
+
+def test_emotion_becomes_instruct_and_can_be_switched_off():
+    cast = {**CAST, "characters": {"林渊": {"voice": "preset:uncle_fu"}}}
+    s = script(("chapter", "第一章", {"level": 1}),
+               ("dialogue", "“来一壶热酒。”", {"id": "c1.p1.01", "speaker": "林渊"}),
+               ("dialogue", "“快点！”", {"id": "c1.p1.02", "speaker": "林渊", "emotion": "用不耐烦的语气说"}),
+               ("narration", "下一段。", {"id": "c1.p2"}))
+    p = plan(s, cast, "zh")
+    assert [(u.text, u.instruct) for u in p.units[1:3]] == [("“来一壶热酒。”", None), ("“快点！”", "用不耐烦的语气说")]
+    assert p.units[1].after == "sentence"                 # same speaker: not a turn of voice
+    off = plan(s, cast, "zh", emotions=False)
+    assert off.units[1].text == "“来一壶热酒。”“快点！”" and off.units[1].instruct is None
