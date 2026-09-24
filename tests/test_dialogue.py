@@ -54,3 +54,25 @@ def test_cleanup_applies_to_pieces():
     built = build(Book("书", "", "zh", [Section([Paragraph("第一章 起"), Paragraph("他说：“ぇ你好。”")])], "txt"))
     quote = next(b for b in built.script.blocks if b["type"] == "dialogue")
     assert quote["say"] == "“你好。”" and quote["text"] == "“ぇ你好。”"
+
+
+def test_british_single_quotes_in_english_books():
+    from huashuo.dialogue import quote_spans, split_blocks, uses_single_quotes
+
+    t = "‘Hello,’ she said. ‘Don’t go!’"
+    assert [t[a:b] for a, b in quote_spans(t, "en", single=True)] == ["‘Hello,’", "‘Don’t go!’"]
+    assert quote_spans("The boys’ toys were O’Brien’s.", "en", single=True) == []
+    t = "‘I said “no”,’ he replied, ‘and I meant it.’"
+    assert [t[a:b] for a, b in quote_spans(t, "en", single=True)] == ["‘I said “no”,’", "‘and I meant it.’"]
+
+    british = ["‘Where are you going?’ asked Tom.", "‘Home,’ said Ann. ‘It’s late.’", "The dogs’ barking stopped.",
+               "‘Wait for me!’"]
+    blocks = [{"id": f"c001.p{i:04d}", "type": "narration", "text": t, "src": [0, len(t)]} for i, t in enumerate(british)]
+    assert uses_single_quotes(british)
+    kinds = [(b["type"], b["text"]) for b in split_blocks(blocks, "en")]
+    assert ("dialogue", "‘Home,’") in kinds and ("dialogue", "‘It’s late.’") in kinds
+    assert ("narration", "The dogs’ barking stopped.") in kinds and ("dialogue", "‘Wait for me!’") in kinds
+
+    american = ['"Where are you going?" asked Tom.', "“Home,” said Ann. “It’s late.”",
+                "Ann’s ‘friend’ laughed."]
+    assert not uses_single_quotes(american)                   # ‘ ’ stay scare quotes there
