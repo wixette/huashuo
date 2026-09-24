@@ -44,6 +44,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, create_model
 
 ROOT = Path(__file__).resolve().parents[1]
+os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 QUOTE = re.compile(r"“[^”]*”|「[^」]*」|『[^』]*』|\"[^\"]*\"")
 
 
@@ -79,6 +80,39 @@ def make_model(name: str, base_url: str | None):
 def wrap_output(output_type, mode: str):
     from pydantic_ai import NativeOutput, PromptedOutput, ToolOutput
     return {"tool": ToolOutput, "native": NativeOutput, "prompted": PromptedOutput}[mode](output_type)
+
+
+# USD per million tokens (input, output), design doc §6.3 (2026-09).
+PRICES = {"gpt-6-luna": (0.10, 0.50), "gpt-6-sol": (2.00, 10.00), "gpt-6-astra": (10.00, 50.00),
+          "gpt-5.6-luna": (0.20, 1.20), "gpt-5.6-sol": (4.00, 20.00), "gpt-5.6-terra": (2.00, 12.00),
+          "gpt-5.4-mini": (0.75, 4.50), "gpt-5.4-nano": (0.20, 1.25), "gpt-5-nano": (0.05, 0.40),
+          "gpt-4o-mini": (0.15, 0.60), "test": (0.0, 0.0)}
+MAX_OUTPUT_TOKENS = {"cast": 3000, "attribute": 2000}
+
+
+class BudgetExceeded(Exception):
+    pass
+
+
+@dataclass
+class Budget:
+    """Stops a run before a call that could push spending past the cap. The estimate is
+    deliberately pessimistic: every prompt character counted as a token (Chinese is about
+    one token per character, English far less) plus the full output cap."""
+    price_in: float
+    price_out: float
+    max_cost: float
+    spent: float = 0.0
+
+    def check(self, prompt_chars: int, max_output: int) -> None:
+        worst = (prompt_chars + 1500) * self.price_in / 1e6 + max_output * self.price_out / 1e6
+        if self.spent + worst > self.max_cost:
+            raise BudgetExceeded(f"next call could cost up to ${worst:.4f}; spent ${self.spent:.4f} "
+                                 f"of the ${self.max_cost:.2f} cap")
+
+    def charge(self, usage) -> None:
+        usage = usage() if callable(usage) else usage
+        self.spent += ((usage.input_tokens or 0) * self.price_in + (usage.output_tokens or 0) * self.price_out) / 1e6
 
 
 @dataclass
@@ -207,16 +241,28 @@ def apply_ops(cast: dict[str, dict], ops: list[CastOp]) -> None:
             entry["description"] = op.description
 
 
-def build_cast(paragraphs: list[str], model, mode: str, chunk_chars: int, meter: Meter) -> dict[str, dict]:
+def run_guarded(agent, prompt: str, budget: Budget, meter: Meter, max_output: int, settings: dict):
+    """One agent call under the budget, an output cap and a request limit (retries included)."""
+    from pydantic_ai.usage import UsageLimits
+
+    budget.check(len(prompt), max_output * 4)          # up to 3 validation retries
+    started = time.time()
+    result = agent.run_sync(prompt, model_settings={**settings, "max_tokens": max_output},
+                            usage_limits=UsageLimits(request_limit=4))
+    meter.add(result.usage, time.time() - started)
+    budget.charge(result.usage)
+    return result
+
+
+def build_cast(paragraphs: list[str], model, mode: str, chunk_chars: int, meter: Meter,
+               budget: Budget, settings: dict) -> dict[str, dict]:
     from pydantic_ai import Agent
 
     agent = Agent(model, output_type=wrap_output(CastUpdate, mode), instructions=CAST_INSTRUCTIONS, retries=3)
     cast: dict[str, dict] = {}
     for chunk in chunks_by_chars(paragraphs, chunk_chars, len):
         prompt = f"目前的角色表：\n{json.dumps(cast, ensure_ascii=False)}\n\n原文：\n" + "\n".join(chunk)
-        started = time.time()
-        result = agent.run_sync(prompt)
-        meter.add(result.usage, time.time() - started)
+        result = run_guarded(agent, prompt, budget, meter, MAX_OUTPUT_TOKENS["cast"], settings)
         apply_ops(cast, result.output.operations)
     return cast
 
@@ -260,7 +306,7 @@ def cast_summary(cast: dict[str, dict]) -> str:
 
 
 def attribute(segments: list[Segment], cast: dict[str, dict], model, mode: str, chunk_chars: int,
-              context: int, meter: Meter) -> dict[int, tuple[str, float]]:
+              context: int, meter: Meter, budget: Budget, settings: dict) -> dict[int, tuple[str, float]]:
     from pydantic_ai import Agent
 
     names = list(cast)
@@ -274,9 +320,7 @@ def attribute(segments: list[Segment], cast: dict[str, dict], model, mode: str, 
         hi = min(len(segments), core[-1].index + 1 + context)
         prompt = (header + "原文（编号片段）：\n" + render(segments[lo:hi]) +
                   f"\n\n需要回答的编号：{', '.join(map(str, wanted))}")
-        started = time.time()
-        result = agent.run_sync(prompt)
-        meter.add(result.usage, time.time() - started)
+        result = run_guarded(agent, prompt, budget, meter, MAX_OUTPUT_TOKENS["attribute"], settings)
         for a in result.output.answers:
             if a.index in wanted:                       # drop answers nobody asked for
                 answers[a.index] = (a.speaker, a.confidence)
@@ -335,8 +379,11 @@ def main() -> None:
     parser.add_argument("--cast-chunk-chars", type=int, default=2500)
     parser.add_argument("--attr-chunk-chars", type=int, default=1500)
     parser.add_argument("--context", type=int, default=3, help="segments of context on each side")
-    parser.add_argument("--price-in", type=float, help="USD per million input tokens")
-    parser.add_argument("--price-out", type=float, help="USD per million output tokens")
+    parser.add_argument("--price-in", type=float, help="USD per million input tokens (default: built-in table)")
+    parser.add_argument("--price-out", type=float, help="USD per million output tokens (default: built-in table)")
+    parser.add_argument("--max-cost", type=float, default=0.30, help="stop before exceeding this many USD (default 0.30)")
+    parser.add_argument("--reasoning-effort", default="none",
+                        help="for reasoning models; 'none' avoids paying for hidden reasoning (design doc §6.4)")
     parser.add_argument("--out", type=Path, help="write the full result as JSON")
     args = parser.parse_args()
     if not args.model:
@@ -348,12 +395,28 @@ def main() -> None:
     quotes = sum(s.kind == "quote" for s in segments)
     print(f"{bench['name']}: {len(bench['paragraphs'])} paragraphs, {len(segments)} segments, {quotes} quotes")
 
+    price_in, price_out = PRICES.get(args.model, (args.price_in, args.price_out))
+    price_in = args.price_in if args.price_in is not None else price_in
+    price_out = args.price_out if args.price_out is not None else price_out
+    if price_in is None or price_out is None:
+        sys.exit(f"no price for {args.model}: pass --price-in and --price-out so the budget can be enforced")
+    budget = Budget(price_in, price_out, args.max_cost)
+    settings = {"openai_reasoning_effort": args.reasoning_effort} if args.reasoning_effort and args.model != "test" else {}
+
     m1, m2 = Meter(), Meter()
-    cast = build_cast(bench["paragraphs"], model, args.output_mode, args.cast_chunk_chars, m1)
+    try:
+        cast = build_cast(bench["paragraphs"], model, args.output_mode, args.cast_chunk_chars, m1, budget, settings)
+    except BudgetExceeded as exc:
+        sys.exit(f"budget stop in pass 1: {exc}")
     print(f"\npass 1: {len(cast)} characters, {m1.requests} requests, {m1.input_tokens}+{m1.output_tokens} tokens, {m1.seconds:.1f}s")
     for name, c in cast.items():
         print(f"  {name} {c['aliases'] or ''} {c['gender']}/{c['age']}  {c['description'][:40]}")
-    answers = attribute(segments, cast, model, args.output_mode, args.attr_chunk_chars, args.context, m2)
+    try:
+        answers = attribute(segments, cast, model, args.output_mode, args.attr_chunk_chars, args.context, m2,
+                            budget, settings)
+    except BudgetExceeded as exc:
+        print(f"budget stop in pass 2: {exc}; scoring what was answered")
+        answers = {}
     print(f"pass 2: {m2.requests} requests, {m2.input_tokens}+{m2.output_tokens} tokens, {m2.seconds:.1f}s")
 
     result = score(bench, segments, answers, cast)
@@ -362,13 +425,11 @@ def main() -> None:
         if not r["ok"]:
             print(f"  ✗ {r['quote'][:30]:<32} gold {'/'.join(r['gold'])}  got {r['predicted']} ({r.get('confidence')})")
     total_in, total_out = m1.input_tokens + m2.input_tokens, m1.output_tokens + m2.output_tokens
-    cost = ""
-    if args.price_in is not None and args.price_out is not None:
-        cost = f", ${(total_in * args.price_in + total_out * args.price_out) / 1e6:.4f}"
+    cost = f", ${budget.spent:.4f} (cap ${args.max_cost:.2f})"
     print(f"total: {m1.requests + m2.requests} requests, {total_in}+{total_out} tokens, "
           f"{m1.seconds + m2.seconds:.1f}s{cost}")
     if args.out:
-        args.out.write_text(json.dumps({"model": args.model, "cast": cast, **result,
+        args.out.write_text(json.dumps({"model": args.model, "cost_usd": budget.spent, "cast": cast, **result,
                                         "usage": {"pass1": m1.__dict__, "pass2": m2.__dict__}},
                                        ensure_ascii=False, indent=1))
 
