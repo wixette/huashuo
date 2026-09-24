@@ -11,8 +11,11 @@ Traditional Chinese and heavily classical texts work but are not yet a quality t
 **Status:** M1 (TXT/EPUB in, M4B out), M2 (dialogue splitting and LLM speaker
 attribution) and M3 (per-character voices) are done: Chinese novels get a voice per
 character from a built-in library of 16 designed voices, and dialogue carries emotion
-hints. Next: polish (M4). English books still share one character voice until the English
-library is built.
+hints. Next: M4 (remaining core features: `--title`/`--author`, punctuation cleanup,
+configurable loudness and pauses, per-chapter progress), then M5 (pronunciation dictionary,
+numbers, web-novel noise, opening and closing). In the first stage English books are read
+entirely by the narrator's voice; the English voice library comes later. Install from
+source for now.
 
 ```bash
 uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
