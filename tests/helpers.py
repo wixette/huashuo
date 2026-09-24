@@ -66,6 +66,30 @@ def make_epub(path: Path, cover: bytes | None = b"\xff\xd8fakejpeg") -> Path:
     return path
 
 
+# A web-novel-style TXT (acceptance corpus stand-in, requirements §5.1): GBK when written,
+# volumes, chapters without blank lines, half-width punctuation mixed into Chinese,
+# full-width digits, and the noise lines web novels carry (for TXT-5).
+WEBNOVEL_TXT = """剑来长安
+作者:青衫客
+
+第一卷 风起青萍
+第一章 雨夜来客
+　　雨下了一整夜,长安城的青石板路泛着冷光.
+　　"店家,来一壶酒!"门口站着一个浑身湿透的少年.
+　　掌柜抬起头:"客官从哪里来?"
+　　少年笑了笑:"从很远的地方来...你别问了."
+　　求月票!求推荐票!
+第二章 旧剑
+　　少年把剑放在桌上,剑身上刻着１２３４个小字.
+　　本章完
+第二卷 云涌
+第三章 出城
+　　天亮以后,他背着剑出了城--再也没有回头.
+　　(本章未完,请翻页)
+　　www.example-novel.com 最新章节免费阅读
+"""
+
+
 # --------------------------------------------------------------------------------------
 # A scripted stand-in for the LLM (pydantic-ai FunctionModel); no network, no cost.
 # --------------------------------------------------------------------------------------

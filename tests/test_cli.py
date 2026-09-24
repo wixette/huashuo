@@ -114,3 +114,27 @@ def test_loudness_and_pauses_are_remembered_and_checked(sample_txt, capsys):
     for bad in (["--loudness", "-3"], ["--pause", "nap=1"], ["--pause", "paragraph=long"], ["--pause", "title=60"]):
         with pytest.raises(SystemExit):
             run("package", sample_txt, *bad)
+
+
+def test_gbk_web_novel_with_volumes_and_mixed_punctuation(tmp_path, capsys):
+    from helpers import WEBNOVEL_TXT
+    from huashuo.huaben import read_script
+    from huashuo.pipeline import load_project, make_plan
+
+    book = tmp_path / "剑来长安.txt"
+    book.write_bytes(WEBNOVEL_TXT.encode("gbk"))
+    assert run("import", book, "--no-llm") == 0
+    out = capsys.readouterr().out
+    assert "gb18030" in out and "《剑来长安》" in out
+    wd = Workdir.for_input(book)
+    project = load_project(wd)
+    chapters = [c.title for c in make_plan(project).chapters]
+    assert chapters[1:4] == ["第一卷 风起青萍 · 第一章 雨夜来客", "第一卷 风起青萍 · 第二章 旧剑",
+                            "第二卷 云涌 · 第三章 出城"]
+    text = wd.text.read_text(encoding="utf-8")
+    assert "雨下了一整夜，长安城的青石板路泛着冷光。" in text
+    assert "掌柜抬起头：" in text and "从很远的地方来……你别问了。" in text
+    assert "刻着1234个小字" in text and "出了城——再也没有回头" in text
+    assert "www.example-novel.com" in text                  # URLs untouched
+    dialogue = [b["text"] for b in read_script(wd.script).blocks if b["type"] == "dialogue"]
+    assert '"店家，来一壶酒！"' in dialogue
