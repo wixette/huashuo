@@ -39,6 +39,24 @@ def conversations(blocks: list[dict]) -> Counter:
     return pairs
 
 
+def chapters_of(blocks: list[dict]) -> dict[str, set[str]]:
+    """The chapters (by chapter block id) in which each speaker has a line."""
+    seen: dict[str, set[str]] = {}
+    chapter = None
+    for block in blocks:
+        if block.get("type") == "chapter":
+            chapter = block.get("id")
+        elif block.get("type") == "dialogue" and block.get("speaker") not in (None, "unknown"):
+            seen.setdefault(block["speaker"], set()).add(chapter)
+    return seen
+
+
+# A character with this many lines or fewer may borrow a main character's voice when the
+# two never speak in the same chapter: listeners cannot confuse people who never meet on
+# the page, and the few free adult voices are spared for the bit parts that do.
+BORROW_MAX_LINES = 2
+
+
 def _mismatch(character: dict, voice: Voice) -> int:
     score = 0
     gender = character.get("gender")
@@ -64,7 +82,8 @@ _USE_COST, _MAX_USE_COST = 8, 32
 def cast_voices(characters: dict[str, dict], narrator: str, language: str,
                 talks: Counter | None = None, fixed: dict[str, str] | None = None,
                 main: int = DEFAULT_MAIN, pool: list[Voice] | None = None,
-                suggested: dict[str, str] | None = None) -> dict[str, str]:
+                suggested: dict[str, str] | None = None,
+                chapters: dict[str, set[str]] | None = None) -> dict[str, str]:
     """Voice reference for every character.
 
     `suggested` are picks for main characters that also weigh personality (from the LLM,
@@ -118,7 +137,11 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
             else:
                 # Hearing the protagonist's voice from a bit part is worse than an age
                 # mismatch of two steps (40), so sharing a main voice costs more.
-                score += 45 if voice.ref in main_voices else 0
+                if voice.ref in main_voices:
+                    owners = [n for n in main_names if chosen.get(n) == voice.ref]
+                    apart = chapters is not None and int(character.get("lines") or 0) <= BORROW_MAX_LINES and all(
+                        not (chapters.get(name, set()) & chapters.get(owner, set())) for owner in owners)
+                    score += 0 if apart else 45
                 score += min(_USE_COST * usage[voice.ref], _MAX_USE_COST)
             return score, usage[voice.ref], voice.ref      # ties go to the less used voice
 

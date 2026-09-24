@@ -305,6 +305,8 @@ def _print_llm(report, wd) -> None:
         print(f"speakers: {u.cached} answers from the cache ({report.model}); no LLM calls made")
     log.info("llm: mode=%s model=%s requests=%s cached=%s cost=%.4f", report.mode, report.model,
              u.requests, u.cached, u.cost)
+    if report.kept:
+        print(f"{report.kept} quotes kept their previous answers")
     if report.stopped:
         print(f"warning: speaker attribution stopped early: {report.stopped}")
         log.warning("llm stopped: %s", report.stopped)

@@ -494,7 +494,8 @@ Answer = tuple[str, float, str]     # speaker, confidence, emotion label ("" for
 
 def attribute_segments(segments: list[Segment], cast: dict[str, dict], language: str,
                        caller: Caller, progress: Progress | None = None,
-                       answers: dict[int, Answer] | None = None, emotions: bool = True) -> dict[int, Answer]:
+                       answers: dict[int, Answer] | None = None, emotions: bool = True,
+                       fallbacks: list[int] | None = None) -> dict[int, Answer]:
     """Chunks are independent once the cast is known, so they run concurrently. The first
     error (budget, API) is raised after everything else has finished; answers so far stay.
 
@@ -528,6 +529,8 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
                     if not (caller.offline and emotions):
                         raise
                     result = await caller.acall("speakers", plain_instructions, prompt, plain_type)
+                    if fallbacks is not None:
+                        fallbacks.append(core[0].index)
                 for a in result.answers:
                     if a.index in wanted:               # drop answers nobody asked for
                         answers[a.index] = (a.speaker, round(float(a.confidence), 2), getattr(a, "emotion", ""))
@@ -567,6 +570,7 @@ class Attribution:
     review: list[dict] = field(default_factory=list)
     suggested_voices: dict[str, str] = field(default_factory=dict)
     suggestions_failed: str | None = None   # casting then falls back to its rules alone
+    without_emotions: int = 0               # chunks answered from answers cached before emotion hints
 
 
 # --------------------------------------------------------------------------------------
@@ -644,10 +648,11 @@ def attribute_script(script: Script, language: str, caller: Caller,
     stopped = None
     suggested: dict[str, str] = {}
     suggestions_failed = None
+    fallbacks: list[int] = []
     if any(s.kind == "quote" for s in segments):
         try:
             cast = build_cast(paragraphs, language, caller, progress)
-            attribute_segments(segments, cast, language, caller, progress, answers, emotions)
+            attribute_segments(segments, cast, language, caller, progress, answers, emotions, fallbacks)
         except LLMError as exc:
             stopped = str(exc)
         if voices and narrator and not stopped:
@@ -682,4 +687,5 @@ def attribute_script(script: Script, language: str, caller: Caller,
         if block.get("type") == "dialogue" and block.get("speaker") in cast:
             lines[block["speaker"]] = lines.get(block["speaker"], 0) + 1
     characters = {name: {**entry, "lines": lines.get(name, 0)} for name, entry in cast.items()}
-    return Attribution(blocks, characters, caller.usage, stopped, review, suggested, suggestions_failed)
+    return Attribution(blocks, characters, caller.usage, stopped, review, suggested, suggestions_failed,
+                       len(fallbacks))

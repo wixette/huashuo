@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from huashuo import pron
+from huashuo import pron, punct
 from huashuo import __version__
 from huashuo.cast import default_cast, load_cast, merge_cast
 from huashuo.huaben import Script, check, merge, read_script, write_script
@@ -79,6 +79,7 @@ class LLMReport:
     review: list[dict] = field(default_factory=list)
     notice: str | None = None
     suggestions_failed: str | None = None
+    kept: int = 0                    # quotes that kept their previous answer
 
 
 @dataclass
@@ -126,6 +127,26 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
 
     chars = _readable_chars(script)
     estimate = estimate_cost(chars, config)
+    if cache.is_dir() and any(cache.iterdir()) and not config.local:
+        # Attributed before: answer from the cache first, and ask before paying again
+        # when it no longer covers the book (the text changed, or answers predate emotion
+        # hints). Without an answer, the previous answers are kept (machine_output).
+        offline = Caller(offline_config(config.model), cache, offline=True)
+        attribution = attribute_script(script, language, offline, options.progress, voices, narrator)
+        missing = sum(1 for b in attribution.blocks if b.get("type") == "dialogue" and "conf" not in b)
+        if not missing and not attribution.without_emotions:
+            return attribution, LLMReport("cache", config.model, offline.usage, None, None, attribution.review,
+                                          suggestions_failed=attribution.suggestions_failed)
+        quotes = sum(1 for b in script.blocks if b.get("type") == "dialogue")
+        gap = (f"{missing} of {quotes} quotes are not in the answer cache (the text changed since they were "
+               f"answered)" if missing else "the cached answers predate emotion hints")
+        message = (f"{gap}. Attributing again sends the text to {config.endpoint} ({config.model}), estimated "
+                   f"up to ${estimate:.2f}; otherwise the previous answers are kept. Continue?")
+        if not (options.assume_yes or (options.confirm is not None and options.confirm(message))):
+            return attribution, LLMReport(
+                "cache", config.model, offline.usage, None, None, attribution.review,
+                notice=f"{gap}; kept the previous answers. Run again with --yes to attribute again "
+                       f"(about ${estimate:.2f}).", suggestions_failed=attribution.suggestions_failed)
     if estimate > config.max_cost:
         raise PipelineError(f"speaker attribution is estimated at ${estimate:.2f} with {config.model}, above the "
                             f"${config.max_cost:.2f} cap; raise it with --max-llm-cost, or use --no-llm")
@@ -146,12 +167,80 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                                   attribution.review, suggestions_failed=attribution.suggestions_failed)
 
 
+def _carry_over(attribution, previous: Script, previous_cast: dict | None, language: str) -> int:
+    """Quotes the model did not answer this time (answers not cached, calls not allowed or
+    failed) keep the previous machine answer for the same text, and the characters they
+    need come back from the previous cast. Returns how many quotes were filled."""
+    # Previous texts are compared after today's clean-up, so a quote whose punctuation was
+    # normalized since (TXT-7) is still found.
+    same = lambda text: punct.normalize(text, language)
+    answers: dict[str, set[tuple]] = {}
+    narrated = {same(b["text"]) for b in previous.blocks if b.get("type") == "narration"}
+    for b in previous.blocks:
+        if b.get("type") == "dialogue" and b.get("speaker") not in (None, "unknown") and "conf" in b:
+            answers.setdefault(same(b["text"]), set()).add((b["speaker"], b["conf"], b.get("emotion")))
+    old_characters = (previous_cast or {}).get("characters", {})
+    # Line the quotes up in order first, so a short line said by different people in
+    # different places (「什么？」) gets the answer given at its own place.
+    import difflib
+
+    before = [b for b in previous.blocks if b.get("type") == "dialogue"]
+    now = [b for b in attribution.blocks if b.get("type") == "dialogue"]
+    placed: dict[int, dict] = {}
+    matcher = difflib.SequenceMatcher(None, [same(b["text"]) for b in before], [b["text"] for b in now], autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            for k in range(i2 - i1):
+                placed[id(now[j1 + k])] = before[i1 + k]
+    filled, answered_ids = 0, set()
+    for b in attribution.blocks:
+        if b.get("type") != "dialogue" or "conf" in b:
+            continue
+        old = placed.get(id(b))
+        if old is not None and old.get("speaker") not in (None, "unknown") and "conf" in old:
+            found = {(old["speaker"], old["conf"], old.get("emotion"))}
+        else:
+            found = answers.get(b["text"], set())
+        if len(found) == 1:                                  # the same text, answered the same way
+            speaker, conf, emotion = next(iter(found))
+            if speaker not in attribution.characters and speaker not in old_characters:
+                continue
+            b["speaker"], b["conf"] = speaker, conf
+            if emotion:
+                b["emotion"] = emotion
+            if speaker not in attribution.characters:
+                attribution.characters[speaker] = {k: v for k, v in old_characters[speaker].items() if k != "voice"}
+        elif not found and b["text"] in narrated:            # previously found not to be speech
+            b["type"] = "narration"
+            b.pop("speaker", None)
+        else:
+            continue
+        filled += 1
+        answered_ids.add(b["id"])
+    if filled:
+        # The cast pass may have stopped early too: bring back every previous character.
+        for name, entry in old_characters.items():
+            if name not in attribution.characters:
+                attribution.characters[name] = {k: v for k, v in entry.items() if k != "voice"}
+        lines: dict[str, int] = {}
+        for b in attribution.blocks:
+            if b.get("type") == "dialogue" and b.get("speaker") in attribution.characters:
+                lines[b["speaker"]] = lines.get(b["speaker"], 0) + 1
+        for name, entry in attribution.characters.items():
+            entry["lines"] = lines.get(name, 0)
+        attribution.review = [r for r in attribution.review if r["id"] not in answered_ids]
+    return filled
+
+
 def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | None = None,
                    record: dict | None = None, llm: LLMOptions | None = None,
-                   narrator: str | None = None, fixed_voices: dict[str, str] | None = None) -> MachineOutput:
+                   narrator: str | None = None, fixed_voices: dict[str, str] | None = None,
+                   previous: Script | None = None, previous_cast: dict | None = None) -> MachineOutput:
     """build -> split -> attribute speakers -> cast voices. `narrator` and `fixed_voices`
-    are the user's current choices, which casting works around."""
-    from huashuo.casting import cast_voices, conversations
+    are the user's current choices, which casting works around. `previous` and
+    `previous_cast` are the last machine results, which fill in what this run could not
+    answer."""
+    from huashuo.casting import cast_voices, chapters_of, conversations
     from huashuo.library import has_library
 
     built = build(book, language, read_notes)
@@ -163,11 +252,20 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
         attribution, report = run_llm_stage(built.script, lang, wd, record if record is not None else {}, llm,
                                             narrator)
         if attribution is not None:
+            kept = _carry_over(attribution, previous, previous_cast, lang) if previous is not None else 0
+            if kept and report is not None:
+                report.kept, report.review = kept, attribution.review
+                if not any(b.get("type") == "dialogue" and "conf" not in b for b in attribution.blocks):
+                    report.stopped = None
             built.script.blocks = attribution.blocks
             characters = attribution.characters
             if has_library(lang):
+                # Without fresh suggestions, the previous voices are the suggestions, so a
+                # re-import does not reshuffle the main characters.
+                suggested = attribution.suggested_voices or {
+                    name: c["voice"] for name, c in (previous_cast or {}).get("characters", {}).items() if c.get("voice")}
                 voices = cast_voices(characters, narrator, lang, conversations(attribution.blocks), fixed_voices,
-                                     suggested=attribution.suggested_voices)
+                                     suggested=suggested, chapters=chapters_of(attribution.blocks))
             else:
                 # No designed voices for this language yet (English in stage 1, requirements
                 # Q19): the narrator reads everyone, unless the user named a voice.
@@ -238,8 +336,9 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     author = author if author is not None else previous.get("author")
     book = read_book(source, encoding)
     narrator, fixed = _user_voice_choices(wd, language or record.get("language") or "zh")
+    previous = read_script(wd.script_base) if wd.script_base.is_file() else None
     machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions(),
-                             narrator, fixed)
+                             narrator, fixed, previous, read_json(wd.cast_base))
     header = machine.script.header
     # --title / --author win over what the book says (IN-4); applied to the machine's
     # version, so an edit the user makes to the header afterwards still wins on merge.

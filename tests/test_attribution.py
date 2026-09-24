@@ -256,3 +256,61 @@ def test_the_prompt_without_emotions_is_unchanged():
 
     assert "emotion" not in SPEAKER_INSTRUCTIONS["zh"] and "emotion" not in SPEAKER_INSTRUCTIONS["en"]
     assert "emotion" not in json.dumps(_answers_type(["甲"]).model_json_schema())
+
+
+# ---- re-importing after the text changed (answers no longer cached) ---------------------------
+
+
+def _changed(book):
+    """The same book with a new opening line: every cast chunk, and so every cached
+    answer, misses (the cast pass carries its result from chunk to chunk)."""
+    book.write_text(DIALOGUE_TXT.replace("雪下了整整一夜。", "那一年冬天来得早。雪下了整整一夜。"), encoding="utf-8")
+
+
+def test_without_calls_a_changed_text_keeps_the_previous_answers(book):
+    wd = Workdir.for_input(book)
+    import_book(book, wd, llm=LLMOptions(config_override=LOCAL, model_override=ScriptedLLM().model()))
+    _changed(book)
+    result = import_book(book, wd, llm=LLMOptions(enabled=False, model="test-model"))      # --no-llm
+    assert speakers(read_script(wd.script).blocks) == {"“店家，来一壶热酒。”": "林渊",
+                                                       "“客官面生得很，是从北边来的？”": "老者",
+                                                       "“从哪儿来不重要。”": "林渊"}
+    assert result.llm.kept == 4 and result.llm.stopped is None and not result.llm.review   # 3 speakers + the plaque
+    cast = json.loads(wd.cast.read_text())["characters"]
+    assert set(cast) == {"林渊", "老者"} and cast["林渊"]["lines"] == 2
+
+
+def test_paying_again_for_a_changed_text_needs_consent(book):
+    wd = Workdir.for_input(book)
+    first = ScriptedLLM()
+    import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=first.model(), assume_yes=True))
+    _changed(book)
+    again, asked = ScriptedLLM(), []
+    result = import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=again.model(),
+                                                  confirm=lambda m: asked.append(m) or False))
+    assert "not in the answer cache" in asked[0] and again.calls["cast"] == again.calls["speakers"] == 0
+    assert "kept the previous answers" in result.llm.notice and result.llm.kept == 4
+    paid = ScriptedLLM()
+    import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=paid.model(), assume_yes=True))
+    assert paid.calls["cast"] >= 1 and paid.calls["speakers"] >= 1
+
+
+def test_answers_from_before_emotion_hints_ask_before_labelling_again(book):
+    from huashuo.attribution import Caller, attribute_script
+    from huashuo.pipeline import machine_output
+
+    wd = Workdir.for_input(book)
+    import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=ScriptedLLM().model(),
+                                         assume_yes=True))
+    # Replace the cache with answers made without emotion hints, as an M2 import had them.
+    cache = wd.state / "llm-cache"
+    for f in cache.iterdir():
+        f.unlink()
+    from huashuo.ingest import read_book
+    built = machine_output(read_book(book), None, False)
+    attribute_script(built.script, "zh", Caller(REMOTE, cache, model=ScriptedLLM().model()), emotions=False)
+    asked, llm = [], ScriptedLLM()
+    import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=llm.model(),
+                                         confirm=lambda m: asked.append(m) or False))
+    assert asked and "predate emotion hints" in asked[0] and llm.calls["speakers"] == 0
+    assert speakers(read_script(wd.script).blocks)["“店家，来一壶热酒。”"] == "林渊"

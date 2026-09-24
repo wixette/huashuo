@@ -95,3 +95,16 @@ def test_equally_good_voices_share_the_crowd():
     chars = {f"路人{i}": {"gender": "male", "age": "unknown", "lines": 30 - i} for i in range(20)}
     counts = Counter(cast_voices(chars, NARRATOR, "zh", pool=pool, main=0).values())
     assert counts == {"lib:a": 10, "lib:b": 10}
+
+
+def test_a_rare_character_may_borrow_a_main_voice_only_away_from_its_owner():
+    pool = [Voice("lib:hero", "zh", "male", "young_adult"), Voice("lib:crowd", "zh", "male", "young_adult")]
+    chars = {"主角": ch("male", "young_adult", 100), "路人甲": ch("male", "young_adult", 1),
+             "路人乙": ch("male", "young_adult", 1), "路人丙": ch("male", "young_adult", 5)}
+    chapters = {"主角": {"c001", "c002"}, "路人甲": {"c003"}, "路人乙": {"c002"}, "路人丙": {"c004"}}
+    voices = cast_voices(chars, NARRATOR, "zh", pool=pool, main=1, chapters=chapters)
+    hero = voices["主角"]
+    assert voices["路人甲"] == hero                     # one line, never meets the hero
+    assert voices["路人乙"] != hero                     # speaks in the hero's chapter
+    assert voices["路人丙"] != hero                     # too many lines to borrow
+    assert cast_voices(chars, NARRATOR, "zh", pool=pool, main=1)["路人甲"] != hero   # no chapters: no borrowing
