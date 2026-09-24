@@ -46,3 +46,17 @@ def test_numbers_compare_however_the_tts_read_them():
     for text, heard in same:
         assert cer(text, heard, "zh") == 0.0, text
     assert cer("剑身上刻着1234个小字。", "剑身上刻着一千两百个小字。", "zh") > 0.05   # a real misreading
+
+
+def test_regional_speech_is_not_retried_for_what_the_recognizer_cannot_write():
+    """春尽江南 in the M3 emotion A/B: 国舅's 「……你发个话唦！」 and a Shanghainese line were
+    retried three times each and kept with a warning."""
+    guojiu = "你发个话，想怎么弄她就怎么弄她，吾要么不出动，一出动就是翻天覆地。你发个话唦！"
+    heard = "你发个话，想怎么弄他就怎么弄他。吾要么不出动，一出动就是翻天覆地。你发个话来！"
+    assert judge(guojiu, heard, "zh", 0.10)[1] is None
+    shanghai = "策难！侬格小赤佬，哪能格能副样子！侬以为侬是啥宁，弗来三格！"
+    assert judge(shanghai, "策男农革小赤老，哪能革？能副样子？农以为农是啥宁？夫来三革。", "zh", 0.10)[1] is None
+    assert "dialect line" in judge(shanghai, "完全不相干的一句话而已", "zh", 0.10)[1]     # garbage still fails
+    # Standard speech keeps both checks.
+    assert "lost ending" in judge("这件事我想了很久，还是觉得应该告诉你。", "这件事我想了很久，还是觉得应该告诉。", "zh", 0.10)[1]
+    assert judge("你来吗？", "你来？", "zh", 0.10)[1] is not None

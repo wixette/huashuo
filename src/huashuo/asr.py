@@ -118,6 +118,20 @@ def cer(reference: str, hypothesis: str, language: str) -> float:
     return previous[-1] / max(len(ref), 1)
 
 
+# Regional sentence-final particles: the TTS often says a standard word instead (唦 -> 来)
+# and the recognizer cannot write them, so the last-word check looks past them.
+_REGIONAL_PARTICLES = set("唦嘞噻咯喽嘚咧啵哩嗦撒")
+# Characters that only occur in dialect writing (Wu: 侬 伐 覅 嘸 弗; Cantonese: 嘅 咗 哋 啲 冇
+# 嚟 喺 佢 嘢 唔 睇 嗰 乜). The recognizer cannot transcribe such lines faithfully.
+_DIALECT_CHARS = set("侬伐覅嘸弗嘅咗哋啲冇嚟喺佢嘢唔睇嗰乜")
+DIALECT_MAX_CER = 0.5          # still catches garbage and runaway repetition
+
+
+def dialect_line(text: str) -> bool:
+    """Written in a dialect the recognizer cannot follow (two or more dialect-only characters)."""
+    return sum(ch in _DIALECT_CHARS for ch in text) >= 2
+
+
 def lost_ending(reference: str, hypothesis: str, language: str) -> bool:
     """True when the last word of the text is missing from the end of the transcript.
 
@@ -129,6 +143,7 @@ def lost_ending(reference: str, hypothesis: str, language: str) -> bool:
     """
     if language == "zh":
         ref, hyp = normalize(reference, language), normalize(hypothesis, language)
+        ref = ref.rstrip("".join(_REGIONAL_PARTICLES))
     else:
         ref = re.sub(r"[^a-z0-9 ]", "", reference.lower()).split()
         hyp = re.sub(r"[^a-z0-9 ]", "", hypothesis.lower()).split()
@@ -138,9 +153,10 @@ def lost_ending(reference: str, hypothesis: str, language: str) -> bool:
 def judge(reference: str, hypothesis: str, language: str, max_cer: float) -> tuple[float, str | None]:
     """Character error rate, and the problem to report if the unit fails the check."""
     rate = cer(reference, hypothesis, language)
-    if rate > max_cer:
-        return rate, f"ASR mismatch ({rate:.0%}): heard 「{hypothesis}」"
-    if lost_ending(reference, hypothesis, language):
+    dialect = language == "zh" and dialect_line(reference)
+    if rate > (max(max_cer, DIALECT_MAX_CER) if dialect else max_cer):
+        return rate, f"ASR mismatch ({rate:.0%}{', dialect line' if dialect else ''}): heard 「{hypothesis}」"
+    if not dialect and lost_ending(reference, hypothesis, language):
         return rate, f"ASR mismatch (lost ending): heard 「{hypothesis}」"
     return rate, None
 
