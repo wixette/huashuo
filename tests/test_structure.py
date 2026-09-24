@@ -173,3 +173,31 @@ def test_punctuation_is_cleaned_before_structure_and_dialogue():
     assert "第一章：风雪" in texts[0]
     assert "“好吧，走！”" in "".join(texts) or "\"好吧，走！\"" in "".join(texts)
     assert "".join(texts).endswith("然后走了。") and built.text.count("：") == 2
+
+
+# ---- web-novel noise (TXT-5) ---------------------------------------------------------------
+
+
+def test_web_novel_noise_lines_are_kept_but_not_read():
+    from huashuo.punct import normalize
+    from huashuo.structure import is_noise
+
+    noise = ["求月票！求推荐票！", "跪求收藏~", "本章完", "（未完待续。）", "（本章未完，请翻页）", "第十章完",
+             "PS：今天加更三章，感谢大家！", "作者有话说：", "www.example-novel.com 最新章节免费阅读",
+             "天才一秒记住本站地址", "求订阅求打赏", "www.biquge.cc"]
+    story = ["他求了三天，才借到一张月票。", "本章完全是他的回忆。", "“求求你，别走！”", "未完待续的故事总让人牵挂。",
+             "PS4是他最喜欢的游戏机。", "他打开了www.baidu.com。"]
+    assert all(is_noise(normalize(t, "zh"), "zh") for t in noise)
+    assert not any(is_noise(normalize(t, "zh"), "zh") for t in story)
+    assert not is_noise("Chapter end", "en")
+
+
+def test_noise_in_a_web_novel_is_skipped_and_counted():
+    from helpers import WEBNOVEL_TXT
+    from huashuo.ingest import Book, Section
+
+    paras = [Paragraph(t.strip("　")) for t in WEBNOVEL_TXT.split("\n") if t.strip()]
+    built = build(Book("剑来长安", "青衫客", "zh", [Section(paras)], "txt"))
+    noise = [b["text"] for b in built.script.blocks if b.get("reason") == "noise"]
+    assert noise == ["求月票！求推荐票！", "本章完", "（本章未完，请翻页）", "www.example-novel.com 最新章节免费阅读"]
+    assert all(t in built.text for t in noise)             # kept in the text, just not read

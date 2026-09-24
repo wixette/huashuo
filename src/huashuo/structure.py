@@ -125,6 +125,39 @@ _NOTE_LABELS = re.compile(r"^[□■\s]*(注釋|注释|註釋|註|注|附注|附
 # Dates and bare numbers (「一九一九年三月」「十二」), which end stories rather than begin them.
 _DATE_LIKE = re.compile(r"[0-9０-９零〇一二三四五六七八九十]+\s*[年月日号號]|^[0-9０-９零〇一二三四五六七八九十]+$")
 
+# Web-novel noise (TXT-5): whole lines only, and conservative, since a missed noise line
+# costs a few seconds of listening while a false match silently drops story text. Lines
+# are matched after punctuation clean-up, so full-width forms are enough.
+_NOISE_PATTERNS = [
+    # Begging for votes, subscriptions, tips: 「求月票！求推荐票！」「跪求收藏~」
+    re.compile(r"^(?:[求跪拜]{1,2}(?:各位|大家)?(?:月票|推荐票?|收藏|订阅|打赏|点击|评论|支持|票票|保底月票)"
+               r"[！。，、~～\s]*)+$"),
+    # End-of-chapter markers: 「本章完」「（未完待续。）」「（本章未完，请翻页）」
+    re.compile(r"^[（【\[]?\s*(?:本章完|本章结束|未完待续|本章未完[，]?\s*请.{0,12}|第.{1,8}章完)"
+               r"\s*[。！]?\s*[）】\]]?[。]?$"),
+    # Author postscripts: 「PS：今天加更……」「作者有话说：」
+    re.compile(r"^(?:[Pp][Ss][：:]|作者有话说[：]?$|作者的话[：]?$)"),
+]
+# Site watermarks and ads: a short line with a web address or a reader-site phrase.
+_URL = re.compile(r"www\.|https?://|\.(?:com|net|org|cc|la|info)\b", re.I)
+_URL_TEXT = re.compile(r"(?:https?://)?[A-Za-z0-9.-]+\.(?:com|net|org|cc|la|info|cn)\S*", re.I)
+_SITE_PHRASES = re.compile(r"最新章节|免费阅读|手机阅读|笔趣阁|一秒记住|记住本站|本书首发|首发网址|全文阅读|无弹窗|txt下载|小说网")
+
+
+def is_noise(text: str, language: str) -> bool:
+    if language != "zh":
+        return False
+    line = text.strip()
+    if any(p.search(line) for p in _NOISE_PATTERNS):
+        return True
+    if len(line) > 60:
+        return False
+    if _SITE_PHRASES.search(line):
+        return True
+    # A bare web address, not a sentence that mentions one (「他打开了www.baidu.com。」).
+    return bool(_URL.search(line)) and len(re.findall(r"[\u4e00-\u9fff]", _URL_TEXT.sub("", line))) <= 2
+
+
 # Unnumbered titles (short-story collections): a very short line with no punctuation,
 # followed by prose, far enough from the previous chapter that ordinary short lines
 # inside a chapter do not qualify.
@@ -278,6 +311,11 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
             # A title line at the top of the file names the opening section; use it
             # instead of inserting the title a second time.
             chapter(text, 1)
+            continue
+        if is_noise(text, language):
+            b.ensure_chapter(book.title)
+            b.block("skip", text, reason="noise")
+            skipped += 1
             continue
         level = classify_heading(text, language)
         if level is None and _NOTE_LABELS.match(text) and not read_notes:
