@@ -153,6 +153,10 @@ _URL_TEXT = re.compile(r"(?:https?://)?[A-Za-z0-9.-]+\.(?:com|net|org|cc|la|info
 _SITE_PHRASES = re.compile(r"最新章节|免费阅读|手机阅读|笔趣阁|一秒记住|记住本站|本书首发|首发网址|全文阅读|无弹窗|txt下载|小说网")
 
 
+# 「作者：青衫客」 at the top of a TXT: metadata, read by the opening announcement (POST-6).
+_AUTHOR_LINE = re.compile(r"^(?:作者|著者|author|by)\s*[:：]?\s*(?P<author>\S.{0,38})$", re.IGNORECASE)
+
+
 def is_noise(text: str, language: str) -> bool:
     if language != "zh":
         return False
@@ -324,6 +328,12 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
         if is_noise(text, language):
             b.ensure_chapter(book.title)
             b.block("skip", text, reason="noise")
+            skipped += 1
+            continue
+        author_line = _AUTHOR_LINE.match(text.strip())
+        if b.chapter <= 0 and book.author and author_line and author_line["author"].strip() == book.author:
+            b.ensure_chapter(book.title)
+            b.block("skip", text, reason="author")
             skipped += 1
             continue
         level = classify_heading(text, language)

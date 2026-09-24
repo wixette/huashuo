@@ -317,10 +317,12 @@ def check_project(project: Project) -> list:
 
 def make_plan(project: Project, *, read_titles: bool = True, voice: str | None = None,
               max_chars: int = DEFAULT_MAX_CHARS, sample_chars: int | None = None,
-              chapters: set[int] | None = None, emotions: bool = True) -> Plan:
+              chapters: set[int] | None = None, emotions: bool = True, opening: bool = True,
+              closing: bool = True, credit: bool = False) -> Plan:
     """The units to synthesize; optionally only the first `sample_chars` characters of
     reading, or only some chapters (1-based, as listed by `huashuo import`)."""
     full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice, emotions)
+    _announce(full, project, voice or project.cast["narrator"]["voice"], opening, closing, credit)
     readings = pron.load(project.workdir.pron)
     for unit in full.units:
         spoken = readings.apply(unit.text)
@@ -338,6 +340,35 @@ def make_plan(project: Project, *, read_titles: bool = True, voice: str | None =
                 break
         return _subset(full, keep)
     return full
+
+
+OPENING = {"zh": "《{title}》，{author} 著。", "en": "{title}, by {author}."}
+OPENING_NO_AUTHOR = {"zh": "《{title}》。", "en": "{title}."}
+CLOSING = {"zh": "全书完。", "en": "The End."}
+CREDIT = {"zh": "本有声书由话说 Huashuo 生成。", "en": "This audiobook was made with Huashuo."}
+
+
+def _announce(p: Plan, project: Project, narrator: str, opening: bool, closing: bool, credit: bool) -> None:
+    """The opening (title and author) and the closing (POST-6), read by the narrator. The
+    opening belongs to the first chapter and the closing to the last; neither is a
+    chapter of its own."""
+    from huashuo.units import END, TITLE, Unit
+
+    if not p.units:
+        return
+    lang = project.language if project.language in OPENING else "en"
+    header = project.script.header
+    title, author = (header.get("title") or "").strip(), (header.get("author") or "").strip()
+    if opening and title:
+        text = (OPENING if author else OPENING_NO_AUTHOR)[lang].format(title=title, author=author)
+        p.units.insert(0, Unit("title", text, narrator, None, ["opening"], 0, after=TITLE))
+        for chapter in p.chapters[1:]:
+            chapter.first_unit += 1
+    words = ([CLOSING[lang]] if closing else []) + ([CREDIT[lang]] if credit else [])
+    if words:
+        p.units[-1].after = "chapter_end"
+        p.units.append(Unit("heading", "".join(words) if lang == "zh" else " ".join(words), narrator, None,
+                            ["closing"], p.units[-1].chapter, after=END))
 
 
 def _subset(full: Plan, keep: list[int]) -> Plan:

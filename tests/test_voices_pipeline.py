@@ -264,3 +264,13 @@ def test_english_books_are_read_by_the_narrator(tmp_path, tiny_library):
         cast_ops=ENGLISH_CAST, answers=ENGLISH_ANSWERS).model()))
     cast = _json.loads(wd.cast.read_text(encoding="utf-8"))
     assert cast["characters"]["Old man"]["voice"] == "preset:aiden" and cast["characters"]["Lin"]["voice"] == "preset:ryan"
+
+
+def test_english_opening_and_closing(tmp_path, tiny_library):
+    from huashuo.pipeline import load_project, make_plan
+
+    path = tmp_path / "inn.txt"
+    path.write_text(ENGLISH_TXT, encoding="utf-8")
+    import_book(path, Workdir.for_input(path), title="The Inn", author="Anon")
+    p = make_plan(load_project(Workdir.for_input(path)), credit=True)
+    assert p.units[0].text == "The Inn, by Anon." and p.units[-1].text == "The End. This audiobook was made with Huashuo."

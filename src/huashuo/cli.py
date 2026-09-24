@@ -69,6 +69,12 @@ def _parser() -> argparse.ArgumentParser:
                        help="read chapter titles aloud (default: yes)")
         p.add_argument("--emotions", action=argparse.BooleanOptionalAction, default=None,
                        help="read dialogue with the emotion hints in the script (default: yes)")
+        p.add_argument("--opening", action=argparse.BooleanOptionalAction, default=None,
+                       help="begin with the title and author (default: yes)")
+        p.add_argument("--closing", action=argparse.BooleanOptionalAction, default=None,
+                       help="end with 「全书完」 / \"The End\" (default: yes)")
+        p.add_argument("--credit", action=argparse.BooleanOptionalAction, default=None,
+                       help="add a line saying the audiobook was made with Huashuo (default: no)")
         p.add_argument("--sample", type=int, nargs="?", const=600, metavar="CHARS",
                        help="only the first CHARS characters (default 600); packaged as <book>.sample.m4b")
         p.add_argument("--chapters", help="only these chapters, e.g. 1,3-5 (numbers from `import`); "
@@ -351,7 +357,8 @@ def _engine(args):
 
 # Options that change which units exist. synth records them in state/run.json and package
 # and redo reuse them, so a flag need not be repeated to find the same units again.
-_RUN_OPTIONS = {"voice": None, "model": None, "titles": True, "emotions": True}
+_RUN_OPTIONS = {"voice": None, "model": None, "titles": True, "emotions": True, "opening": True, "closing": True,
+                "credit": False}
 
 
 def _resolve_run_options(args, wd, save: bool) -> None:
@@ -414,6 +421,7 @@ def _prepare(args, save_options: bool = False):
             print(problem, file=sys.stderr)
         raise SystemExit("the script has problems (above); fix them or re-run `huashuo import`")
     plan = make_plan(project, read_titles=args.titles, voice=args.voice, emotions=args.emotions,
+                     opening=args.opening, closing=args.closing, credit=args.credit,
                      sample_chars=args.sample, chapters=_parse_chapters(args.chapters))
     if not plan.units:
         raise SystemExit("nothing to read")

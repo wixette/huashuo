@@ -75,7 +75,8 @@ def test_package_and_redo_reuse_the_synthesis_options(sample_txt):
                "--no-emotions") == 0
     wd = Workdir.for_input(sample_txt)
     assert json.loads(wd.run_options.read_text()) == {"voice": "preset:vivian", "model": None, "titles": False,
-                                                         "emotions": False}
+                                                         "emotions": False, "opening": True, "closing": True,
+                                                         "credit": False}
     assert run("package", sample_txt) == 0                 # finds the same units without repeating flags
 
 
@@ -129,7 +130,7 @@ def test_gbk_web_novel_with_volumes_and_mixed_punctuation(tmp_path, capsys):
     wd = Workdir.for_input(book)
     project = load_project(wd)
     chapters = [c.title for c in make_plan(project).chapters]
-    assert chapters[1:4] == ["第一卷 风起青萍 · 第一章 雨夜来客", "第一卷 风起青萍 · 第二章 旧剑",
+    assert chapters == ["第一卷 风起青萍 · 第一章 雨夜来客", "第一卷 风起青萍 · 第二章 旧剑",
                             "第二卷 云涌 · 第三章 出城"]
     text = wd.text.read_text(encoding="utf-8")
     assert "雨下了一整夜，长安城的青石板路泛着冷光。" in text
@@ -138,3 +139,25 @@ def test_gbk_web_novel_with_volumes_and_mixed_punctuation(tmp_path, capsys):
     assert "www.example-novel.com" in text                  # URLs untouched
     dialogue = [b["text"] for b in read_script(wd.script).blocks if b["type"] == "dialogue"]
     assert '"店家，来一壶酒！"' in dialogue
+
+
+def test_opening_and_closing_announcements(sample_txt):
+    from huashuo.pipeline import load_project, make_plan
+
+    assert run("import", sample_txt) == 0
+    project = load_project(Workdir.for_input(sample_txt))
+    p = make_plan(project)
+    assert p.units[0].text == "《红楼梦》，曹雪芹 著。" and p.units[0].voice == project.cast["narrator"]["voice"]
+    assert p.units[1].text == "第一回 甄士隐梦幻识通灵"            # then the first chapter's title
+    assert p.chapters[0].first_unit == 0                               # the opening is in chapter 1
+    assert all(p.units[c.first_unit].block_ids[0].startswith("c") for c in p.chapters[1:])
+    assert p.units[-1].text == "全书完。" and p.units[-1].after == "end"
+    assert p.units[-2].after == "chapter_end"
+    credited = make_plan(project, credit=True)
+    assert credited.units[-1].text == "全书完。本有声书由话说 Huashuo 生成。"
+    plain = make_plan(project, opening=False, closing=False)
+    assert plain.units[0].text.startswith("第一回") and plain.units[-1].text.endswith("就睡着了。")
+    sample = make_plan(project, sample_chars=20)
+    assert sample.units[0].text.startswith("《红楼梦》") and sample.units[-1].text != "全书完。"
+    second = make_plan(project, chapters={2})
+    assert second.units[0].text.startswith("第二回") and second.units[-1].text == "全书完。"

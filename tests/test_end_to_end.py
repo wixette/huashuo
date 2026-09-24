@@ -26,7 +26,9 @@ def test_txt_to_m4b_resume_and_edit(sample_txt, capsys):
     out = sample_txt.with_suffix(".m4b")
     info = probe(out)
     chapters = [c["tags"]["title"] for c in info["chapters"]]
-    assert chapters == ["红楼梦", "第一回 甄士隐梦幻识通灵", "第二回 贾夫人仙逝扬州城"]
+    # The opening section held only the title and the author line, which the opening
+    # announcement now reads, so the first chapter is 第一回 (POST-6).
+    assert chapters == ["第一回 甄士隐梦幻识通灵", "第二回 贾夫人仙逝扬州城"]
     tags = {k.lower(): v for k, v in info["format"]["tags"].items()}
     assert (tags["title"], tags["artist"], tags["genre"]) == ("红楼梦", "曹雪芹", "Audiobook")
     assert tags["composer"].startswith("话说 Huashuo") and tags["major_brand"].strip() == "M4B"
