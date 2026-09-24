@@ -439,30 +439,28 @@ Keep in mind:
 
 
 # Emotion hints (SCR-12), asked for in the same call as the speaker. The model picks a
-# label; the label's phrase, worded moderately because strong emotions pull a voice's
-# timbre (design doc §5.6), becomes the block's `emotion` and the TTS `instruct`.
+# label; the label's phrase becomes the block's `emotion` and the TTS `instruct`. Only
+# emotions the TTS renders audibly are offered: in listening tests (design doc §5.9)
+# complex attitudes (sarcasm, doubt, coldness) sounded the same with or without a hint,
+# while plain emotions came through. The wording is firm but not extreme: stronger
+# wording measured no more timbre drift than milder wording.
 EMOTIONS = {
-    "zh": {"高兴": "用愉快的语气说", "兴奋": "用兴奋的语气说", "生气": "用有些生气的语气说",
-           "不耐烦": "用不耐烦的语气说", "悲伤": "用低落、伤感的语气说", "害怕": "用紧张、害怕的语气说",
-           "惊讶": "用惊讶的语气说", "低声": "压低声音说", "温柔": "用温柔的语气说", "冷淡": "用冷淡的语气说",
-           "讥讽": "用讥讽的语气说", "急切": "用急切的语气说", "疑惑": "用疑惑的语气说", "严厉": "用严厉的语气说"},
-    "en": {"happy": "Speak in a cheerful tone", "excited": "Speak with excitement",
-           "angry": "Speak in a somewhat angry tone", "impatient": "Speak impatiently",
-           "sad": "Speak in a sad, subdued tone", "afraid": "Speak nervously, a little afraid",
-           "surprised": "Speak in a surprised tone", "hushed": "Speak in a lowered voice",
-           "gentle": "Speak gently", "cold": "Speak coldly", "sarcastic": "Speak sarcastically",
-           "urgent": "Speak urgently", "puzzled": "Speak in a puzzled tone", "stern": "Speak sternly"},
+    "zh": {"高兴": "用高兴的语气说", "生气": "用生气的语气说", "悲伤": "用悲伤的语气说", "害怕": "用害怕的语气说",
+           "惊讶": "用惊讶的语气说", "低声": "压低声音说", "严厉": "用严厉的语气说"},
+    "en": {"happy": "Speak happily", "angry": "Speak angrily", "sad": "Speak sadly", "afraid": "Speak fearfully",
+           "surprised": "Speak in a surprised tone", "hushed": "Speak in a lowered voice", "stern": "Speak sternly"},
 }
 EMOTION_INSTRUCTIONS = {
     "zh": """
 
-另外给出 emotion：这句话的语气。只在原文有明确依据时填写（叙述写了「怒道」「低声说」「哭着说」之类，
-或者话语本身明显带着情绪），否则留空字符串。大多数对白应当留空；拿不准时留空。""",
+另外给出 emotion：这句话的情绪。只在情绪明显、正好是可选的几种之一时填写（叙述写了「怒道」「低声说」「哭着说」之类，
+或者话语本身明显带着这种情绪），否则留空字符串。讥讽、疑惑、冷淡之类的复杂语气也留空。大多数对白应当留空；拿不准时留空。""",
     "en": """
 
-Also give emotion: how the line is said. Fill it in only when the text clearly shows it (a tag such as
-"she snapped" or "he whispered", or unmistakable feeling in the words); otherwise leave it an empty string.
-Most lines should be left empty; when unsure, leave it empty.""",
+Also give emotion: the feeling in the line. Fill it in only when it is obvious and is one of the options (a tag such
+as "she snapped" or "he whispered", or unmistakable feeling in the words); otherwise leave it an empty string.
+Leave complex attitudes such as sarcasm, doubt or coldness empty too. Most lines should be left empty; when unsure,
+leave it empty.""",
 }
 
 

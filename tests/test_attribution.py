@@ -230,11 +230,11 @@ def test_budget_holds_under_concurrency_and_keeps_partial_answers(tmp_path):
 
 
 def test_emotion_hints_come_with_the_speakers(tmp_path):
-    llm = ScriptedLLM(emotions={"“从哪儿来不重要。”": "冷淡"})
+    llm = ScriptedLLM(emotions={"“从哪儿来不重要。”": "生气"})
     result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, model=llm.model()))
     emotion = {b["text"]: b.get("emotion") for b in result.blocks if b["type"] == "dialogue"}
     assert emotion == {"“店家，来一壶热酒。”": None, "“客官面生得很，是从北边来的？”": None,
-                       "“从哪儿来不重要。”": "用冷淡的语气说"}
+                       "“从哪儿来不重要。”": "用生气的语气说"}
     assert llm.calls["speakers"] == 1                          # no extra call for them
 
 
@@ -245,7 +245,7 @@ def test_answers_cached_before_emotion_hints_still_serve_offline(tmp_path):
     result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, offline=True))
     assert speakers(result.blocks)["“客官面生得很，是从北边来的？”"] == "老者" and not result.stopped
     assert not any(b.get("emotion") for b in result.blocks)
-    online = ScriptedLLM(emotions={"“从哪儿来不重要。”": "冷淡"})
+    online = ScriptedLLM(emotions={"“从哪儿来不重要。”": "生气"})
     result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, model=online.model()))
     assert online.calls["speakers"] == 1 and any(b.get("emotion") for b in result.blocks)
 

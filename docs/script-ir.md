@@ -152,26 +152,19 @@
 | 字段 | 说明 |
 |---|---|
 | `speaker` | 选角表中的角色规范名，或 `"unknown"`（按旁白音色朗读，SCR-5）。切分后先是 `"unknown"`；LLM 判定为不是说话的引语（书名、招牌、引用的词句、心里的想法）改为 `narration` |
-| `emotion` | 可选，语气提示，原样作为 TTS 的 `instruct`（SCR-12）。取值是自然语言短语，用户可手写任意描述（如 `"压低声音、惊恐地说"`），删掉即按平常语气读。程序只写下表中的 14 种，措辞刻意温和，因为强烈情绪会带动音色变化（设计文档 §5.6）。合成时 `--no-emotions` 整体忽略此字段 |
+| `emotion` | 可选，语气提示，原样作为 TTS 的 `instruct`（SCR-12）。取值是自然语言短语，用户可手写任意描述（如 `"压低声音、惊恐地说"`），删掉即按平常语气读。程序只写下表中的 7 种：TTS 能明显读出来的基本情绪（设计文档 §5.9）。合成时 `--no-emotions` 整体忽略此字段 |
 | `conf` | 可选，0–1 的归属置信度；低于阈值的进入审阅清单（SCR-11）。EXP-2 发现便宜模型的自报置信度不可靠（设计文档 §7.2.1） |
 
 程序写入的 `emotion`（说话人标注时由 LLM 从固定标签中选择，只在原文有明确依据时填写；设计文档 §5.9）：
 
 | 标签 | 中文书写入的 `emotion` | 英文书 |
 |---|---|---|
-| 高兴 / happy | 用愉快的语气说 | Speak in a cheerful tone |
-| 兴奋 / excited | 用兴奋的语气说 | Speak with excitement |
-| 生气 / angry | 用有些生气的语气说 | Speak in a somewhat angry tone |
-| 不耐烦 / impatient | 用不耐烦的语气说 | Speak impatiently |
-| 悲伤 / sad | 用低落、伤感的语气说 | Speak in a sad, subdued tone |
-| 害怕 / afraid | 用紧张、害怕的语气说 | Speak nervously, a little afraid |
+| 高兴 / happy | 用高兴的语气说 | Speak happily |
+| 生气 / angry | 用生气的语气说 | Speak angrily |
+| 悲伤 / sad | 用悲伤的语气说 | Speak sadly |
+| 害怕 / afraid | 用害怕的语气说 | Speak fearfully |
 | 惊讶 / surprised | 用惊讶的语气说 | Speak in a surprised tone |
 | 低声 / hushed | 压低声音说 | Speak in a lowered voice |
-| 温柔 / gentle | 用温柔的语气说 | Speak gently |
-| 冷淡 / cold | 用冷淡的语气说 | Speak coldly |
-| 讥讽 / sarcastic | 用讥讽的语气说 | Speak sarcastically |
-| 急切 / urgent | 用急切的语气说 | Speak urgently |
-| 疑惑 / puzzled | 用疑惑的语气说 | Speak in a puzzled tone |
 | 严厉 / stern | 用严厉的语气说 | Speak sternly |
 
 `chapter` 的 `level`：书中既有卷又有章时，卷为 1、章为 2；否则所有章节都是 1。`level: 2` 的 M4B 章节名前缀最近的 `level: 1` 标题，如「第一卷 · 第三章 风起」（TXT-3）。卷标题后面紧跟章标题时，卷标题不单独成一个 M4B 章节；只含被跳过内容的章节也不产生 M4B 章节。`huashuo import` 列出的章节编号就是 `--chapters` 用的编号。
