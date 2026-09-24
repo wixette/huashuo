@@ -161,3 +161,20 @@ def test_opening_and_closing_announcements(sample_txt):
     assert sample.units[0].text.startswith("《红楼梦》") and sample.units[-1].text != "全书完。"
     second = make_plan(project, chapters={2})
     assert second.units[0].text.startswith("第二回") and second.units[-1].text == "全书完。"
+
+
+def test_clean_deletes_only_the_audio(sample_txt, capsys):
+    from huashuo.engines.fake import FakeEngine
+    from huashuo.pipeline import load_project, make_plan
+    from huashuo.synth import synthesize
+
+    assert run("import", sample_txt) == 0
+    wd = Workdir.for_input(sample_txt)
+    synthesize(make_plan(load_project(wd)).units, FakeEngine(), wd, "zh", show_progress=False)
+    assert any(wd.units.iterdir())
+    with pytest.raises(SystemExit, match="--yes"):              # not a terminal: must be explicit
+        run("clean", sample_txt)
+    assert run("clean", sample_txt, "--yes") == 0
+    assert not wd.units.parent.exists() and wd.script.is_file() and wd.cast.is_file() and wd.pron.is_file()
+    assert "deleted" in capsys.readouterr().out
+    assert run("clean", sample_txt, "--yes") == 0 and "nothing to clean" in capsys.readouterr().out

@@ -7,6 +7,7 @@
     huashuo package BOOK         write the M4B from what has been synthesized
     huashuo redo BOOK --at 1:28  re-synthesize what plays at a time in the M4B, then repackage
     huashuo audition BOOK        one line per character in its cast voice, as <book>.audition.m4b
+    huashuo clean BOOK           delete the synthesized audio (the book can be rebuilt from the rest)
     huashuo voices               list the engine's preset voices (--library: every castable voice)
 
 BOOK is the source file (.txt / .epub); its work directory defaults to <BOOK>.huashuo/.
@@ -22,7 +23,7 @@ from pathlib import Path
 
 from huashuo import __version__
 
-COMMANDS = ("make", "import", "check", "synth", "package", "redo", "audition", "voices")
+COMMANDS = ("make", "import", "check", "synth", "package", "redo", "audition", "clean", "voices")
 log = logging.getLogger("huashuo")
 
 
@@ -112,6 +113,8 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--model", help="Qwen3-TTS CustomVoice model (default: 1.7B 8-bit)")
     p.add_argument("-o", "--output", type=Path, help="output M4B (default: <book>.audition.m4b)")
     p.add_argument("--engine", default="qwen3", help=argparse.SUPPRESS)
+    p = book_command("clean", "delete the synthesized audio in the work directory (CLI-6)")
+    p.add_argument("--yes", action="store_true", help="do not ask")
     p = sub.add_parser("voices", help="list preset voices")
     p.add_argument("--model", help="CustomVoice model")
     p.add_argument("--library", action="store_true",
@@ -167,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         return {"make": cmd_make, "import": cmd_import, "check": cmd_check, "synth": cmd_synth,
-                "package": cmd_package, "redo": cmd_redo, "audition": cmd_audition,
+                "package": cmd_package, "redo": cmd_redo, "audition": cmd_audition, "clean": cmd_clean,
                 "voices": cmd_voices}[args.command](args)
     except KeyboardInterrupt:
         print("\ninterrupted; run the same command again to continue where it stopped")
@@ -629,6 +632,30 @@ def cmd_audition(args) -> int:
     for title, text, _ in items:
         print(f"  {title}: {text[:40]}")
     print(f"wrote {output} ({len(probe(output).get('chapters', []))} chapters, {_hms(timeline.seconds)})")
+    return 0
+
+
+def cmd_clean(args) -> int:
+    """Delete cache/ (the synthesized units). Everything needed to rebuild the same book is
+    kept: script, cast, pron.txt, LLM answers and the redo record (state/rerolls.json)."""
+    import shutil
+
+    wd = _workdir(args)
+    cache = wd.units.parent
+    files = [f for f in cache.rglob("*") if f.is_file()] if cache.is_dir() else []
+    if not files:
+        print(f"nothing to clean in {wd.root}")
+        return 0
+    size = sum(f.stat().st_size for f in files)
+    message = (f"delete {len(files):,} files ({_mb(size)}) of synthesized audio in {cache}? The script, cast "
+               f"and LLM answers are kept; synthesizing the book again takes as long as the first time.")
+    if not args.yes:
+        if not sys.stdin.isatty():
+            raise SystemExit(message.split("?")[0] + "? run again with --yes")
+        if not _ask(message):
+            return 1
+    shutil.rmtree(cache)
+    print(f"deleted {_mb(size)} of synthesized audio")
     return 0
 
 
