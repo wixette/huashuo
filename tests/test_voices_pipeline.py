@@ -274,3 +274,14 @@ def test_english_opening_and_closing(tmp_path, tiny_library):
     import_book(path, Workdir.for_input(path), title="The Inn", author="Anon")
     p = make_plan(load_project(Workdir.for_input(path)), credit=True)
     assert p.units[0].text == "The Inn, by Anon." and p.units[-1].text == "The End. This audiobook was made with Huashuo."
+
+
+def test_first_person_narrator_keeps_the_narrator_voice(tmp_path, tiny_library):
+    from helpers import FIRST_PERSON_ANSWERS, FIRST_PERSON_CAST, FIRST_PERSON_TXT
+
+    path = tmp_path / "归乡.txt"
+    path.write_text(FIRST_PERSON_TXT, encoding="utf-8")
+    llm = ScriptedLLM(cast_ops=FIRST_PERSON_CAST, answers=FIRST_PERSON_ANSWERS, voice_choices={"林默": "library:zh/young_man"})
+    import_book(path, Workdir.for_input(path), llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
+    narrator, voices = _voices(path)
+    assert voices["林默"] == narrator and voices["周强"] != narrator

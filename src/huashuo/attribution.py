@@ -598,8 +598,10 @@ def suggest_voices(characters: dict[str, dict], voices: list, narrator: str, lan
                    main: int = 8) -> dict[str, str]:
     """One call: the model reads the main characters' profiles against the library's voice
     descriptions. Its picks are suggestions; casting.cast_voices enforces the rules."""
+    from huashuo.casting import is_first_person
+
     names = [n for n in sorted(characters, key=lambda n: (-int(characters[n].get("lines") or 0), n))
-             if n not in ("我", "I")][:main]
+             if not is_first_person(n, characters[n])][:main]
     refs = [v.ref for v in voices if v.ref != narrator]
     if not names or not refs:
         return {}

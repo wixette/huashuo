@@ -19,6 +19,17 @@ from huashuo.library import AGES, Voice, castable
 
 DEFAULT_MAIN = 8
 FIRST_PERSON = {"我", "I", "me"}
+_NARRATOR_WORDS = ("第一人称叙述者", "第一人称的叙述者", "叙述者「我」", "first-person narrator", "the narrator")
+
+
+def is_first_person(name: str, character: dict) -> bool:
+    """The character who narrates: named 「我」 / "I", or so described. Models often use
+    the narrator's real name once another character says it (林默, aliases ['我', '默儿'],
+    「第一人称叙述者……」), so aliases and the description count too (SCR-9)."""
+    if name in FIRST_PERSON or FIRST_PERSON & set(character.get("aliases") or []):
+        return True
+    description = (character.get("description") or "").lower()
+    return any(word.lower() in description for word in _NARRATOR_WORDS)
 _AGE_INDEX = {age: i for i, age in enumerate(AGES)}
 
 
@@ -95,7 +106,7 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
     fixed = dict(fixed or {})
     pool = [v for v in (pool if pool is not None else castable(language)) if v.ref != narrator]
     order = sorted(characters, key=lambda n: (-int(characters[n].get("lines") or 0), n))
-    main_names = [n for n in order if n not in FIRST_PERSON][:main]
+    main_names = [n for n in order if not is_first_person(n, characters[n])][:main]
 
     chosen: dict[str, str] = {}
     usage: Counter = Counter()
@@ -122,7 +133,7 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
     for name in order:
         if name in chosen:
             continue
-        if name in FIRST_PERSON:
+        if is_first_person(name, characters[name]):
             chosen[name] = narrator
             continue
         character = characters[name]

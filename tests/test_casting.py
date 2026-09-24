@@ -108,3 +108,14 @@ def test_a_rare_character_may_borrow_a_main_voice_only_away_from_its_owner():
     assert voices["路人乙"] != hero                     # speaks in the hero's chapter
     assert voices["路人丙"] != hero                     # too many lines to borrow
     assert cast_voices(chars, NARRATOR, "zh", pool=pool, main=1)["路人甲"] != hero   # no chapters: no borrowing
+
+
+def test_a_named_first_person_narrator_reads_with_the_narrator_voice():
+    """A real gpt-6-sol cast of a first-person story: the narrator gets his name once
+    someone calls him by it (SCR-9)."""
+    chars = {"林默": {"aliases": ["我", "默儿"], "gender": "male", "age": "young_adult", "lines": 6,
+                      "description": "第一人称叙述者，周强的表亲，休假返乡探望病重的父亲。"},
+             "周强": {"aliases": ["表哥"], "gender": "male", "age": "young_adult", "lines": 7, "description": "表哥"},
+             "叙事者": {"gender": "male", "age": "unknown", "lines": 1, "description": "The first-person narrator."}}
+    voices = cast_voices(chars, NARRATOR, "zh", pool=POOL)
+    assert voices["林默"] == NARRATOR and voices["叙事者"] == NARRATOR and voices["周强"] != NARRATOR

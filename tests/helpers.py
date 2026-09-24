@@ -90,6 +90,25 @@ WEBNOVEL_TXT = """剑来长安
 """
 
 
+# A first-person story (SCR-9). The cast is what gpt-6-sol answered for the full mock story
+# (M5): the narrator is named once another character calls him by name.
+FIRST_PERSON_TXT = """归乡
+
+第一章 车站
+我下火车的时候，天已经黑了。
+“林默！这边！”有人在出站口喊我。
+我抬头一看，是表哥周强。
+“你怎么来了？”我问。
+“你妈不放心，非让我来接。”他接过我的箱子。
+"""
+FIRST_PERSON_CAST = [
+    {"op": "insert", "name": "林默", "aliases": ["我", "默儿"], "gender": "male", "age": "young_adult",
+     "description": "第一人称叙述者，周强的表亲，休假返乡探望病重的父亲。"},
+    {"op": "insert", "name": "周强", "aliases": ["表哥"], "gender": "male", "age": "young_adult",
+     "description": "林默的表哥，深夜到车站接林默回家。"}]
+FIRST_PERSON_ANSWERS = {"“林默！这边！”": "周强", "“你怎么来了？”": "林默", "“你妈不放心，非让我来接。”": "周强"}
+
+
 # --------------------------------------------------------------------------------------
 # A scripted stand-in for the LLM (pydantic-ai FunctionModel); no network, no cost.
 # --------------------------------------------------------------------------------------
