@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections import Counter
 import json
 import os
 import time
@@ -41,7 +42,7 @@ DEFAULT_MAX_COST = 5.0               # NFR-4: about $3, at most $5 per 300k char
 CAST_CHUNK_CHARS = 2500
 ATTR_CHUNK_CHARS = 1500
 CONTEXT_SEGMENTS = 3
-MAX_OUTPUT_TOKENS = {"cast": 3000, "speakers": 2000}
+MAX_OUTPUT_TOKENS = {"cast": 3000, "speakers": 2000, "voices": 1500}
 DEFAULT_CONCURRENCY = 6              # pass-2 calls in flight at once
 
 # USD per million tokens (input, output), design doc §6.3 (2026-09).
@@ -520,13 +521,60 @@ class Attribution:
     usage: Usage
     stopped: str | None = None           # why attribution ended early, if it did
     review: list[dict] = field(default_factory=list)
+    suggested_voices: dict[str, str] = field(default_factory=dict)
+    suggestions_failed: str | None = None   # casting then falls back to its rules alone
+
+
+# --------------------------------------------------------------------------------------
+# Casting suggestions for the main characters (CAST-5)
+# --------------------------------------------------------------------------------------
+
+VOICE_INSTRUCTIONS = {
+    "zh": """你在为一部小说的多角色有声书选角。你会收到主要角色（按台词多少排序，含性别、年龄、描述）和可用的音色（含性别、年龄、特点）。
+请为每个主要角色挑选最合适的音色：
+- 性别必须一致；年龄尽量接近；
+- 角色的性格、身份与音色特点相符（如内省的读书人配温和、书卷气的声音，而不是洪亮、市井气的声音）；
+- 不同角色必须用不同的音色；
+- 不要选旁白用的音色。""",
+    "en": """You are casting a multi-voice audiobook. You get the main characters (by number of lines, with gender,
+age and description) and the available voices (with gender, age and traits).
+Pick the best voice for each main character:
+- the same gender; the closest age;
+- personality and role should suit the voice's traits;
+- every character gets a different voice;
+- never the narrator's voice.""",
+}
+
+
+def suggest_voices(characters: dict[str, dict], voices: list, narrator: str, language: str, caller: Caller,
+                   main: int = 8) -> dict[str, str]:
+    """One call: the model reads the main characters' profiles against the library's voice
+    descriptions. Its picks are suggestions; casting.cast_voices enforces the rules."""
+    names = [n for n in sorted(characters, key=lambda n: (-int(characters[n].get("lines") or 0), n))
+             if n not in ("我", "I")][:main]
+    refs = [v.ref for v in voices if v.ref != narrator]
+    if not names or not refs:
+        return {}
+    choice = create_model("Choice", name=(Literal[tuple(names)], ...), voice=(Literal[tuple(refs)], ...))
+    output_type = create_model("Choices", choices=(list[choice], ...))
+    zh = language == "zh"
+    people = "\n".join(f"- {n}：{characters[n].get('gender')}，{characters[n].get('age')}，"
+                        f"{characters[n].get('lines', 0)} 句。{characters[n].get('description', '')}" for n in names)
+    catalog = "\n".join(f"- {v.ref}：{v.gender}，{v.age}。{v.role}；{'、'.join(v.traits)}。{v.description}"
+                         for v in voices if v.ref != narrator)
+    prompt = (("主要角色：\n" if zh else "Main characters:\n") + people + "\n\n"
+              + ("可用的音色：\n" if zh else "Available voices:\n") + catalog + "\n\n"
+              + (f"旁白用的音色：{narrator}" if zh else f"Narrator's voice: {narrator}"))
+    result = caller.call("voices", VOICE_INSTRUCTIONS.get(language, VOICE_INSTRUCTIONS["zh"]), prompt, output_type)
+    return {c.name: c.voice for c in result.choices}
 
 
 LOW_CONFIDENCE = 0.6
 
 
 def attribute_script(script: Script, language: str, caller: Caller,
-                     progress: Progress | None = None) -> Attribution:
+                     progress: Progress | None = None, voices: list | None = None,
+                     narrator: str | None = None) -> Attribution:
     """Fill in `speaker` and `conf` on the script's dialogue blocks and derive the cast.
 
     Returns new blocks (the input is not changed). Quotes the model calls "narrator" become
@@ -550,14 +598,22 @@ def attribute_script(script: Script, language: str, caller: Caller,
     cast: dict[str, dict] = {}
     answers: dict[int, tuple[str, float]] = {}
     stopped = None
+    suggested: dict[str, str] = {}
+    suggestions_failed = None
     if any(s.kind == "quote" for s in segments):
         try:
             cast = build_cast(paragraphs, language, caller, progress)
             attribute_segments(segments, cast, language, caller, progress, answers)
         except LLMError as exc:
             stopped = str(exc)
-        finally:
-            caller.close()
+        if voices and narrator and not stopped:
+            counts = Counter(speaker for speaker, _ in answers.values())
+            with_lines = {name: {**entry, "lines": counts.get(name, 0)} for name, entry in cast.items()}
+            try:
+                suggested = suggest_voices(with_lines, voices, narrator, language, caller)
+            except LLMError as exc:
+                suggestions_failed = str(exc)
+        caller.close()
 
     review = []
     for n, i in enumerate(readable):
@@ -580,4 +636,4 @@ def attribute_script(script: Script, language: str, caller: Caller,
         if block.get("type") == "dialogue" and block.get("speaker") in cast:
             lines[block["speaker"]] = lines.get(block["speaker"], 0) + 1
     characters = {name: {**entry, "lines": lines.get(name, 0)} for name, entry in cast.items()}
-    return Attribution(blocks, characters, caller.usage, stopped, review)
+    return Attribution(blocks, characters, caller.usage, stopped, review, suggested, suggestions_failed)

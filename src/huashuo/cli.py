@@ -270,6 +270,10 @@ def _print_llm(report, wd) -> None:
     if report.stopped:
         print(f"warning: speaker attribution stopped early: {report.stopped}")
         log.warning("llm stopped: %s", report.stopped)
+    if report.suggestions_failed:
+        print(f"note: no voice suggestions from the LLM ({report.suggestions_failed}); voices were cast by "
+              f"gender and age alone")
+        log.warning("voice suggestions failed: %s", report.suggestions_failed)
     if report.review:
         print(f"{len(report.review)} quotes need a look (unknown or uncertain speaker): {wd.root / 'review.txt'}")
 

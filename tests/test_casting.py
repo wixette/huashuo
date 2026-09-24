@@ -55,3 +55,29 @@ def test_deterministic_and_graceful_when_voices_run_out():
     assert first == cast_voices(dict(reversed(list(chars.items()))), NARRATOR, "zh", pool=POOL)
     assert set(first) == set(chars) and NARRATOR not in first.values()
     assert cast_voices(chars, NARRATOR, "zh", pool=[]) == {n: NARRATOR for n in chars}
+
+
+def test_suggestions_decide_main_characters_within_the_rules():
+    chars = {"诗人": ch("male", "middle_aged", 50), "老板": ch("male", "middle_aged", 30)}
+    pool = [Voice("preset:serena", "zh", "female", "young_adult"),
+            Voice("lib:jovial", "zh", "male", "middle_aged"), Voice("lib:bookish", "zh", "male", "young_adult"),
+            Voice("lib:woman", "zh", "female", "middle_aged")]
+    plain = cast_voices(chars, NARRATOR, "zh", pool=pool)
+    assert plain["诗人"] == "lib:jovial"                       # by age alone
+    picked = cast_voices(chars, NARRATOR, "zh", pool=pool, suggested={"诗人": "lib:bookish", "老板": "lib:jovial"})
+    assert picked == {"诗人": "lib:bookish", "老板": "lib:jovial"}
+    bad = cast_voices(chars, NARRATOR, "zh", pool=pool,       # wrong gender, the narrator, a duplicate
+                      suggested={"诗人": "lib:woman", "老板": NARRATOR})
+    assert bad["诗人"] != "lib:woman" and bad["老板"] != NARRATOR and bad["诗人"] != bad["老板"]
+    user = cast_voices(chars, NARRATOR, "zh", pool=pool, fixed={"诗人": "lib:jovial"},
+                       suggested={"诗人": "lib:bookish", "老板": "lib:jovial"})
+    assert user["诗人"] == "lib:jovial" and user["老板"] != "lib:jovial"   # the user's choice wins
+
+
+def test_unknown_age_means_an_adult_voice():
+    pool = [Voice("preset:serena", "zh", "female", "young_adult"), Voice("lib:boy", "zh", "male", "child"),
+            Voice("lib:teen", "zh", "male", "teen"), Voice("lib:man", "zh", "male", "middle_aged")]
+    chars = {"主任": {"gender": "male", "age": "unknown", "lines": 3},
+             "主任二": {"gender": "male", "age": "unknown", "lines": 2}}
+    voices = cast_voices(chars, NARRATOR, "zh", pool=pool, main=0)
+    assert set(voices.values()) == {"lib:man"}                 # shared, rather than a child's voice

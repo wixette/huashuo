@@ -24,9 +24,9 @@ def book(tmp_path):
     return path
 
 
-def _import(book):
+def _import(book, llm=None):
     return import_book(book, Workdir.for_input(book),
-                       llm=LLMOptions(config_override=LOCAL, model_override=ScriptedLLM().model()))
+                       llm=LLMOptions(config_override=LOCAL, model_override=(llm or ScriptedLLM()).model()))
 
 
 def _voices(book):
@@ -60,6 +60,24 @@ def test_casting_avoids_the_narrator_the_user_chose(book, tiny_library):
     _import(book)
     narrator, voices = _voices(book)
     assert narrator == "library:zh/old_man" and narrator not in voices.values()
+
+
+def test_llm_suggestions_cast_main_characters_within_the_rules(book, tiny_library):
+    llm = ScriptedLLM(voice_choices={"林渊": "preset:uncle_fu", "老者": "preset:vivian"})
+    _import(book, llm)
+    assert llm.calls["voices"] == 1
+    # 林渊 takes the suggestion; 老者's is a woman's voice, so the rules decide.
+    assert _voices(book)[1] == {"林渊": "preset:uncle_fu", "老者": "library:zh/old_man"}
+    # Without a key the answer comes from the cache, and casting is the same.
+    import_book(book, Workdir.for_input(book), llm=LLMOptions())
+    assert _voices(book)[1] == {"林渊": "preset:uncle_fu", "老者": "library:zh/old_man"}
+
+
+def test_failed_suggestions_are_a_note_not_a_stopped_attribution(book, tiny_library):
+    llm = ScriptedLLM(voice_choices={"林渊": "library:zh/nobody"})      # not an offered voice
+    result = _import(book, llm)
+    assert result.llm.stopped is None and result.llm.suggestions_failed
+    assert _voices(book)[1] == {"林渊": "library:zh/young_man", "老者": "library:zh/old_man"}
 
 
 def test_fake_engine_knows_library_voices(tiny_library):

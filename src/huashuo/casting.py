@@ -46,17 +46,29 @@ def _mismatch(character: dict, voice: Voice) -> int:
         score += 100
     age = character.get("age")
     target = _AGE_INDEX.get(age)
-    if target is None:                     # unknown age: an adult voice fits best
-        score += 5 * min(abs(_AGE_INDEX[voice.age] - 2), abs(_AGE_INDEX[voice.age] - 3))
+    if target is None:
+        # Unknown age almost always means an adult (children are usually marked as such):
+        # a child's or teenager's voice for a 主任 or a 老师 is far worse than sharing.
+        score += _UNKNOWN_AGE_COST[voice.age]
     else:
-        score += 12 * abs(_AGE_INDEX[voice.age] - target)
+        score += 20 * abs(_AGE_INDEX[voice.age] - target)
     return score
+
+
+_UNKNOWN_AGE_COST = {"child": 80, "teen": 50, "young_adult": 0, "middle_aged": 0, "elderly": 20}
 
 
 def cast_voices(characters: dict[str, dict], narrator: str, language: str,
                 talks: Counter | None = None, fixed: dict[str, str] | None = None,
-                main: int = DEFAULT_MAIN, pool: list[Voice] | None = None) -> dict[str, str]:
-    """Voice reference for every character."""
+                main: int = DEFAULT_MAIN, pool: list[Voice] | None = None,
+                suggested: dict[str, str] | None = None) -> dict[str, str]:
+    """Voice reference for every character.
+
+    `suggested` are picks for main characters that also weigh personality (from the LLM,
+    see attribution.suggest_voices). A suggestion is taken when it is castable, fits the
+    character's gender, and is not already some other main character's voice; otherwise
+    the rules below decide.
+    """
     talks = talks or Counter()
     fixed = dict(fixed or {})
     pool = [v for v in (pool if pool is not None else castable(language)) if v.ref != narrator]
@@ -72,6 +84,18 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
             usage[voice] += 1
             if name in main_names:
                 main_voices.add(voice)
+
+    by_ref = {v.ref: v for v in pool}
+    for name in main_names:
+        pick = (suggested or {}).get(name)
+        if name in chosen or pick not in by_ref or usage[pick]:
+            continue
+        gender = characters[name].get("gender")
+        if gender in ("male", "female") and by_ref[pick].gender != gender:
+            continue
+        chosen[name] = pick
+        usage[pick] += 1
+        main_voices.add(pick)
 
     for name in order:
         if name in chosen:
@@ -89,7 +113,9 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
             if is_main:
                 score += 10_000 if usage[voice.ref] else 0        # a main character's voice is its own
             else:
-                score += 25 if voice.ref in main_voices else 0
+                # Hearing the protagonist's voice from a bit part is worse than an age
+                # mismatch of two steps (40), so sharing a main voice costs more.
+                score += 45 if voice.ref in main_voices else 0
                 score += 8 * usage[voice.ref]
             return score, voice.ref
 

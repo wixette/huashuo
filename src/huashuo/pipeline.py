@@ -77,6 +77,7 @@ class LLMReport:
     stopped: str | None = None
     review: list[dict] = field(default_factory=list)
     notice: str | None = None
+    suggestions_failed: str | None = None
 
 
 @dataclass
@@ -96,9 +97,13 @@ def _readable_chars(script: Script) -> int:
 
 
 def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
-                  options: LLMOptions) -> tuple[object | None, LLMReport]:
-    """Attribute speakers, with calls if allowed and configured, else from the cache."""
+                  options: LLMOptions, narrator: str | None = None) -> tuple[object | None, LLMReport]:
+    """Attribute speakers (and suggest voices for the main characters), with calls if
+    allowed and configured, else from the cache."""
     from huashuo.attribution import Caller, attribute_script, estimate_cost, llm_config, offline_config
+    from huashuo.library import castable
+
+    voices = castable(language)
 
     if not any(b.get("type") == "dialogue" for b in script.blocks):
         return None, LLMReport("none")
@@ -112,10 +117,11 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
         if not cache.is_dir() or not any(cache.iterdir()):
             return None, LLMReport("none", notice=notice)
         caller = Caller(offline_config(options.model or record.get("llm_model")), cache, offline=True)
-        attribution = attribute_script(script, language, caller, options.progress)
+        attribution = attribute_script(script, language, caller, options.progress, voices, narrator)
         return attribution, LLMReport("cache", caller.config.model, caller.usage, None,
                                       attribution.stopped and "some quotes are not in the answer cache and stay "
-                                                              "\"unknown\"", attribution.review, notice)
+                                                              "\"unknown\"", attribution.review, notice,
+                                      attribution.suggestions_failed)
 
     chars = _readable_chars(script)
     estimate = estimate_cost(chars, config)
@@ -133,10 +139,10 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                                 f"with --yes, or use --no-llm to skip speaker attribution")
         record["llm_consent"] = consented + [config.endpoint]
     caller = Caller(config, cache, model=options.model_override)
-    attribution = attribute_script(script, language, caller, options.progress)
+    attribution = attribute_script(script, language, caller, options.progress, voices, narrator)
     record["llm_model"] = config.model
     return attribution, LLMReport("calls", config.model, caller.usage, estimate, attribution.stopped,
-                                  attribution.review)
+                                  attribution.review, suggestions_failed=attribution.suggestions_failed)
 
 
 def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | None = None,
@@ -151,12 +157,14 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
     cast = default_cast(lang)
     report = None
     if wd is not None and llm is not None:
-        attribution, report = run_llm_stage(built.script, lang, wd, record if record is not None else {}, llm)
+        narrator = narrator or cast["narrator"]["voice"]
+        attribution, report = run_llm_stage(built.script, lang, wd, record if record is not None else {}, llm,
+                                            narrator)
         if attribution is not None:
             built.script.blocks = attribution.blocks
             characters = attribution.characters
-            voices = cast_voices(characters, narrator or cast["narrator"]["voice"], lang,
-                                 conversations(attribution.blocks), fixed_voices)
+            voices = cast_voices(characters, narrator, lang, conversations(attribution.blocks), fixed_voices,
+                                 suggested=attribution.suggested_voices)
             cast["characters"] = {name: {**entry, "voice": voices[name]} for name, entry in characters.items()}
     return MachineOutput(built.text, built.script, cast, built.chapters, built.skipped, report)
 

@@ -1,0 +1,21 @@
+{
+  "id": "old_woman_kind",
+  "role": "老年女，七十岁左右，慈祥絮叨",
+  "gender": "female",
+  "age": "elderly",
+  "traits": [
+    "苍老",
+    "慈祥",
+    "絮叨"
+  ],
+  "description": "一位八十岁左右的老奶奶，声音苍老、略带沙哑，有些发颤，气息偏弱，语速缓慢，语气慈祥温暖，说话絮絮叨叨。",
+  "ref_text": "天冷了，出门记得多穿件衣服。你一个人在外面，吃饭要按时，别总是凑合。",
+  "seed": 2,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  },
+  "listening_notes": "第二轮：s2 最好，s0 也可以（第一轮描述不够老，已否）"
+}

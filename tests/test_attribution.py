@@ -51,7 +51,7 @@ def test_answers_are_cached(tmp_path):
     again = ScriptedLLM()
     caller = Caller(LOCAL, tmp_path, model=again.model())
     result = attribute_script(script().script, "zh", caller)
-    assert again.calls == {"cast": 0, "speakers": 0} and caller.usage.cached > 0
+    assert again.calls["cast"] == again.calls["speakers"] == 0 and caller.usage.cached > 0
     assert speakers(result.blocks)["“店家，来一壶热酒。”"] == "林渊"
 
 
@@ -68,7 +68,7 @@ def test_budget_stops_before_spending_and_keeps_what_was_answered(tmp_path):
     llm = ScriptedLLM()
     poor = LLMConfig("test-model", "http://localhost:9/v1", "x", 1000.0, 1000.0, max_cost=0.01)
     result = attribute_script(script().script, "zh", Caller(poor, tmp_path, model=llm.model()))
-    assert llm.calls == {"cast": 0, "speakers": 0}
+    assert llm.calls["cast"] == llm.calls["speakers"] == 0
     assert "cap" in result.stopped and set(speakers(result.blocks).values()) == {"unknown"}
     assert len(result.review) == 4                             # every quote is listed for review
 
@@ -104,7 +104,7 @@ def test_import_asks_before_sending_the_book_away(book):
     llm = ScriptedLLM()
     with pytest.raises(PipelineError, match="--yes"):
         import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=llm.model()))
-    assert llm.calls == {"cast": 0, "speakers": 0}
+    assert llm.calls["cast"] == llm.calls["speakers"] == 0
     asked = []
     import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=llm.model(),
                                          confirm=lambda m: asked.append(m) or True))
@@ -119,7 +119,7 @@ def test_estimate_above_the_cap_stops_before_any_call(book):
     pricey = LLMConfig("test-model", "http://localhost:9/v1", "x", 1e6, 1e6, max_cost=1.0)
     with pytest.raises(PipelineError, match="above the"):
         import_book(book, Workdir.for_input(book), llm=LLMOptions(config_override=pricey, model_override=llm.model()))
-    assert llm.calls == {"cast": 0, "speakers": 0}
+    assert llm.calls["cast"] == llm.calls["speakers"] == 0
 
 
 def test_reimport_without_llm_keeps_speakers_and_user_edits(book):

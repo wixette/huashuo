@@ -170,11 +170,11 @@
         "reason": "听起来不够老，像五十岁左右"
       },
       "seeds": [
-        0,
-        1,
         2
       ],
-      "note": "M3a 第二轮：第一版被否（不够老）"
+      "note": "M3a 第二轮：第一版被否（不够老）",
+      "chosen_seed": 2,
+      "listening_notes": "第二轮：s2 最好，s0 也可以（第一轮描述不够老，已否）"
     },
     {
       "id": "v15_old_woman_stern",
