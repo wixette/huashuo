@@ -13,7 +13,7 @@ from typing import Iterator
 
 import numpy as np
 
-from huashuo.audio import TARGET_LUFS, gain_db, limit, loudness, to_pcm16, trim_bounds, true_peak_db
+from huashuo.audio import TARGET_LUFS, fade, gain_db, limit, loudness, to_pcm16, trim_bounds, true_peak_db
 from huashuo.synth import unit_audio
 from huashuo.units import Plan
 from huashuo.workdir import Workdir, read_json, write_json_atomic
@@ -106,7 +106,8 @@ def stream(timeline: Timeline, wd: Workdir, block: int = 1 << 16) -> Iterator[by
     yield bytes(2 * int(LEAD_IN * timeline.sample_rate))
     for item in timeline.placed:
         audio, _ = unit_audio(wd, item.key)
-        segment = limit(audio[item.trim[0]:item.trim[1]] * item.gain, timeline.sample_rate)
+        segment = fade(limit(audio[item.trim[0]:item.trim[1]] * item.gain, timeline.sample_rate),
+                       timeline.sample_rate)
         for offset in range(0, len(segment), block):
             yield to_pcm16(segment[offset:offset + block])
         yield bytes(2 * item.pause)

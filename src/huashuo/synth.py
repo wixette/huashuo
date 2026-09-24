@@ -152,12 +152,11 @@ def cached_ok(wd: Workdir, key: str) -> dict | None:
 def _rejudge(wd: Workdir, key: str, meta: dict, unit: Unit, language: str, max_cer: float) -> dict:
     """Re-apply the current ASR comparison to a cached unit's stored transcript, so a
     better comparison clears (or raises) flags without synthesizing again."""
-    from huashuo.asr import cer
+    from huashuo.asr import judge
 
-    rate = cer(unit.text, meta["asr"], language)
+    rate, asr_problem = judge(unit.text, meta["asr"], language, max_cer)
     duration_only = meta.get("problem") and not str(meta["problem"]).startswith("ASR mismatch")
-    problem = meta["problem"] if duration_only else (
-        f"ASR mismatch ({rate:.0%}): heard 「{meta['asr']}」" if rate > max_cer else None)
+    problem = meta["problem"] if duration_only else asr_problem
     if problem != meta.get("problem") or round(rate, 4) != meta.get("cer"):
         meta = {**meta, "problem": problem, "cer": round(rate, 4)}
         write_json_atomic(wd.units / f"{key}.json", meta)
@@ -201,11 +200,11 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                 long_enough = len(_COUNTED.get(language, _COUNTED["zh"]).findall(unit.text)) >= MIN_ASR_CHARS
                 if problem is None and asr is not None and long_enough:
                     transcript = asr.transcribe(audio, engine.sample_rate, language)
-                    from huashuo.asr import cer
-                    error_rate = cer(unit.text, transcript, language)
-                    if error_rate > asr.max_cer:
-                        problem = f"ASR mismatch ({error_rate:.0%}): heard 「{transcript}」"
-                score = (problem is not None and error_rate is None, error_rate or 0.0)
+                    from huashuo.asr import judge
+                    error_rate, problem = judge(unit.text, transcript, language, asr.max_cer)
+                # Best of the attempts: a duration failure is worst, then a failed ASR check,
+                # then the error rate.
+                score = (problem is not None and error_rate is None, problem is not None, error_rate or 0.0)
                 if best is None or score < best[0]:
                     best = (score, audio, problem, transcript, error_rate, seed)
                 if problem is None:

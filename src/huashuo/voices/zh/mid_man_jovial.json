@@ -16,5 +16,6 @@
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
     "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
     "mlx_audio": "0.5.5"
-  }
+  },
+  "listening_notes": "稳定性：N2、I3（耳语）音色与其他片段有区别，但都是普通话，没有方言（测量上接近 dylan）。"
 }

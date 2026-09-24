@@ -22,7 +22,8 @@ _DIGITS = str.maketrans("0123456789", "零一二三四五六七八九")
 
 # Characters that stay distinct after traditional-to-simplified conversion but that the
 # recognizer uses interchangeably (it writes 着 where the book has 著, and so on).
-_FOLD = str.maketrans({"著": "着", "裏": "里", "麽": "么", "於": "于", "祇": "只", "纔": "才",
+_FOLD = str.maketrans({"著": "着", "裏": "里", "於": "于", "祇": "只", "纔": "才",
+                       "么": "吗", "麽": "吗",   # a final 么 is heard as 吗; folding both sides is harmless
                        "罷": "吧", "罢": "吧", "啦": "了", "師": "师", "傅": "父"})
 _converter = None
 
@@ -55,6 +56,33 @@ def cer(reference: str, hypothesis: str, language: str) -> float:
             current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (r != h)))
         previous = current
     return previous[-1] / max(len(ref), 1)
+
+
+def lost_ending(reference: str, hypothesis: str, language: str) -> bool:
+    """True when the last word of the text is missing from the end of the transcript.
+
+    Some voices sometimes stop in the middle of the final syllable, or say it so softly
+    it is barely audible (M3 listening: old_woman_stern's 「……应该告诉你」). On a
+    20-character line that is a 5% error rate, under the threshold, but it is the most
+    noticeable kind of mistake. The recognizer may add a trailing particle, so the last
+    word only has to appear among the transcript's last few.
+    """
+    if language == "zh":
+        ref, hyp = normalize(reference, language), normalize(hypothesis, language)
+    else:
+        ref = re.sub(r"[^a-z0-9 ]", "", reference.lower()).split()
+        hyp = re.sub(r"[^a-z0-9 ]", "", hypothesis.lower()).split()
+    return bool(ref) and ref[-1] not in hyp[-3:]
+
+
+def judge(reference: str, hypothesis: str, language: str, max_cer: float) -> tuple[float, str | None]:
+    """Character error rate, and the problem to report if the unit fails the check."""
+    rate = cer(reference, hypothesis, language)
+    if rate > max_cer:
+        return rate, f"ASR mismatch ({rate:.0%}): heard 「{hypothesis}」"
+    if lost_ending(reference, hypothesis, language):
+        return rate, f"ASR mismatch (lost ending): heard 「{hypothesis}」"
+    return rate, None
 
 
 class AsrChecker:

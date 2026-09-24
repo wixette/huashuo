@@ -73,3 +73,15 @@ def test_ffmetadata_escapes_special_characters():
     assert r"title=书名\=一\;二\#三\\四" in text
     assert "artist=作者\\\n换行" in text
     assert r"title=第一章 \= 开始\; \#1" in text and "TIMEBASE=1/24000" in text
+
+
+def test_fades_silence_both_ends_and_leave_the_middle():
+    from huashuo.audio import fade
+
+    sr = 24000
+    audio = np.ones(sr, dtype=np.float32)
+    out = fade(audio, sr)
+    assert out[0] == 0.0 and out[-1] == 0.0 and out[sr // 2] == 1.0
+    assert out[int(0.005 * sr)] == 1.0 and out[-int(0.015 * sr) - 1] == 1.0
+    assert np.all(np.diff(out[: int(0.005 * sr)]) > 0) and audio[0] == 1.0      # input untouched
+    assert len(fade(np.ones(10, dtype=np.float32), sr)) == 10                  # shorter than a fade

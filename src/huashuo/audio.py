@@ -13,6 +13,7 @@ MAX_TRUE_PEAK_DB = -1.5
 MAX_GAIN_DB = 12.0           # never boost a unit more than this, whatever it measures
 TRIM_BELOW_PEAK_DB = 40.0    # a 20 ms frame this far below the peak counts as silence
 TRIM_MARGIN = 0.03           # keep a little air so word onsets and tails are not clipped
+FADE_IN, FADE_OUT = 0.005, 0.015   # seconds; the model sometimes stops mid-sound (M3), which clicks
 
 
 def write_wav(path: Path, audio: np.ndarray, sample_rate: int) -> None:
@@ -53,6 +54,16 @@ def trim_bounds(audio: np.ndarray, sample_rate: int) -> tuple[int, int]:
         return 0, len(audio)
     margin = int(TRIM_MARGIN * sample_rate)
     return max(0, loud[0] * hop - margin), min(len(audio), (loud[-1] + 1) * hop + margin)
+
+
+def fade(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+    """Short linear fades at both ends, so a unit that starts or stops abruptly does not click."""
+    audio = audio.copy()
+    for n, sl in ((min(len(audio), int(FADE_IN * sample_rate)), slice(None)),
+                  (min(len(audio), int(FADE_OUT * sample_rate)), slice(None, None, -1))):
+        if n:
+            audio[sl][:n] *= np.linspace(0.0, 1.0, n, endpoint=False, dtype=audio.dtype)
+    return audio
 
 
 def loudness(audio: np.ndarray, sample_rate: int) -> float | None:

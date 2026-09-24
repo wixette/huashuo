@@ -16,5 +16,6 @@
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
     "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
     "mlx_audio": "0.5.5"
-  }
+  },
+  "listening_notes": "稳定性：句末字容易丢——「……应该告诉你」D2 的「你」很轻但能听到，R1–R3 几乎听不到；合成时由 ASR 的句末检查（lost ending）重试。"
 }

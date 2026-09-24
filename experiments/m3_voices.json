@@ -136,7 +136,8 @@
         1
       ],
       "chosen_seed": 1,
-      "note": "M3a，已选定"
+      "note": "M3a，已选定",
+      "listening_notes": "稳定性：N2、I3（耳语）音色与其他片段有区别，但都是普通话，没有方言（测量上接近 dylan）。"
     },
     {
       "id": "v12_mid_woman_calm",
@@ -158,7 +159,8 @@
         1
       ],
       "chosen_seed": 1,
-      "note": "M3a，已选定"
+      "note": "M3a，已选定",
+      "listening_notes": "稳定性：I1（愤怒 instruct）听起来更年轻，但是普通话，没有方言（测量上接近 eric）。"
     },
     {
       "id": "v14_old_woman_kind",
@@ -185,7 +187,8 @@
         0
       ],
       "chosen_seed": 0,
-      "note": "M3a，已选定"
+      "note": "M3a，已选定",
+      "listening_notes": "稳定性：句末字容易丢——「……应该告诉你」D2 的「你」很轻但能听到，R1–R3 几乎听不到；合成时由 ASR 的句末检查（lost ending）重试。"
     }
   ],
   "default_seeds": [

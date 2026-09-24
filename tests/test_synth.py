@@ -53,11 +53,18 @@ def test_passing_asr_stops_retrying(tmp_path):
 
 def test_cached_units_are_rejudged_with_the_current_rule(tmp_path):
     wd = Workdir(tmp_path)
-    synthesize([unit()], FakeEngine(), wd, "zh", asr=FakeAsr(["别的句子。"] * 3), show_progress=False)
+    synthesize([unit()], FakeEngine(), wd, "zh", asr=FakeAsr(["别的木门。"] * 3), show_progress=False)
     stats = synthesize([unit()], FakeEngine(), wd, "zh", asr=FakeAsr([], max_cer=1.0), show_progress=False)
     assert stats.cached == 1 and not stats.warnings        # a looser rule clears the stored flag
     stats = synthesize([unit()], FakeEngine(), wd, "zh", asr=FakeAsr([], max_cer=0.05), show_progress=False)
     assert len(stats.warnings) == 1                        # and a stricter one raises it again
+
+
+def test_a_lost_ending_fails_even_under_the_error_threshold(tmp_path):
+    text = "这件事我想了很久，还是觉得应该告诉你。"
+    asr = FakeAsr(["这件事，我想了很久，还是觉得应该告诉。", text])
+    stats = synthesize([unit(text)], FakeEngine(), Workdir(tmp_path), "zh", asr=asr, show_progress=False)
+    assert asr.calls == 2 and stats.retried == 1 and not stats.warnings
 
 
 def test_reroll_uses_fresh_seeds_and_survives_a_cache_wipe(tmp_path):

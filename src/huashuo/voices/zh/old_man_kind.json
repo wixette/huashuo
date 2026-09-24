@@ -16,5 +16,6 @@
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
     "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
     "mlx_audio": "0.5.5"
-  }
+  },
+  "listening_notes": "稳定性：I1（愤怒 instruct）听起来更年轻，但是普通话，没有方言（测量上接近 eric）。"
 }
