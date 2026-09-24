@@ -23,3 +23,26 @@ def test_a_lost_last_word_fails_the_check_under_the_error_threshold():
     assert not lost_ending("Tell me what you saw.", "Tell me what you saw, okay", "en")
     assert "ASR mismatch (29%)" in judge("雪下了整整一夜。", "雪下了一夜。", "zh", 0.10)[1]
     assert not lost_ending("地流走，什么意思么？", "的流走，什么意思吗？", "zh")   # 么 heard as 吗
+
+
+def test_numbers_compare_however_the_tts_read_them():
+    """Transcripts from experiments/m5_reading_check.py: the TTS reads each number its own
+    way and the recognizer writes what it heard."""
+    same = [("他是1998年出生的。", "他是一九九八年出生的。"),
+            ("剑身上刻着1234个小字。", "剑身上刻着一千两百三十四个小字。"),
+            ("这座城有12,000户人家，共35000人。", "这座城有一万两千户人家，共三万五千人。"),
+            ("他一年挣1.5万元。", "他一年挣一点五万元。"),
+            ("成功率只有5%，失败率是12.5%。", "成功率只有百分之五，失败率是百分之十二点五。"),
+            ("比赛最后以3:2结束。", "比赛最后以三比二结束。"),
+            ("早上8:30出发，晚上20:15到达。", "早上八点半出发，晚上二十点十五到达。"),
+            ("他的电话是13812345678。", "他的电话是一三八幺二三四五六七八。"),
+            ("他每天跑5km，体重70kg。", "他每天跑五公里，体重七十公斤。"),
+            ("今天最高30℃。", "今天最高三十摄氏度。"),
+            ("只剩下1/3的粮食了。", "只剩下三分之一的粮食了。"),
+            ("一张票¥100，换成美元大约$14。", "一张票一百元，换成美元大约十四美元。"),
+            ("要走3-5天才能到。", "要走三到五天才能到。"),
+            ("他住在302房间。", "他住在三零二房间。"),
+            ("万一他不来呢？", "万一他不来呢？")]
+    for text, heard in same:
+        assert cer(text, heard, "zh") == 0.0, text
+    assert cer("剑身上刻着1234个小字。", "剑身上刻着一千两百个小字。", "zh") > 0.05   # a real misreading

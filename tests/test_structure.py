@@ -201,3 +201,14 @@ def test_noise_in_a_web_novel_is_skipped_and_counted():
     noise = [b["text"] for b in built.script.blocks if b.get("reason") == "noise"]
     assert noise == ["求月票！求推荐票！", "本章完", "（本章未完，请翻页）", "www.example-novel.com 最新章节免费阅读"]
     assert all(t in built.text for t in noise)             # kept in the text, just not read
+
+
+def test_numbers_the_tts_misreads_get_a_reading():
+    from huashuo.structure import speech_cleanup
+
+    assert speech_cleanup("今天最低-5℃。", "zh") == "今天最低零下5℃。"
+    assert speech_cleanup("温度是-3.5度", "zh") == "温度是零下3.5度"
+    assert speech_cleanup("电话010-12345678。", "zh") == "电话010 12345678。"
+    assert speech_cleanup("他是No.1。", "zh") == "他是第1。"
+    for fine in ("要走3-5天", "日期2026-09-25", "Piano.1", "他-说"):
+        assert speech_cleanup(fine, "zh") is None

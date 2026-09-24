@@ -17,7 +17,6 @@ DEFAULT_ASR_MODEL = "mlx-community/Qwen3-ASR-1.7B-8bit"
 # far more. A single dropped word on a long unit is below any usable threshold.
 DEFAULT_MAX_CER = 0.10
 _LANGUAGES = {"zh": "Chinese", "en": "English"}
-_DIGITS = str.maketrans("0123456789", "零一二三四五六七八九")
 
 
 # Characters that stay distinct after traditional-to-simplified conversion but that the
@@ -38,11 +37,72 @@ def _to_simplified(text: str) -> str:
     return _converter.convert(text)
 
 
+_CN_DIGITS = {"零": 0, "〇": 0, "一": 1, "幺": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,
+              "六": 6, "七": 7, "八": 8, "九": 9}
+_CN_UNITS = {"十": 10, "百": 100, "千": 1000}
+_CN_BIG = {"万": 10 ** 4, "亿": 10 ** 8}
+_CN_NUMBER = re.compile(r"[零〇一幺二两三四五六七八九十百千万亿]+(?:点[零〇一幺二两三四五六七八九]+)?")
+
+
+def _cardinal(run: str) -> int:
+    total = section = digit = 0
+    for ch in run:
+        if ch in _CN_DIGITS:
+            digit = _CN_DIGITS[ch]
+        elif ch in _CN_UNITS:
+            section += (digit or 1) * _CN_UNITS[ch]
+            digit = 0
+        else:                                               # 万, 亿
+            total = (total + section + digit) * _CN_BIG[ch]
+            section = digit = 0
+    return total + section + digit
+
+
+def _arabic(match: re.Match) -> str:
+    """一千二百三十四 -> 1234 (a cardinal), 一九九八 / 一三八幺 -> 1998 / 1381 (digit by
+    digit), 十二点五 -> 12.5."""
+    whole, _, fraction = match.group(0).partition("点")
+    if all(ch in _CN_BIG for ch in whole):
+        return match.group(0)                               # 万 / 亿 on their own (1.5万, 万一)
+    if any(ch in _CN_UNITS or ch in _CN_BIG for ch in whole):
+        value = str(_cardinal(whole))
+    else:
+        value = "".join(str(_CN_DIGITS[ch]) for ch in whole)
+    return value + ("." + "".join(str(_CN_DIGITS[ch]) for ch in fraction) if fraction else "")
+
+
+# Symbols the TTS reads out in words, written the same way before comparing.
+_SPOKEN_SYMBOLS = [
+    (re.compile(r"(\d{4})-0?(\d{1,2})-0?(\d{1,2})"), r"\1年\2月\3日"),    # 2026-09-25
+    (re.compile(r"(\d{1,2}):30(?!\d)"), r"\1点半"),                          # 8:30, read 八点半
+    (re.compile(r"(\d{1,2}):(\d{2})(?!\d)"), r"\1点\2"),                   # 20:15
+    (re.compile(r"(\d+):(\d+)"), r"\1比\2"),                               # 3:2
+    (re.compile(r"(\d+)/(\d+)"), r"\2分之\1"),                             # 1/3
+    (re.compile(r"(\d)-(\d)"), r"\1到\2"),                                 # 3-5
+    (re.compile(r"[¥￥](\d+(?:\.\d+)?)"), r"\1元"),
+    (re.compile(r"\$(\d+(?:\.\d+)?)"), r"\1美元"),
+    (re.compile(r"(?<=\d)\s*(?:℃|°C)"), "摄氏度"),
+    (re.compile(r"(?<=\d)\s*km\b", re.I), "公里"),
+    (re.compile(r"(?<=\d)\s*kg\b", re.I), "公斤"),
+    (re.compile(r"(?<=\d)\s*cm\b", re.I), "厘米"),
+]
+
+
 def normalize(text: str, language: str) -> str:
-    """Drop punctuation and spaces; compare Chinese in simplified form, digit by digit
-    (1987 -> 一九八七), with interchangeable variants folded together."""
+    """Drop punctuation and spaces; compare Chinese in simplified form, with
+    interchangeable variants folded together and numbers as Arabic numerals.
+
+    The TTS reads a number however suits it (1998年 as 一九九八, 1234个 as 一千两百三十四,
+    5% as 百分之五) and the recognizer writes what it hears, so both sides are brought to
+    digits: a Chinese numeral with 十/百/千/万 is a cardinal, one without is read digit by
+    digit."""
     if language == "zh":
-        text = _to_simplified(text.translate(_DIGITS)).translate(_FOLD)
+        text = _to_simplified(text).translate(_FOLD)
+        for pattern, spoken in _SPOKEN_SYMBOLS:
+            text = pattern.sub(spoken, text)
+        text = text.replace("点三十", "点半")                  # 八点三十 = 八点半
+        text = re.sub(r"百分之(?=[零〇一幺二两三四五六七八九十百千万亿])", "", text)
+        text = _CN_NUMBER.sub(_arabic, text)
         return re.sub(r"[^\w]|_", "", text)
     return re.sub(r"[^a-z0-9]", "", text.lower())
 

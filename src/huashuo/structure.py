@@ -57,6 +57,13 @@ def classify_heading(line: str, language: str) -> int | None:
 _KANA = re.compile(r"[\u3041-\u309f\u30a1-\u30fa\u30fd-\u30ff]")
 _PLACEHOLDERS = re.compile(r"[□■�]")
 _MAX_STRAY_KANA_SHARE = 0.05
+# Numbers Qwen3-TTS misreads (PRON-2, experiments/m5_reading_check.py); everything else it
+# reads well on its own (years, counts, percentages, scores, times, dates, units ...).
+_READINGS = [
+    (re.compile(r"(?<![\d.])-(\d+(?:\.\d+)?)\s*(℃|°C|度)"), r"零下\1\2"),   # -5℃ was read 五摄氏度
+    (re.compile(r"(?<!\d)(0\d{2,3})-(\d{7,8})(?!\d)"), r"\1 \2"),         # 010-12345678: not 零幺零到……
+    (re.compile(r"(?<![A-Za-z])[Nn][Oo]\.\s*(\d+)"), r"第\1"),              # No.1
+]
 
 
 def speech_cleanup(text: str, language: str) -> str | None:
@@ -68,6 +75,8 @@ def speech_cleanup(text: str, language: str) -> str | None:
     if kana and kana <= _MAX_STRAY_KANA_SHARE * len(text) + 1:
         cleaned = _KANA.sub("", cleaned)
     cleaned = _PLACEHOLDERS.sub("", cleaned).strip()
+    for pattern, reading in _READINGS:
+        cleaned = pattern.sub(reading, cleaned)
     return cleaned if cleaned != text and cleaned else None
 
 
