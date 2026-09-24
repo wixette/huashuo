@@ -222,3 +222,45 @@ def test_voices_library_lists_without_a_model(tiny_library, capsys):
     assert main(["voices", "--library"]) == 0
     out = capsys.readouterr().out
     assert "library:zh/old_man" in out and "preset:dylan" not in out
+
+
+# ---- English books: the narrator reads everyone until there is an English library (Q19) ----
+
+ENGLISH_TXT = """The Inn
+
+Chapter 1
+Snow fell all night. Lin pushed the door open.
+"A jug of hot wine," he said.
+The old man looked up. "You are not from around here, are you?"
+"Where I come from does not matter," said Lin.
+"""
+ENGLISH_ANSWERS = {'"A jug of hot wine,"': "Lin", '"You are not from around here, are you?"': "Old man",
+                   '"Where I come from does not matter,"': "Lin"}
+ENGLISH_CAST = [{"op": "insert", "name": "Lin", "gender": "male", "age": "young_adult", "description": "swordsman"},
+                {"op": "insert", "name": "Old man", "gender": "male", "age": "elderly", "description": "innkeeper"}]
+
+
+def test_english_books_are_read_by_the_narrator(tmp_path, tiny_library):
+    import json as _json
+
+    (tiny_library / "presets.json").write_text(_json.dumps({
+        "serena": {"language": "zh", "gender": "female", "age": "young_adult"},
+        "ryan": {"language": "en", "gender": "male", "age": "young_adult", "traits": ["narrator"]},
+        "aiden": {"language": "en", "gender": "male", "age": "young_adult"}}), encoding="utf-8")
+    import huashuo.library as library
+    library._load.cache_clear()
+    path = tmp_path / "inn.txt"
+    path.write_text(ENGLISH_TXT, encoding="utf-8")
+    llm = ScriptedLLM(cast_ops=ENGLISH_CAST, answers=ENGLISH_ANSWERS, voice_choices={"Lin": "preset:aiden"})
+    import_book(path, Workdir.for_input(path), llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
+    wd = Workdir.for_input(path)
+    cast = _json.loads(wd.cast.read_text(encoding="utf-8"))
+    assert cast["narrator"]["voice"] == "preset:ryan"
+    assert {n: c["voice"] for n, c in cast["characters"].items()} == {"Lin": "preset:ryan", "Old man": "preset:ryan"}
+    assert llm.calls["voices"] == 0 and llm.calls["speakers"] >= 1      # speakers still attributed
+    cast["characters"]["Old man"]["voice"] = "preset:aiden"              # a voice named by hand still counts
+    wd.cast.write_text(_json.dumps(cast), encoding="utf-8")
+    import_book(path, wd, llm=LLMOptions(config_override=LOCAL, model_override=ScriptedLLM(
+        cast_ops=ENGLISH_CAST, answers=ENGLISH_ANSWERS).model()))
+    cast = _json.loads(wd.cast.read_text(encoding="utf-8"))
+    assert cast["characters"]["Old man"]["voice"] == "preset:aiden" and cast["characters"]["Lin"]["voice"] == "preset:ryan"

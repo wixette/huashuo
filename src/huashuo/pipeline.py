@@ -101,9 +101,9 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
     """Attribute speakers (and suggest voices for the main characters), with calls if
     allowed and configured, else from the cache."""
     from huashuo.attribution import Caller, attribute_script, estimate_cost, llm_config, offline_config
-    from huashuo.library import castable
+    from huashuo.library import castable, has_library
 
-    voices = castable(language)
+    voices = castable(language) if has_library(language) else []      # nothing to suggest from
 
     if not any(b.get("type") == "dialogue" for b in script.blocks):
         return None, LLMReport("none")
@@ -151,6 +151,7 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
     """build -> split -> attribute speakers -> cast voices. `narrator` and `fixed_voices`
     are the user's current choices, which casting works around."""
     from huashuo.casting import cast_voices, conversations
+    from huashuo.library import has_library
 
     built = build(book, language, read_notes)
     lang = built.script.header["language"]
@@ -163,8 +164,13 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
         if attribution is not None:
             built.script.blocks = attribution.blocks
             characters = attribution.characters
-            voices = cast_voices(characters, narrator, lang, conversations(attribution.blocks), fixed_voices,
-                                 suggested=attribution.suggested_voices)
+            if has_library(lang):
+                voices = cast_voices(characters, narrator, lang, conversations(attribution.blocks), fixed_voices,
+                                     suggested=attribution.suggested_voices)
+            else:
+                # No designed voices for this language yet (English in stage 1, requirements
+                # Q19): the narrator reads everyone, unless the user named a voice.
+                voices = {name: (fixed_voices or {}).get(name, narrator) for name in characters}
             cast["characters"] = {name: {**entry, "voice": voices[name]} for name, entry in characters.items()}
     return MachineOutput(built.text, built.script, cast, built.chapters, built.skipped, report)
 
@@ -216,7 +222,8 @@ def _place_cover(wd: Workdir, book, cover: Path | None, previous: dict) -> tuple
 
 def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                 language: str | None = None, cover: Path | None = None,
-                read_notes: bool | None = None, llm: LLMOptions | None = None) -> ImportResult:
+                read_notes: bool | None = None, llm: LLMOptions | None = None,
+                title: str | None = None, author: str | None = None) -> ImportResult:
     """Read the source and (re)build text.txt, the script and the cast, keeping user edits.
 
     Options left as None reuse what the previous import of this book recorded.
@@ -226,11 +233,19 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     encoding = encoding if encoding is not None else previous.get("encoding")
     language = language if language is not None else previous.get("language")
     read_notes = read_notes if read_notes is not None else previous.get("read_notes", False)
+    title = title if title is not None else previous.get("title")
+    author = author if author is not None else previous.get("author")
     book = read_book(source, encoding)
     narrator, fixed = _user_voice_choices(wd, language or record.get("language") or "zh")
     machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions(),
                              narrator, fixed)
     header = machine.script.header
+    # --title / --author win over what the book says (IN-4); applied to the machine's
+    # version, so an edit the user makes to the header afterwards still wins on merge.
+    if title:
+        header["title"] = title
+    if author:
+        header["author"] = author
     header["source"] = {"path": os.path.relpath(source.resolve(), wd.root.resolve()),
                         "format": book.format, "sha256": _sha256_file(source)}
     cover_path, cover_from = _place_cover(wd, book, cover, record)
@@ -267,7 +282,8 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                                          "llm_model": record.get("llm_model"),
                                          "llm_consent": record.get("llm_consent", []),
                                          "options": {"encoding": encoding, "language": language,
-                                                     "read_notes": read_notes}})
+                                                     "read_notes": read_notes, "title": title,
+                                                     "author": author}})
     return ImportResult(wd, merged, machine.text, machine.chapters, machine.skipped, book.encoding,
                         result.report + cast_report, machine.llm)
 

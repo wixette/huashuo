@@ -42,6 +42,8 @@ def _parser() -> argparse.ArgumentParser:
     def import_options(p):
         p.add_argument("--encoding", help="TXT encoding when detection fails, e.g. big5")
         p.add_argument("--language", choices=["zh", "en"], help="override language detection")
+        p.add_argument("--title", help="book title, instead of the book's own (remembered for this book)")
+        p.add_argument("--author", help="author, instead of the book's own (remembered for this book)")
         p.add_argument("--cover", type=Path, help="cover image to use instead of the book's own")
         p.add_argument("--read-notes", action=argparse.BooleanOptionalAction, default=None,
                        help="read editorial annotations (注釋 sections); skipped by default, "
@@ -197,7 +199,8 @@ def cmd_import(args, quiet: bool = False):
     llm = LLMOptions(enabled=not args.no_llm, model=args.llm_model, base_url=args.llm_base_url,
                      max_cost=args.max_llm_cost, assume_yes=args.yes, concurrency=args.llm_concurrency,
                      confirm=_ask if sys.stdin.isatty() else None, progress=LLMProgress())
-    result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes, llm)
+    result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes, llm,
+                         title=args.title, author=args.author)
     h = result.script.header
     chars = sum(len(b.get("text", "")) for b in result.script.blocks if b.get("type") != "skip")
     print(f"《{h['title']}》 {h.get('author') or '(author unknown)'}  [{h['language']}"

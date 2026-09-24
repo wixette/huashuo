@@ -98,6 +98,12 @@ def get(ref: str, root: Path | None = None) -> Voice:
     return voices[ref]
 
 
+def has_library(language: str, root: Path | None = None) -> bool:
+    """Whether the library has designed voices for a language. Without them there is no
+    automatic casting: presets alone are too few (English has two, one of them the narrator)."""
+    return any(v.kind == "library" and v.language == language for v in _load(root or ROOT).values())
+
+
 def castable(language: str, root: Path | None = None) -> list[Voice]:
     """Voices casting may choose from for a language: the library, plus presets that are
     standard speech (dialect presets are only used when named explicitly, CAST-9)."""

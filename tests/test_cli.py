@@ -77,3 +77,21 @@ def test_package_and_redo_reuse_the_synthesis_options(sample_txt):
     assert json.loads(wd.run_options.read_text()) == {"voice": "preset:vivian", "model": None, "titles": False,
                                                          "emotions": False}
     assert run("package", sample_txt) == 0                 # finds the same units without repeating flags
+
+
+def test_title_and_author_flags_are_remembered_and_hand_edits_still_win(sample_txt):
+    from huashuo.huaben import read_script, write_script
+
+    assert run("import", sample_txt, "--title", "石头记", "--author", "曹雪芹 著") == 0
+    wd = Workdir.for_input(sample_txt)
+    header = read_script(wd.script).header
+    assert (header["title"], header["author"]) == ("石头记", "曹雪芹 著")
+    assert run("import", sample_txt) == 0                              # no need to repeat the flags
+    assert read_script(wd.script).header["title"] == "石头记"
+    script = read_script(wd.script)
+    script.header["author"] = "曹雪芹、高鹗"                             # edited by hand
+    write_script(wd.script, script)
+    assert run("import", sample_txt) == 0
+    assert read_script(wd.script).header["author"] == "曹雪芹、高鹗"
+    assert run("import", sample_txt, "--title", "红楼梦") == 0
+    assert read_script(wd.script).header["title"] == "红楼梦"
