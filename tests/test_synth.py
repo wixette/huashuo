@@ -110,3 +110,14 @@ def test_progress_shows_the_chapter_being_synthesized(capsys):
     assert "chapter 1/2 done" in out and "chapter 2/2 done" in out
     single = Progress(1, 10, enabled=False, logged=True, chapters=[(0, 10)])
     assert single.chapter_status() == ""
+
+
+def test_titles_are_only_checked_for_a_lost_ending(tmp_path):
+    title = Unit("title", "《剑来长安》，作者青衫客。", "preset:serena", None, ["opening"], 0)
+    asr = FakeAsr(["剑来长安，作者青山客。"])                     # a homophone in a name
+    stats = synthesize([title], FakeEngine(), Workdir(tmp_path), "zh", asr=asr, show_progress=False)
+    assert asr.calls == 1 and not stats.warnings
+    cut = Unit("title", "《剑来长安》，作者青衫客。", "preset:vivian", None, ["opening"], 0)
+    asr = FakeAsr(["剑来长安，作者青山"] * 3)
+    stats = synthesize([cut], FakeEngine(), Workdir(tmp_path), "zh", asr=asr, show_progress=False)
+    assert asr.calls == 3 and "lost ending" in stats.warnings[0]["problem"]

@@ -176,12 +176,19 @@ def cached_ok(wd: Workdir, key: str) -> dict | None:
     return None
 
 
+def _max_cer(unit: Unit, max_cer: float) -> float:
+    """Titles, headings and the opening are mostly names, which the recognizer spells
+    with any homophone (青衫客 -> 青山客) and a retry cannot fix; only a lost ending
+    counts there."""
+    return max_cer if unit.kind == "body" else 1.0
+
+
 def _rejudge(wd: Workdir, key: str, meta: dict, unit: Unit, language: str, max_cer: float) -> dict:
     """Re-apply the current ASR comparison to a cached unit's stored transcript, so a
     better comparison clears (or raises) flags without synthesizing again."""
     from huashuo.asr import judge
 
-    rate, asr_problem = judge(unit.page_text, meta["asr"], language, max_cer)
+    rate, asr_problem = judge(unit.page_text, meta["asr"], language, _max_cer(unit, max_cer))
     duration_only = meta.get("problem") and not str(meta["problem"]).startswith("ASR mismatch")
     problem = meta["problem"] if duration_only else asr_problem
     if problem != meta.get("problem") or round(rate, 4) != meta.get("cer"):
@@ -229,7 +236,7 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                 if problem is None and asr is not None and long_enough:
                     transcript = asr.transcribe(audio, engine.sample_rate, language)
                     from huashuo.asr import judge
-                    error_rate, problem = judge(unit.page_text, transcript, language, asr.max_cer)
+                    error_rate, problem = judge(unit.page_text, transcript, language, _max_cer(unit, asr.max_cer))
                 # Best of the attempts: a duration failure is worst, then a failed ASR check,
                 # then the error rate.
                 score = (problem is not None and error_rate is None, problem is not None, error_rate or 0.0)
