@@ -7,8 +7,8 @@ An open-source, Chinese-first audiobook generator: an LLM turns a novel into a m
 script, Qwen3-TTS renders it locally on Apple Silicon via MLX, and the result is packaged as
 a standard audiobook.
 
-**Status:** milestone M1: a working single-voice pipeline (TXT/EPUB in, M4B out).
-Multi-voice casting is next (M2, M3).
+**Status:** milestone M1 done: a working single-voice pipeline (TXT/EPUB in, M4B out).
+Next: speaker attribution (M2), then per-character voices (M3).
 
 ```bash
 uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
@@ -20,15 +20,28 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
 
 Needs an Apple Silicon Mac and ffmpeg (`brew install ffmpeg`). The work directory
 `book.huashuo/` holds the editable script (`script.huaben.jsonl`, see
-[docs/script-ir.md](docs/script-ir.md)) and the voice choice (`cast.json`).
+[docs/script-ir.md](docs/script-ir.md)) and the voice choice (`cast.json`); edits there
+survive re-imports.
+
+Development:
+
+```bash
+uv pip install --python .venv/bin/python -e ".[dev]"
+.venv/bin/python -m pytest              # ~2 s, fake TTS engine, no models or API keys needed
+.venv/bin/python -m pytest -m model     # opt-in: real Qwen3-TTS / ASR weights
+.venv/bin/python -m pytest -m llm       # opt-in: real LLM API (costs money)
+```
+
+LLM settings (from M2) come from `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` and
+`HUASHUO_LLM_BASE_URL`, or a git-ignored `.env` in the repository root.
 
 - [docs/requirements.md](docs/requirements.md): first-stage requirements (novel → M4B),
-  milestones, acceptance criteria and open questions. Start here.
+  milestones, acceptance criteria and the decision log. Start here.
 - [docs/design-and-research.md](docs/design-and-research.md): the design doc, covering
   research, measurements, architecture decisions and naming.
 - [docs/script-ir.md](docs/script-ir.md): the 话本 (Script IR) format, the cast table and
   the per-book work directory.
-- [experiments/](experiments/): working prototypes. `novel_tts.py` is a single-voice
-  text-to-MP3 CLI that the real pipeline will grow from.
+- [experiments/](experiments/): the original single-voice prototype and the scripts behind
+  EXP-1 (voice library), EXP-2 (speaker attribution) and EXP-3 (accent detection).
 
-License: Apache-2.0 (planned).
+License: Apache-2.0.

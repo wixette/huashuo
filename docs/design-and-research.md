@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 状态 | 调研完成，架构方向已确定，尚未立项 |
+| 状态 | M1（单音色 M4B）完成并加固；EXP-1、EXP-2 完成；下一步 M2（2026-09-24） |
 | 日期 | 2026-09-23 |
 | 项目名称 | **话说 Huashuo**（`huashuo`，见 §8.6；早期测试代号 `novel-tts` 已弃用） |
 | 目标许可证 | Apache-2.0 |
@@ -14,7 +14,7 @@
 
 我们计划新建一个开源的有声书生成项目 **话说（Huashuo）**，核心差异化是 **「LLM 做多角色剧本化 + 中文优先 + Apple Silicon 本地 TTS + 标准有声书封装」**。其中「LLM 多角色 + 有声书封装」已有项目在做（见 §4.2），**「中文优先 + Apple Silicon 本地推理」这一层目前没有人占据**。
 
-五个已确定的关键决策：
+已确定的关键决策：
 
 1. **TTS 主力用 Qwen3-TTS 1.7B**，经 mlx-audio 在 macOS 本地运行（已实测，中文质量优秀）
 2. **文本分析用云端 LLM API**（本地小模型中文理解不足），但改为**段落级批量标注**而非逐句调用（成本与调用次数降低约 40 倍）
@@ -333,8 +333,16 @@ landandan fork 的 `kokoro_zh` 映射里，这两个方言音色占了 5 个槽�
 |---|---|
 | [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)（代码 + 权重） | **Apache-2.0** |
 | [mlx-audio](https://github.com/Blaizzy/mlx-audio) | **MIT** |
-| pydub | MIT |
+| Qwen3-ASR、Qwen3-ForcedAligner（权重，ASR 校验与 EXP-3） | **Apache-2.0** |
+| numpy、scipy | BSD-3-Clause |
+| pyloudnorm（响度测量） | MIT |
+| Pillow（生成文字封面） | MIT-CMU（HPND） |
+| OpenCC（ASR 校验时繁转简） | Apache-2.0 |
+| pydantic-ai（LLM 接入） | MIT |
+| pypinyin（仅 EXP-3 实验脚本） | MIT |
 | ffmpeg / calibre | GPL/LGPL，但**以子进程调用**，不构成链接 |
+
+刻意避开的：EbookLib（AGPL，改为标准库解析 EPUB）、zhconv（GPL，改用 OpenCC）、audiobook-creator 的代码与提示词（GPL，§8.2）。
 
 ### 5.6 Qwen3-TTS 预置音色（2026-09-23 核查）
 
@@ -473,7 +481,7 @@ CustomVoice 模型（0.6B 与 1.7B 相同）的 `config.json` 中 `talker_config
 
 **可行的方向**：
 
-1. **人工重做**：听到问题时，按时间点定位到单元并换 seed 重合成（任何听感问题都适用，不限于口音）
+1. **人工重做**：听到问题时，按时间点定位到单元并换 seed 重合成（任何听感问题都适用，不限于口音）。✅ 已实现为 `huashuo redo BOOK --at 1:28`（requirements CLI-10）
 2. **声调一致性检测**（研究性质）：强制对齐得到每个字的时间，pypinyin 给出普通话应有的声调，从基频曲线判断实际声调；陕西关中话与普通话的调值差异很大（如阴平 21 对 55、去声 44 对 51），漂移单元的声调一致率应明显下降。可顺带测出 temperature 0.9 与 0.7 下的真实漂移率
 3. **降低 temperature**：理论上减少低概率路径，但可能让表达变平；需在有检测手段后用数据决定
 
@@ -887,24 +895,24 @@ Script
 
 ### 9.1 `/Users/ygwang/src/huashuo`（本项目）
 
-已有一个可用的 TTS 原型 `experiments/novel_tts.py`（约 29k，单文件 CLI）。它是命名前的测试工具，保留原文件名，作为实验脚本放在 `experiments/` 下；`huashuo` 这个 CLI 名留给正式流水线。在仓库根目录运行：
+**正式的 `huashuo` 包**（`src/huashuo/`，M1 完成并加固，2026-09-24）：
 
-```bash
-.venv/bin/python experiments/novel_tts.py book.txt -o book.mp3
-.venv/bin/python experiments/novel_tts.py book.txt --sample        # 试听开头
-.venv/bin/python experiments/novel_tts.py book.txt --continue      # 断点续跑
-```
+| 模块 | 作用 |
+|---|---|
+| `ingest/` | TXT（严格的编码识别）与 EPUB 2/3（标准库解析）读入为统一的 Book |
+| `structure.py` | 生成 `text.txt` 与话本 block：章节 / 卷、场景分隔、各类跳过、硬换行合并、`say` 自动清理 |
+| `huaben.py` | 话本读写、不变式检查、按文字对齐的三方合并 |
+| `cast.py` | 选角表：默认值、校验、按角色合并 |
+| `pipeline.py` | 导入阶段（`machine_output()` 是 M2 接入剧本化的位置）、检查、规划、估算 |
+| `units.py` | block → 合成单元与 M4B 章节，边界类型决定停顿 |
+| `synth.py` / `asr.py` | 缓存、种子、校验、重试、ASR 校验、重做 |
+| `post.py` / `audio.py` / `m4b.py` | 裁静音、响度、限幅、停顿、流式编码为 M4B |
+| `engines/` | Qwen3-TTS（mlx-audio）与测试用的假引擎 |
+| `cli.py` | `huashuo` 命令：make / import / check / synth / package / redo / voices |
 
-**已经实现了新项目需要的几个关键能力**（可直接演进）：
+测试在 `tests/`（假引擎，无需模型，约 2 秒；`llm`、`model` 标记的测试需显式开启），CI 在 GitHub Actions（Ubuntu，Python 3.10 / 3.12）。
 
-- 按段落/句子边界分块（默认 400 字符上限）
-- **分块磁盘缓存**，cache key 由文本内容 + 所有影响音频的参数派生
-- **断点续跑**
-- **按 chunk index 播种**，重跑产生逐字节相同的音频（续跑不会音色漂移）
-- 流式送入 ffmpeg，不在内存里堆数小时音频
-- 时长/字数校验（捕获空输出、token 上限截断、复读失控），失败两次的块保留并在最后报告
-
-**v1 限制**：全书固定单音色，无角色分配；文本归一化极简。
+**原型** `experiments/novel_tts.py`（单文件、单音色、输出 MP3）保留作参考；它的分块、缓存、续跑、校验思路已并入正式包（种子改为由缓存键派生，而不是按分块序号）。`experiments/` 下另有 EXP-1～3 的实验脚本。
 
 ### 9.2 `/Users/ygwang/src/audiobook-creator`（参考，只读）
 
@@ -920,29 +928,29 @@ Script
 
 第一阶段的需求、里程碑与验收标准见 [requirements.md](requirements.md)；本节只列调研与设计层面的待办。
 
-### 10.1 立即执行（P0）
+### 10.1 已完成
 
-1. **EXP-1 音色实验**（与 M1 并行，决定多角色能否进入第一阶段）：比较 §5.6 的路线 A / B / C。✅ **2026-09-24 通过**：路线 C，6 个中文音色（§5.6）
-2. **EXP-2 批量标注对拍**：在本仓库中实现段落级批量标注（先作为 `experiments/` 下的实验脚本），与 landandan fork 的逐句实现**对拍**。✅ **2026-09-24 完成**：批量方式成立，结果见 §7.2.1
-   - 同一份中文文本，对比说话人归属准确率与 token 消耗
-   - 输出天然就是 Script IR 的雏形——顺手验证剧本模型
-3. EXP-2 数据出来后，决定是否正式立项
+1. **EXP-1 音色实验**：✅ 2026-09-24 通过，路线 C，6 个中文音色（§5.6）
+2. **EXP-2 批量标注对拍**：✅ 2026-09-24 完成，批量方式成立，默认模型 gpt-6-sol（§7.2.1）
+3. **Script IR 设计文档**：✅ [script-ir.md](script-ir.md)
+4. **项目命名**：✅「话说 Huashuo」（§8.6）
+5. **音频封装层**（M4B / 章节 / 元数据 / 静音）：✅ M1
+6. **EXP-3 口音检测，第一种方案**：未成功，已暂停（§5.8）
 
-### 10.2 立项后
+### 10.2 接下来
 
-4. **先写 Script IR 的 schema 设计文档**（最贵的决定，改起来最痛）：草稿见 [script-ir.md](script-ir.md)。格式已定为 JSONL、名为「话本」、扩展名 `*.huaben.jsonl`（§8.6）；字段设计参考 Alexandria 的剧本格式（§4.3）
-5. ~~项目命名讨论~~ ✅ 已定为「话说 Huashuo」（§8.6）；仓库目录已改名为 `huashuo`，原型移入 `experiments/`。正式的 `huashuo` 包与 CLI 随流水线实现一起建立
-6. 音频封装层重建（M4B / 章节 / 元数据 / 静音）
-7. 角色 → 音色分配（携带完整画像，不走 gender_score），从内置音色库中选
+7. **M2 剧本化**：对白切分、角色表、批量说话人标注（带响应缓存），作为导入阶段的一部分与话本、选角表各合并一次
+8. **M3 多角色**：角色 → 音色分配（携带完整画像，不走 gender_score），从内置音色库中选；缓存键加入音色指纹；给 mlx-audio 提「直接传 speaker 向量」的接口
+9. **EXP-3 第二种方案**（可选）：用 ASR 编码器嵌入做口音分类
 
 ### 10.3 待评估（有基准后）
 
-8. Jev 在中文说话人归属上的**真实准确率**与**置信度校准质量**
-9. 置信度分诊方案
+10. Jev 在中文说话人归属上的**真实准确率**与**置信度校准质量**
+11. 置信度分诊方案
 
 ### 10.4 社区回馈
 
-10. 向 landandan 提 issue：`kokoro_zh` 方言音色 bug（§5.2）
+12. 向 landandan 提 issue：`kokoro_zh` 方言音色 bug（§5.2）
 
 ---
 

@@ -1,12 +1,10 @@
 # Experiments
 
-Working prototypes and experiments for [话说 Huashuo](../README.md). Run everything from the
-repository root with the project venv:
-
-```bash
-uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -e ../mlx-audio   # mlx-audio @ cd605ec (v0.5.5)
-```
+Prototypes and experiments for [话说 Huashuo](../README.md). Run everything from the
+repository root with the project venv, set up as in the main README
+(`uv pip install --python .venv/bin/python -e ".[dev]"`, which brings mlx-audio 0.5.5 from
+PyPI; the experiments were run against an editable checkout at `cd605ec`, the same
+release).
 
 | Script | What it is |
 |---|---|
@@ -18,6 +16,27 @@ uv pip install --python .venv/bin/python -e ../mlx-audio   # mlx-audio @ cd605ec
 | `exp3_tone_check.py` | EXP-3 attempt 1: tone-consistency accent detector (negative result, design doc §5.8) |
 
 Extra packages for these experiments: `uv pip install --python .venv/bin/python "pydantic-ai-slim[openai]" pypinyin`.
+
+## EXP-1 rounds 3a and 3b
+
+```bash
+# 3a: VoiceDesign candidates (3 seeds per voice) for every voice in exp1_voices.json,
+#     plus the Chinese presets reading the same probe text, and a similarity report
+.venv/bin/python experiments/exp1_candidates.py OUT_3A
+# 3b: the chosen seeds (chosen_seed in exp1_voices.json) injected into CustomVoice;
+#     20 clips per voice, ASR / identification / pause checks, one listening file per voice
+.venv/bin/python experiments/exp1_stability.py OUT_3A OUT_3B
+```
+
+## exp3_tone_check.py — EXP-3 attempt 1 (negative result)
+
+Per-unit Mandarin tone profiles from forced alignment, pypinyin tones and a YIN pitch
+track, scored against a reference profile. It did not separate accented from standard
+speech; see design doc §5.8 for why.
+
+```bash
+.venv/bin/python experiments/exp3_tone_check.py OUT_DIR SAMPLES.json
+```
 
 ## exp2_batch_tagging.py — EXP-2 batched speaker attribution
 
@@ -37,7 +56,7 @@ The model comes from `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` (or `OPENAI_API_
 
 ```bash
 .venv/bin/python experiments/exp2_batch_tagging.py experiments/exp2_data/kongyiji.json \
-    --price-in 0.10 --price-out 0.50 --out result.json
+    --model gpt-6-sol --max-cost 0.20 --out result.json   # built-in prices; stops before the cap
 # per-line baseline with the same model and prompts:
 .venv/bin/python experiments/exp2_batch_tagging.py experiments/exp2_data/kongyiji.json \
     --attr-chunk-chars 1 --context 8
@@ -62,12 +81,10 @@ Needs the 1.7B 8-bit Base, VoiceDesign and CustomVoice models from `mlx-communit
 The first experiment of [话说 Huashuo](../README.md): convert a long Chinese UTF-8 text
 file into a single MP3 with Qwen3-TTS running locally on MLX (Apple Silicon).
 
-It is kept as a working reference, not as the project's CLI. Its chunking, per-chunk
-cache, resume and validation logic are what the real pipeline will evolve from (see
-§9.1 of the [design doc](../docs/design-and-research.md)).
-
-Built on [mlx-audio](https://github.com/Blaizzy/mlx-audio) @ `cd605ec` (v0.5.5), installed
-as an editable dependency from `../mlx-audio` (relative to the repository root).
+It is kept as a reference, not as the project's CLI. Its chunking, per-chunk cache, resume
+and validation logic have since been carried into the `huashuo` package (§9.1 of the
+[design doc](../docs/design-and-research.md)), which also changed seeding from chunk index
+to cache key.
 
 Run from the repository root.
 
