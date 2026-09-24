@@ -55,7 +55,10 @@ def _mismatch(character: dict, voice: Voice) -> int:
     return score
 
 
-_UNKNOWN_AGE_COST = {"child": 80, "teen": 50, "young_adult": 0, "middle_aged": 0, "elderly": 20}
+_UNKNOWN_AGE_COST = {"child": 80, "teen": 50, "young_adult": 0, "middle_aged": 0, "elderly": 35}
+# Spreading bit parts over voices is nice, but never at the price of a wrong age: the
+# penalty for a crowded voice stops growing below the cost of a wrong-age voice.
+_USE_COST, _MAX_USE_COST = 8, 32
 
 
 def cast_voices(characters: dict[str, dict], narrator: str, language: str,
@@ -116,8 +119,8 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
                 # Hearing the protagonist's voice from a bit part is worse than an age
                 # mismatch of two steps (40), so sharing a main voice costs more.
                 score += 45 if voice.ref in main_voices else 0
-                score += 8 * usage[voice.ref]
-            return score, voice.ref
+                score += min(_USE_COST * usage[voice.ref], _MAX_USE_COST)
+            return score, usage[voice.ref], voice.ref      # ties go to the less used voice
 
         if not pool:
             chosen[name] = narrator

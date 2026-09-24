@@ -81,3 +81,17 @@ def test_unknown_age_means_an_adult_voice():
              "主任二": {"gender": "male", "age": "unknown", "lines": 2}}
     voices = cast_voices(chars, NARRATOR, "zh", pool=pool, main=0)
     assert set(voices.values()) == {"lib:man"}                 # shared, rather than a child's voice
+
+
+def test_a_crowded_adult_voice_beats_a_wrong_age_one():
+    pool = [Voice("lib:woman", "zh", "female", "young_adult"), Voice("lib:teen", "zh", "female", "teen"),
+            Voice("lib:granny", "zh", "female", "elderly")]
+    chars = {f"路人{i}": {"gender": "female", "age": "unknown", "lines": 20 - i} for i in range(12)}
+    assert set(cast_voices(chars, NARRATOR, "zh", pool=pool, main=0).values()) == {"lib:woman"}
+
+
+def test_equally_good_voices_share_the_crowd():
+    pool = [Voice("lib:a", "zh", "male", "young_adult"), Voice("lib:b", "zh", "male", "middle_aged")]
+    chars = {f"路人{i}": {"gender": "male", "age": "unknown", "lines": 30 - i} for i in range(20)}
+    counts = Counter(cast_voices(chars, NARRATOR, "zh", pool=pool, main=0).values())
+    assert counts == {"lib:a": 10, "lib:b": 10}
