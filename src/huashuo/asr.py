@@ -128,8 +128,11 @@ DIALECT_MAX_CER = 0.5          # still catches garbage and runaway repetition
 
 
 def dialect_line(text: str) -> bool:
-    """Written in a dialect the recognizer cannot follow (two or more dialect-only characters)."""
-    return sum(ch in _DIALECT_CHARS for ch in text) >= 2
+    """Written in a dialect the recognizer cannot follow: two or more dialect-only
+    characters making up a real share of the text (one Shanghainese remark inside a long
+    unit of standard prose does not relax the check for the whole unit)."""
+    count = sum(ch in _DIALECT_CHARS for ch in text)
+    return count >= 2 and count >= 0.04 * len(text)
 
 
 def lost_ending(reference: str, hypothesis: str, language: str) -> bool:

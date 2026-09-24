@@ -147,7 +147,7 @@ def test_opening_and_closing_announcements(sample_txt):
     assert run("import", sample_txt) == 0
     project = load_project(Workdir.for_input(sample_txt))
     p = make_plan(project)
-    assert p.units[0].text == "《红楼梦》，曹雪芹 著。" and p.units[0].voice == project.cast["narrator"]["voice"]
+    assert p.units[0].text == "《红楼梦》，作者曹雪芹。" and p.units[0].voice == project.cast["narrator"]["voice"]
     assert p.units[1].text == "第一回 甄士隐梦幻识通灵"            # then the first chapter's title
     assert p.chapters[0].first_unit == 0                               # the opening is in chapter 1
     assert all(p.units[c.first_unit].block_ids[0].startswith("c") for c in p.chapters[1:])

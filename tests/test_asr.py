@@ -60,3 +60,11 @@ def test_regional_speech_is_not_retried_for_what_the_recognizer_cannot_write():
     # Standard speech keeps both checks.
     assert "lost ending" in judge("这件事我想了很久，还是觉得应该告诉你。", "这件事我想了很久，还是觉得应该告诉。", "zh", 0.10)[1]
     assert judge("你来吗？", "你来？", "zh", 0.10)[1] is not None
+
+
+def test_a_dialect_remark_inside_standard_prose_keeps_the_checks():
+    from huashuo.asr import dialect_line
+
+    assert dialect_line("“侬晓得伐？阿拉明朝就要走了。”")
+    prose = "信是从长安寄来的，信封上写着请于三月十五日前回电。他把信读了三遍，又看了看落款。" * 2
+    assert not dialect_line(prose + "“侬晓得伐？”一个商人说。")

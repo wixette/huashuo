@@ -441,7 +441,8 @@ def make_plan(project: Project, *, read_titles: bool = True, voice: str | None =
     return full
 
 
-OPENING = {"zh": "《{title}》，{author} 著。", "en": "{title}, by {author}."}
+# 「作者」 rather than 「著」: plainer to hear, and the recognizer writes 著 as 住 (M5 check).
+OPENING = {"zh": "《{title}》，作者{author}。", "en": "{title}, by {author}."}
 OPENING_NO_AUTHOR = {"zh": "《{title}》。", "en": "{title}."}
 CLOSING = {"zh": "全书完。", "en": "The End."}
 CREDIT = {"zh": "本有声书由话说 Huashuo 生成。", "en": "This audiobook was made with Huashuo."}
