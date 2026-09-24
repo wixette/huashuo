@@ -9,8 +9,9 @@ written into text.txt as their own line for the same reason.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
+from huashuo import punct
 from huashuo.huaben import FORMAT_VERSION, Script, sha256_text
 from huashuo.ingest import Book, Paragraph, Section, detect_language
 
@@ -198,8 +199,11 @@ class _Item:
 def _flatten(book: Book, language: str) -> list[_Item]:
     items: list[_Item] = []
     for section in book.sections:
+        # Punctuation first (TXT-7), so titles, sentences and quotes are found in clean text.
+        section = replace(section, title=section.title and punct.normalize(section.title, language))
         titled = bool(section.title) and not section.skip and looks_like_title(section.title, language)
-        paragraphs = unwrap(section.paragraphs, language) or ([Paragraph(section.title)] if titled else [])
+        paragraphs = [Paragraph(punct.normalize(p.text, language), p.kind)
+                      for p in unwrap(section.paragraphs, language)] or ([Paragraph(section.title)] if titled else [])
         for i, p in enumerate(paragraphs):
             items.append(_Item(p, section.skip, section if titled and i == 0 else None))
     # Project Gutenberg boilerplate: everything outside the START/END markers.

@@ -121,7 +121,7 @@ def test_stray_kana_and_placeholders_are_not_read():
     assert speech_cleanup(japanese, "zh") is None          # real Japanese stays
     built = build(_book(["第一章 起", "お進學︰明清科舉制度，童生經過縣考初試。"]))
     block = built.script.blocks[-1]
-    assert block["say"] == "進學︰明清科舉制度，童生經過縣考初試。" and block["text"].startswith("お")
+    assert block["say"] == "進學：明清科舉制度，童生經過縣考初試。" and block["text"].startswith("お")
     assert check(built.script, built.text) == []
 
 
@@ -136,3 +136,40 @@ def test_annotation_sections_are_skipped_unless_asked():
     read = build(_book(lines), read_notes=True)
     assert {b["type"] for b in read.script.blocks if b["text"].startswith("ぇ本篇")} == {"narration"}
     assert check(built.script, built.text) == []
+
+
+# ---- punctuation (TXT-7) --------------------------------------------------------------------
+
+
+def test_punctuation_is_full_width_in_chinese_and_left_alone_in_numbers_and_english():
+    from huashuo.punct import normalize
+
+    zh = {
+        "他说:好吧,走!": "他说：好吧，走！",
+        "你确定?他问.": "你确定？他问。",
+        "ＡＢＣ１２３号房间": "ABC123号房间",
+        "价格是3.5元,比分3:2,共1,000人.": "价格是3.5元，比分3:2，共1,000人。",
+        "Mr. Smith说:你好.": "Mr. Smith说：你好。",
+        "他﹐笑了﹗进学︰明清": "他，笑了！进学：明清",
+        "等等...还有。。。和…": "等等……还有……和……",
+        "他--沉默了": "他——沉默了",
+        "(注:见上文)第一章": "（注：见上文）第一章",
+        "“你好,”他说.": "“你好，”他说。",
+        "好 , 走 .": "好，走。",
+        "网址 www.example.com 可以访问": "网址 www.example.com 可以访问",
+        "Hello, world!": "Hello, world!",              # an English line in a Chinese book
+        "他说：“来了！”": "他说：“来了！”",               # already clean
+    }
+    for raw, clean in zh.items():
+        assert normalize(raw, "zh") == clean, raw
+        assert normalize(clean, "zh") == clean, clean    # idempotent
+    assert normalize("Ｈｅｌｌｏ，ｗｏｒｌｄ！", "en") == "Hello, world!"
+    assert normalize("It's 3.5, isn't it?", "en") == "It's 3.5, isn't it?"
+
+
+def test_punctuation_is_cleaned_before_structure_and_dialogue():
+    built = build(_book(["第一章:风雪", "他说:\"好吧,走!\"然后走了."]))
+    texts = [b["text"] for b in built.script.blocks if b["type"] != "huaben"]
+    assert "第一章：风雪" in texts[0]
+    assert "“好吧，走！”" in "".join(texts) or "\"好吧，走！\"" in "".join(texts)
+    assert "".join(texts).endswith("然后走了。") and built.text.count("：") == 2
