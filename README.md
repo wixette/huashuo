@@ -8,14 +8,12 @@ script, Qwen3-TTS renders it locally on Apple Silicon via MLX, and the result is
 a standard audiobook. "Chinese" here means Simplified Chinese in modern vernacular first;
 Traditional Chinese and heavily classical texts work but are not yet a quality target.
 
-**Status:** M1 (TXT/EPUB in, M4B out), M2 (dialogue splitting and LLM speaker
-attribution) and M3 (per-character voices) are done: Chinese novels get a voice per
-character from a built-in library of 16 designed voices, and dialogue carries emotion
-hints. Next: M4 (remaining core features: `--title`/`--author`, punctuation cleanup,
-configurable loudness and pauses, per-chapter progress), then M5 (pronunciation dictionary,
-numbers, web-novel noise, opening and closing). In the first stage English books are read
-entirely by the narrator's voice; the English voice library comes later. Install from
-source for now.
+**Status:** M1–M5 are done: TXT/EPUB in, M4B out; LLM speaker attribution; a voice per
+character from a built-in library of 16 designed Chinese voices, with emotion hints;
+punctuation clean-up, web-novel noise skipping, a pronunciation dictionary, an opening and
+closing announcement. Next: the first-stage acceptance run. In the first stage English
+books are read entirely by the narrator's voice; the English voice library comes later.
+Install from source for now.
 
 ```bash
 uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
@@ -24,6 +22,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
 .venv/bin/huashuo audition book.epub         # one real line per character, in their voices
 .venv/bin/huashuo book.epub                  # the whole book -> book.m4b (resumable)
 .venv/bin/huashuo redo book.epub --at 1:28   # heard a glitch at 1:28? re-synthesize that part
+.venv/bin/huashuo clean book.epub            # done listening? delete the audio cache
 ```
 
 Needs an Apple Silicon Mac and ffmpeg (`brew install ffmpeg`). The work directory
@@ -31,7 +30,11 @@ Needs an Apple Silicon Mac and ffmpeg (`brew install ffmpeg`). The work director
 [docs/script-ir.md](docs/script-ir.md)) and the cast (`cast.json`: who speaks with which
 voice, chosen automatically by gender, age and personality); edits there survive
 re-imports. `huashuo voices --library` lists the voices to choose from, and
-`--no-emotions` reads dialogue without the emotion hints.
+`--no-emotions` reads dialogue without the emotion hints. A name read wrongly? Add
+`单于 = chán yú` (or a homophone) to `book.huashuo/pron.txt` and synthesize again; only the
+parts with that word are redone. `--title`/`--author` override the metadata, `--loudness`
+and `--pause paragraph=0.8` tune the sound, `--no-opening`/`--no-closing` drop the
+announcements.
 
 Development:
 
@@ -52,8 +55,9 @@ by `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` and `HUASHUO_LLM_BASE_URL`, or a g
 `.env` in the current directory. The cost is estimated first (about $3 for a
 300,000-character novel) and capped by `--max-llm-cost` (default $5); the first time a
 book is sent to an endpoint you are asked to agree (`--yes` in scripts). Answers are
-cached, so re-imports are free; without a key, or with `--no-llm`, the book is still made,
-with dialogue read by the narrator. Quotes that need a look are listed in
+cached, so re-imports are free; if the text changed since (for example after an upgrade),
+the previous answers are kept and you are asked before anything is paid again. Without a
+key, or with `--no-llm`, the book is still made, with dialogue read by the narrator. Quotes that need a look are listed in
 `book.huashuo/review.txt`.
 
 - [docs/requirements.md](docs/requirements.md): first-stage requirements (novel → M4B),
