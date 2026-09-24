@@ -5,7 +5,8 @@ Apple Silicon 上本地合成，封装成标准有声书。
 
 An open-source, Chinese-first audiobook generator: an LLM turns a novel into a multi-voice
 script, Qwen3-TTS renders it locally on Apple Silicon via MLX, and the result is packaged as
-a standard audiobook.
+a standard audiobook. "Chinese" here means Simplified Chinese in modern vernacular first;
+Traditional Chinese and heavily classical texts work but are not yet a quality target.
 
 **Status:** M1 (TXT/EPUB in, M4B out) and M2 (dialogue splitting and LLM speaker
 attribution) are done. Next: per-character voices (M3); until then all dialogue is read by
