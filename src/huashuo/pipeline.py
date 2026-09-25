@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -512,6 +513,13 @@ def _announce(p: Plan, project: Project, narrator: str, opening: bool, closing: 
     header = project.script.header
     title, author = (header.get("title") or "").strip(), (header.get("author") or "").strip()
     if opening and title:
+        # The opening already says the title: a first chapter title that only repeats it
+        # (an opening section named by the book's title line) is not read again.
+        squash = lambda s: re.sub(r"[\s《》「」“”\"'·:：.。]", "", s).lower()
+        if p.units[0].kind == "title" and squash(p.units[0].text) == squash(title):
+            p.units.pop(0)
+            for chapter in p.chapters[1:]:
+                chapter.first_unit -= 1
         text = (OPENING if author else OPENING_NO_AUTHOR)[lang].format(title=title, author=author)
         p.units.insert(0, Unit("title", text, narrator, None, ["opening"], 0, after=TITLE))
         for chapter in p.chapters[1:]:

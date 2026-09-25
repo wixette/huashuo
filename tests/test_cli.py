@@ -178,3 +178,15 @@ def test_clean_deletes_only_the_audio(sample_txt, capsys):
     assert not wd.units.parent.exists() and wd.script.is_file() and wd.cast.is_file() and wd.pron.is_file()
     assert "deleted" in capsys.readouterr().out
     assert run("clean", sample_txt, "--yes") == 0 and "nothing to clean" in capsys.readouterr().out
+
+
+def test_the_title_is_not_read_twice_when_the_opening_announces_it(tmp_path):
+    from huashuo.pipeline import load_project, make_plan
+
+    book = tmp_path / "在桥上.txt"
+    book.write_text("在桥上\n\n他说着把脸转过来，阳光在黑色的眼镜架上跳跃着闪亮。\n", encoding="utf-8")
+    assert run("import", book, "--no-llm") == 0
+    project = load_project(Workdir.for_input(book))
+    texts = [u.text for u in make_plan(project).units]
+    assert texts[0] == "《在桥上》。" and "在桥上" not in texts[1:]
+    assert make_plan(project, opening=False).units[0].text == "在桥上"     # without the opening it stays
