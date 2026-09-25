@@ -23,7 +23,9 @@ _LANGUAGES = {"zh": "Chinese", "en": "English"}
 # recognizer uses interchangeably (it writes 着 where the book has 著, and so on).
 _FOLD = str.maketrans({"著": "着", "裏": "里", "於": "于", "祇": "只", "纔": "才",
                        "么": "吗", "麽": "吗",   # a final 么 is heard as 吗; folding both sides is harmless
-                       "罷": "吧", "罢": "吧", "啦": "了", "師": "师", "傅": "父"})
+                       "罷": "吧", "罢": "吧", "啦": "了", "師": "师", "傅": "父",
+                       # The particles de: the recognizer writes 的 for all three.
+                       "地": "的", "得": "的"})
 _converter = None
 
 
@@ -97,14 +99,38 @@ def normalize(text: str, language: str) -> str:
     digits: a Chinese numeral with 十/百/千/万 is a cardinal, one without is read digit by
     digit."""
     if language == "zh":
-        text = _to_simplified(text).translate(_FOLD)
-        for pattern, spoken in _SPOKEN_SYMBOLS:
-            text = pattern.sub(spoken, text)
-        text = text.replace("点三十", "点半")                  # 八点三十 = 八点半
-        text = re.sub(r"百分之(?=[零〇一幺二两三四五六七八九十百千万亿])", "", text)
-        text = _CN_NUMBER.sub(_arabic, text)
-        return re.sub(r"[^\w]|_", "", text)
+        return _zh_sound(_zh_chars(text))
     return "".join(_english_words(text))
+
+
+def _zh_chars(text: str) -> str:
+    text = _to_simplified(text).translate(_FOLD)
+    for pattern, spoken in _SPOKEN_SYMBOLS:
+        text = pattern.sub(spoken, text)
+    text = text.replace("点三十", "点半")                      # 八点三十 = 八点半
+    text = re.sub(r"百分之(?=[零〇一幺二两三四五六七八九十百千万亿])", "", text)
+    text = _CN_NUMBER.sub(_arabic, text)
+    return re.sub(r"[^\w]|_", "", text)
+
+
+_SYLLABLES: dict[str, str] = {}
+
+
+def _zh_sound(chars: str) -> str:
+    """Each Chinese character becomes a code for its syllable (toneless pinyin, reading
+    chosen from context by pypinyin), so characters that sound the same compare equal.
+    Speech cannot tell 他 from 她 or 它, 只 from 支, 使 from 驶; the recognizer picks one
+    (在桥上, M5: 71 of the substitutions were 他/她/它). Other characters stay as they are.
+    One character stays one symbol, so error rates are still per character."""
+    from pypinyin import lazy_pinyin
+
+    out = []
+    for token in lazy_pinyin(chars, errors=lambda s: ["\x00" + c for c in s]):
+        if token.startswith("\x00"):
+            out.append(token[1:])
+        else:
+            out.append(_SYLLABLES.setdefault(token, chr(0xF0000 + len(_SYLLABLES))))
+    return "".join(out)
 
 
 def _english_words(text: str) -> list[str]:
@@ -191,8 +217,8 @@ def lost_ending(reference: str, hypothesis: str, language: str) -> bool:
     word only has to appear among the transcript's last few.
     """
     if language == "zh":
-        ref, hyp = normalize(reference, language), normalize(hypothesis, language)
-        ref = ref.rstrip("".join(_REGIONAL_PARTICLES))
+        ref = _zh_sound(_zh_chars(reference).rstrip("".join(_REGIONAL_PARTICLES)))
+        hyp = normalize(hypothesis, language)
     else:
         ref, hyp = _english_words(reference), _english_words(hypothesis)
     return bool(ref) and ref[-1] not in hyp[-3:]

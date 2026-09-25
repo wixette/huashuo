@@ -12,6 +12,7 @@ dependencies = [
     "pillow>=10.1",    # the plain text cover for books without one (M4B-4)
     "opencc>=1.1",     # traditional -> simplified for the ASR check (SYN-10)
     "zhon>=2.0",       # the set of Chinese punctuation marks (TXT-7), MIT
+    "pypinyin>=0.50",  # the ASR check compares how text sounds (SYN-10), MIT
     "pydantic-ai-slim[openai]>=2.48,<3",  # LLM stages (requirements §3.9, design doc §6.5)
     # Pinned exactly: route C (voice-vector injection) reaches into mlx-audio internals.
     "mlx-audio==0.5.5; sys_platform == 'darwin' and platform_machine == 'arm64'",

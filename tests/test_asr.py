@@ -79,3 +79,19 @@ def test_english_numbers_compare_however_they_were_read():
     assert cer("I said so.", "I said so.", "en") == 0.0         # the pronoun is not a numeral
     assert judge("Chapter 1", "Chapter One.", "en", 0.10)[1] is None
     assert cer("‘You’re late,’ said Tom.", "You're late, said Tom.", "en") == 0.0
+
+
+def test_characters_that_sound_the_same_compare_equal():
+    """在桥上 (a real short novel): 他/她/它 alone caused 71 substitutions, a dozen retried
+    units and three false lost endings, though speech cannot tell them apart."""
+    same = [("她同意他的话。", "他同意他的话。"),
+            ("他还会以残存的希望再次问她：", "他还会以残存的希望再次问他。"),     # was a "lost ending"
+            ("他就是这样天真地笑着问她：", "他就是这样天真的笑着问他。"),
+            ("只有一支笔，它在桌上。", "只有一只笔，他在桌上。"),
+            ("汽车驶过大桥。", "汽车使过大桥。")]
+    for text, heard in same:
+        assert judge(text, heard, "zh", 0.10)[1] is None, text
+    # Real misreadings still fail.
+    assert judge("他停顿了一下，嗓音沙沙地继续说道：", "他停顿了一下，嗓沙地继续说道。", "zh", 0.10)[1]
+    assert "lost ending" in judge("这件事我想了很久，还是觉得应该告诉你。", "这件事我想了很久，还是觉得应该告诉。",
+                                  "zh", 0.10)[1]
