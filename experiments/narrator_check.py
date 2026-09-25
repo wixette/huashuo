@@ -79,22 +79,25 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("candidates", type=Path)
     parser.add_argument("out", type=Path)
+    parser.add_argument("--pattern", default="n*_s*.npy", help="candidate vectors to include")
+    parser.add_argument("--existing", nargs="*", default=EXISTING, help="presets / library voices to include")
+    parser.add_argument("--modes", nargs="*", default=["plain", "calm"])
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
     vectors: dict[str, mx.array] = {}
-    for ref in EXISTING:
+    for ref in args.existing:
         if ref.startswith("library:"):
             vectors[ref.split("/")[-1]] = mx.array(np.load(LIBRARY / "zh" / (ref.split("/")[-1] + ".npy")))
-    for npy in sorted(args.candidates.glob("n*_s*.npy")):
+    for npy in sorted(args.candidates.glob(args.pattern)):
         vectors[npy.stem] = mx.array(np.load(npy))
-    speakers = [r for r in EXISTING if not r.startswith("library:")] + list(vectors)
+    speakers = [r for r in args.existing if not r.startswith("library:")] + list(vectors)
 
     cv = load("CustomVoice")
     inject_speakers(cv, {name: vec.reshape(1, -1) for name, vec in vectors.items()})
     clips = []
     for speaker in speakers:
-        for mode, instruct in (("plain", None), ("calm", CALM)):
+        for mode, instruct in [m for m in (("plain", None), ("calm", CALM)) if m[0] in args.modes]:
             for key, text in LINES:
                 mx.random.seed(7)
                 results = list(cv.generate_custom_voice(text=text, speaker=speaker, language="chinese",
@@ -103,7 +106,30 @@ def main() -> None:
                 start, end = trim_bounds(audio, SR)
                 clips.append(dict(voice=speaker, mode=mode, key=key, text=text, audio=audio[start:end]))
         print(f"  {speaker}: done", flush=True)
+    center = None
     free(cv)
+
+    # Consistency: each clip's speaker vector against the voice's own average (mean-centered
+    # cosine over all clips, as in exp1_stability.py). A voice that sounds like different
+    # people on different sentences has a low minimum.
+    from exp1_voice_routes import as_vector
+    base = load("Base")
+    for c in clips:
+        c["vec"] = as_vector(base.extract_speaker_embedding(mx.array(c["audio"])))
+    free(base)
+    center = np.mean([c["vec"] for c in clips], axis=0)
+
+    def ccos(a, b):
+        a, b = a - center, b - center
+        return float(a @ b / np.linalg.norm(a) / np.linalg.norm(b))
+
+    for speaker in speakers:
+        own = [c for c in clips if c["voice"] == speaker]
+        for mode in {c["mode"] for c in own}:
+            group = [c for c in own if c["mode"] == mode and c["key"] != "title"]
+            mean = np.mean([c["vec"] for c in group], axis=0)
+            for c in group:
+                c["consistency"] = ccos(c["vec"], mean)
 
     asr = AsrChecker()
     for c in clips:
@@ -115,25 +141,28 @@ def main() -> None:
         c["f0_spread"] = float(np.std(12 * np.log2(f0 / np.median(f0)))) if len(f0) > 10 else 0.0
     asr.close()
 
-    print(f"\n{'voice':<24}{'mode':<7}{'字/s':>6}{'字/s long':>10}{'F0 Hz':>7}{'spread st':>10}{'CER':>7}")
+    print(f"\n{'voice':<24}{'mode':<7}{'字/s':>6}{'字/s long':>10}{'F0 Hz':>7}{'spread st':>10}{'CER':>7}"
+          f"{'same voice mean/min':>21}")
     summary = []
     for speaker in speakers:
-        for mode in ("plain", "calm"):
+        for mode in args.modes:
             cs = [c for c in clips if c["voice"] == speaker and c["mode"] == mode and c["key"] != "title"]
             row = dict(voice=speaker, mode=mode, rate=float(np.median([c["rate"] for c in cs])),
                        rate_long=next(c["rate"] for c in cs if c["key"] == "long"),
                        f0=float(np.median([c["f0_median"] for c in cs])),
                        spread=float(np.mean([c["f0_spread"] for c in cs])),
-                       cer=float(np.mean([c["cer"] for c in cs])))
+                       cer=float(np.mean([c["cer"] for c in cs])),
+                       consistency=float(np.mean([c["consistency"] for c in cs])),
+                       consistency_min=float(min(c["consistency"] for c in cs)))
             summary.append(row)
             print(f"{speaker:<24}{mode:<7}{row['rate']:>6.2f}{row['rate_long']:>10.2f}{row['f0']:>7.0f}"
-                  f"{row['spread']:>10.2f}{row['cer']:>7.1%}")
+                  f"{row['spread']:>10.2f}{row['cer']:>7.1%}{row['consistency']:>11.2f} /{row['consistency_min']:5.2f}")
             parts = []
             for c in (c for c in clips if c["voice"] == speaker and c["mode"] == mode):
                 parts += [beep(), c["audio"]]
             save_wav(args.out / f"{speaker}_{mode}.wav", mx.array(np.concatenate(parts)), SR)
     (args.out / "report.json").write_text(json.dumps(
-        {"summary": summary, "clips": [{k: v for k, v in c.items() if k != "audio"} for c in clips]},
+        {"summary": summary, "clips": [{k: v for k, v in c.items() if k not in ("audio", "vec")} for c in clips]},
         ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\nlistening files: {args.out}/<voice>_<plain|calm>.wav")
 
