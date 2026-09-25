@@ -20,7 +20,7 @@ from huashuo.workdir import Workdir, read_json, write_json_atomic
 
 # Pause after each kind of boundary, in seconds (POST-3). Units are trimmed of their own
 # leading and trailing silence first, so these are the pauses the listener hears.
-PAUSES = {"sentence": 0.3, "turn": 0.35, "paragraph": 0.7, "heading": 1.0, "title": 1.2,
+PAUSES = {"sentence": 0.45, "turn": 0.45, "paragraph": 0.9, "heading": 1.0, "title": 1.2,
           "break": 1.6, "chapter_end": 2.0, "end": 1.5}
 LEAD_IN = 0.5
 
