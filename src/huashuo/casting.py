@@ -33,6 +33,45 @@ def is_first_person(name: str, character: dict) -> bool:
 _AGE_INDEX = {age: i for i, age in enumerate(AGES)}
 
 
+# The most-speaking character is the protagonist when ahead of the next by this factor
+# (春尽江南: 谭端午 417 lines, 庞家玉 298, a ratio of 1.4).
+PROTAGONIST_LEAD = 1.3
+
+
+def choose_narrator(characters: dict[str, dict], language: str) -> tuple[str, str]:
+    """The narrator voice for a book nobody chose one for, and why (CAST-4, SCR-9).
+
+    A first-person book is narrated by one of its characters, so the narrator voice
+    matches that character's gender. Otherwise it matches the protagonist's, when one
+    character clearly speaks the most. Else, and for languages without narrator voices,
+    the library's default narrator.
+    """
+    from huashuo.library import default_narrator, narrators
+
+    default = default_narrator(language)
+    by_gender = {}
+    for voice in narrators(language):
+        if voice.gender not in by_gender or voice.ref == default:
+            by_gender[voice.gender] = voice.ref
+    if not by_gender:
+        return default, "default"
+    for name, character in characters.items():
+        if is_first_person(name, character):
+            # The narration is this character's voice; other characters do not decide it.
+            if character.get("gender") in by_gender:
+                return by_gender[character["gender"]], f"first-person narrator {name} is {character['gender']}"
+            return default, f"first-person narrator {name}, gender unknown: default"
+    order = sorted(characters, key=lambda n: -int(characters[n].get("lines") or 0))
+    if order:
+        top = characters[order[0]]
+        lines = int(top.get("lines") or 0)
+        runner_up = int(characters[order[1]].get("lines") or 0) if len(order) > 1 else 0
+        if lines and lines >= PROTAGONIST_LEAD * runner_up and top.get("gender") in by_gender:
+            return by_gender[top["gender"]], (f"protagonist {order[0]} is {top['gender']} "
+                                              f"({lines} lines, next {runner_up})")
+    return default, "default"
+
+
 def conversations(blocks: list[dict]) -> Counter:
     """How often each pair of speakers talks back to back (within a chapter)."""
     pairs: Counter = Counter()

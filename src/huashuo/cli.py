@@ -46,6 +46,9 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument("--title", help="book title, instead of the book's own (remembered for this book)")
         p.add_argument("--author", help="author, instead of the book's own (remembered for this book)")
         p.add_argument("--cover", type=Path, help="cover image to use instead of the book's own")
+        p.add_argument("--narrator", metavar="female|male|VOICE|auto",
+                       help="narrator voice (default auto: matches a first-person narrator or a clear "
+                            "protagonist, else female; remembered for this book)")
         p.add_argument("--read-notes", action=argparse.BooleanOptionalAction, default=None,
                        help="read editorial annotations (注釋 sections); skipped by default, "
                             "and the choice is remembered for this book")
@@ -215,12 +218,13 @@ def cmd_import(args, quiet: bool = False):
                      max_cost=args.max_llm_cost, assume_yes=args.yes, concurrency=args.llm_concurrency,
                      confirm=_ask if sys.stdin.isatty() else None, progress=LLMProgress())
     result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes, llm,
-                         title=args.title, author=args.author)
+                         title=args.title, author=args.author, narrator=args.narrator)
     h = result.script.header
     chars = sum(len(b.get("text", "")) for b in result.script.blocks if b.get("type") != "skip")
     print(f"《{h['title']}》 {h.get('author') or '(author unknown)'}  [{h['language']}"
           f"{', ' + result.encoding if result.encoding else ''}]  {chars:,} characters")
     print(f"work directory: {wd.root}")
+    print(f"narrator: {result.narrator} ({result.narrator_reason})")
     for line in result.merge_report:
         print(f"  merge: {line}")
     _print_llm(result.llm, wd)

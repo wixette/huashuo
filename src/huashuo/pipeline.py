@@ -44,6 +44,8 @@ class ImportResult:
     encoding: str | None
     merge_report: list[str] = field(default_factory=list)
     llm: "LLMReport | None" = None
+    narrator: str | None = None
+    narrator_reason: str = ""
 
 
 def _sha256_file(path: Path) -> str:
@@ -92,6 +94,7 @@ class MachineOutput:
     chapters: int
     skipped: int
     llm: LLMReport | None = None
+    narrator_reason: str = "default"
 
 
 def _readable_chars(script: Script) -> int:
@@ -240,15 +243,17 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
     are the user's current choices, which casting works around. `previous` and
     `previous_cast` are the last machine results, which fill in what this run could not
     answer."""
-    from huashuo.casting import cast_voices, chapters_of, conversations
+    from huashuo.casting import cast_voices, chapters_of, choose_narrator, conversations
     from huashuo.library import has_library
 
     built = build(book, language, read_notes)
     lang = built.script.header["language"]
     cast = default_cast(lang)
     report = None
+    chosen = narrator is not None           # by the user: casting works around it
+    narrator = narrator or cast["narrator"]["voice"]
+    reason = "your choice" if chosen else "default"
     if wd is not None and llm is not None:
-        narrator = narrator or cast["narrator"]["voice"]
         attribution, report = run_llm_stage(built.script, lang, wd, record if record is not None else {}, llm,
                                             narrator)
         if attribution is not None:
@@ -259,6 +264,8 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
                     report.stopped = None
             built.script.blocks = attribution.blocks
             characters = attribution.characters
+            if not chosen:
+                narrator, reason = choose_narrator(characters, lang)
             if has_library(lang):
                 # Without fresh suggestions, the previous voices are the suggestions, so a
                 # re-import does not reshuffle the main characters.
@@ -271,18 +278,42 @@ def machine_output(book, language: str | None, read_notes: bool, wd: Workdir | N
                 # Q19): the narrator reads everyone, unless the user named a voice.
                 voices = {name: (fixed_voices or {}).get(name, narrator) for name in characters}
             cast["characters"] = {name: {**entry, "voice": voices[name]} for name, entry in characters.items()}
-    return MachineOutput(built.text, built.script, cast, built.chapters, built.skipped, report)
+    cast["narrator"]["voice"] = narrator
+    return MachineOutput(built.text, built.script, cast, built.chapters, built.skipped, report, reason)
 
 
 def _user_voice_choices(wd: Workdir, language: str) -> tuple[str | None, dict[str, str]]:
-    """The narrator voice in cast.json, and character voices the user changed by hand."""
+    """The narrator and character voices the user changed by hand in cast.json (a
+    narrator left as the machine chose it is not a choice, so it may change)."""
     if not wd.cast.is_file():
         return None, {}
     current = load_cast(wd.cast, language)
-    base = (read_json(wd.cast_base) or {}).get("characters", {})
+    base_cast = read_json(wd.cast_base) or {}
+    base = base_cast.get("characters", {})
     fixed = {name: c["voice"] for name, c in current.get("characters", {}).items()
              if c.get("voice") and base.get(name, {}).get("voice") != c["voice"]}
-    return current["narrator"]["voice"], fixed
+    narrator = current["narrator"]["voice"]
+    edited = not base_cast or base_cast.get("narrator", {}).get("voice") != narrator
+    return (narrator if edited else None), fixed
+
+
+def resolve_narrator(choice: str | None, language: str) -> str | None:
+    """--narrator: female / male (the library's narrator voice of that gender), a voice
+    reference, or auto / None (choose per book)."""
+    from huashuo.library import LibraryError, get, narrators
+
+    if choice in (None, "", "auto"):
+        return None
+    if choice in ("female", "male"):
+        voices = [v.ref for v in narrators(language) if v.gender == choice]
+        if not voices:
+            raise PipelineError(f"--narrator {choice}: no {choice} narrator voice for {language} books; "
+                                f"name a voice instead (huashuo voices --library)")
+        return voices[0]
+    try:
+        return get(choice).ref
+    except LibraryError as exc:
+        raise PipelineError(f"--narrator: {exc}") from None
 
 
 def write_review(wd: Workdir, review: list[dict]) -> Path | None:
@@ -322,7 +353,8 @@ def _place_cover(wd: Workdir, book, cover: Path | None, previous: dict) -> tuple
 def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                 language: str | None = None, cover: Path | None = None,
                 read_notes: bool | None = None, llm: LLMOptions | None = None,
-                title: str | None = None, author: str | None = None) -> ImportResult:
+                title: str | None = None, author: str | None = None,
+                narrator: str | None = None) -> ImportResult:
     """Read the source and (re)build text.txt, the script and the cast, keeping user edits.
 
     Options left as None reuse what the previous import of this book recorded.
@@ -334,14 +366,19 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     read_notes = read_notes if read_notes is not None else previous.get("read_notes", False)
     title = title if title is not None else previous.get("title")
     author = author if author is not None else previous.get("author")
+    narrator_now = narrator                            # given on this run: wins over cast.json too
+    narrator = narrator if narrator is not None else previous.get("narrator")
     book = read_book(source, encoding)
     # The chosen title and author are also what structure detection looks for (a title
     # line naming the opening section, an author line to skip).
     book.title, book.author = title or book.title, author or book.author
-    narrator, fixed = _user_voice_choices(wd, language or record.get("language") or "zh")
+    lang = language or book.language or record.get("language") or "zh"
+    flag_voice = resolve_narrator(narrator, lang)
+    user_narrator, fixed = _user_voice_choices(wd, lang)
+    chosen = flag_voice if narrator_now not in (None, "auto") else (user_narrator or flag_voice)
     previous = read_script(wd.script_base) if wd.script_base.is_file() else None
     machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions(),
-                             narrator, fixed, previous, read_json(wd.cast_base))
+                             chosen, fixed, previous, read_json(wd.cast_base))
     header = machine.script.header
     # --title / --author win over what the book says (IN-4); applied to the machine's
     # version, so an edit the user makes to the header afterwards still wins on merge.
@@ -376,6 +413,9 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     base_cast = read_json(wd.cast_base)
     current_cast = load_cast(wd.cast, header["language"]) if wd.cast.is_file() else None
     cast, cast_report = merge_cast(base_cast, current_cast, machine.cast)
+    if narrator_now is not None:
+        # An explicit --narrator replaces whatever cast.json had; auto hands it back to the rule.
+        cast["narrator"]["voice"] = machine.cast["narrator"]["voice"]
     write_json_atomic(wd.cast, cast)
     write_json_atomic(wd.cast_base, machine.cast)
 
@@ -388,9 +428,18 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                                          "llm_consent": record.get("llm_consent", []),
                                          "options": {"encoding": encoding, "language": language,
                                                      "read_notes": read_notes, "title": title,
-                                                     "author": author}})
+                                                     "author": author,
+                                                     "narrator": None if narrator == "auto" else narrator}})
+    if narrator_now not in (None, "auto"):
+        reason = "--narrator"
+    elif user_narrator is not None or cast["narrator"]["voice"] != machine.cast["narrator"]["voice"]:
+        reason = "your choice in cast.json"
+    elif flag_voice is not None:
+        reason = "--narrator, remembered"
+    else:
+        reason = machine.narrator_reason
     return ImportResult(wd, merged, machine.text, machine.chapters, machine.skipped, book.encoding,
-                        result.report + cast_report, machine.llm)
+                        result.report + cast_report, machine.llm, cast["narrator"]["voice"], reason)
 
 
 @dataclass

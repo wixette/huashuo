@@ -261,7 +261,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 ```json
 {
   "version": 1,
-  "narrator": {"voice": "preset:serena"},
+  "narrator": {"voice": "library:zh/narrator_female"},
   "characters": {
     "林渊": {"aliases": ["林公子"], "gender": "male", "age": "young_adult", "description": "青年剑客，沉稳寡言", "lines": 42, "voice": "library:zh/young_man_deep"},
     "苏晚晴": {"aliases": ["苏姑娘"], "gender": "female", "age": "young_adult", "description": "…", "lines": 31, "voice": "library:zh/young_woman_cool"}
@@ -271,7 +271,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 
 | 字段 | 说明 |
 |---|---|
-| `narrator.voice` | 旁白音色；章节标题、开场结尾报幕同样使用（CAST-4）。默认中文 `preset:serena`、英文 `preset:ryan` |
+| `narrator.voice` | 旁白音色；章节标题、开场结尾报幕同样使用（CAST-4）。导入时按书选择：第一人称按叙述者性别、否则按明显的主角性别，中文为 `library:zh/narrator_female` 或 `library:zh/narrator_male`，英文 `preset:ryan`；`--narrator` 或手改覆盖，手改的在重新导入后保留 |
 | `characters` | 以规范名为键。`aliases`、`gender`、`age`、`description`、`lines` 由剧本化阶段写入（SCR-3） |
 | `voice` | 音色引用：`preset:<名称>`（CustomVoice 预置）、`library:<语言>/<音色 id>`（内置音色库，CAST-1）；以后可加 `custom:<路径>`（CAST-12、CAST-13）。`huashuo voices --library` 列出可选的音色及其描述，`huashuo audition` 用每个角色的一句真实台词试听 |
 

@@ -34,7 +34,8 @@ re-imports. `huashuo voices --library` lists the voices to choose from, and
 `单于 = chán yú` (or a homophone) to `book.huashuo/pron.txt` and synthesize again; only the
 parts with that word are redone. `--title`/`--author` override the metadata, `--loudness`
 and `--pause paragraph=0.8` tune the sound, `--no-opening`/`--no-closing` drop the
-announcements.
+announcements. The narrator voice is chosen per book (a male or female narrator matching a
+first-person narrator or a clear protagonist); `--narrator female|male|<voice>` overrides it.
 
 Development:
 

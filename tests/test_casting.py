@@ -119,3 +119,20 @@ def test_a_named_first_person_narrator_reads_with_the_narrator_voice():
              "叙事者": {"gender": "male", "age": "unknown", "lines": 1, "description": "The first-person narrator."}}
     voices = cast_voices(chars, NARRATOR, "zh", pool=POOL)
     assert voices["林默"] == NARRATOR and voices["叙事者"] == NARRATOR and voices["周强"] != NARRATOR
+
+
+def test_the_narrator_follows_a_first_person_narrator_or_a_clear_protagonist():
+    from huashuo.casting import choose_narrator
+
+    female, male = "library:zh/narrator_female", "library:zh/narrator_male"
+    first = {"林默": {"aliases": ["我"], "gender": "male", "lines": 3}, "母亲": {"gender": "female", "lines": 30}}
+    assert choose_narrator(first, "zh")[0] == male                         # first person comes first
+    hero = {"谭端午": {"gender": "male", "lines": 417}, "庞家玉": {"gender": "female", "lines": 298}}
+    assert choose_narrator(hero, "zh") == (male, "protagonist 谭端午 is male (417 lines, next 298)")
+    close = {"甲": {"gender": "male", "lines": 40}, "乙": {"gender": "female", "lines": 35}}
+    assert choose_narrator(close, "zh") == (female, "default")          # nobody clearly leads
+    assert choose_narrator({"她": {"gender": "female", "lines": 9}}, "zh")[0] == female
+    assert choose_narrator({}, "zh") == (female, "default")
+    assert choose_narrator(hero, "en") == ("preset:ryan", "default")    # no English narrator voices
+    unknown = {"林默": {"aliases": ["我"], "gender": "unknown", "lines": 6}, "周强": {"gender": "male", "lines": 30}}
+    assert choose_narrator(unknown, "zh") == (female, "first-person narrator 林默, gender unknown: default")

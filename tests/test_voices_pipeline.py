@@ -296,3 +296,56 @@ def test_the_chosen_title_names_the_opening_section(tmp_path, tiny_library):
     p = make_plan(load_project(Workdir.for_input(path)))
     assert [u.text for u in p.units][:2] == ["The Lane, by M. Hart.", "Chapter 1"]   # the title line is not read twice
     assert [c.title for c in p.chapters] == ["Chapter 1"]
+
+
+# ---- choosing the narrator (packaged library) --------------------------------------------------
+
+
+def _first_person_book(tmp_path):
+    from helpers import FIRST_PERSON_TXT
+
+    path = tmp_path / "归乡.txt"
+    path.write_text(FIRST_PERSON_TXT, encoding="utf-8")
+    return path
+
+
+def _import_fp(path, **kwargs):
+    from helpers import FIRST_PERSON_ANSWERS, FIRST_PERSON_CAST
+
+    llm = ScriptedLLM(cast_ops=FIRST_PERSON_CAST, answers=FIRST_PERSON_ANSWERS)
+    return import_book(path, Workdir.for_input(path), llm=LLMOptions(config_override=LOCAL, model_override=llm.model()),
+                       **kwargs)
+
+
+def test_narrator_is_chosen_per_book_and_the_users_choice_wins(tmp_path):
+    path = _first_person_book(tmp_path)
+    result = _import_fp(path)
+    assert result.narrator == "library:zh/narrator_male" and "first-person narrator 林默" in result.narrator_reason
+    assert _voices(path)[1]["林默"] == "library:zh/narrator_male"          # 我 reads with the narration
+    # A narrator edited by hand is kept on re-import.
+    wd = Workdir.for_input(path)
+    cast = json.loads(wd.cast.read_text(encoding="utf-8"))
+    cast["narrator"]["voice"] = "library:zh/mid_woman_calm"
+    wd.cast.write_text(json.dumps(cast, ensure_ascii=False), encoding="utf-8")
+    result = _import_fp(path)
+    assert result.narrator == "library:zh/mid_woman_calm" and result.narrator_reason == "your choice in cast.json"
+    voices = _voices(path)[1]
+    assert voices["林默"] == "library:zh/mid_woman_calm" and voices["周强"] != "library:zh/mid_woman_calm"
+    # --narrator given now replaces it, is remembered, and auto hands it back to the rule.
+    assert _import_fp(path, narrator="female").narrator == "library:zh/narrator_female"
+    assert _import_fp(path).narrator == "library:zh/narrator_female"
+    assert _import_fp(path, narrator="auto").narrator == "library:zh/narrator_male"
+    with pytest.raises(Exception, match="unknown voice"):
+        _import_fp(path, narrator="library:zh/nobody")
+
+
+def test_a_narrator_left_as_it_was_moves_to_the_new_default(tmp_path):
+    """Books imported when serena was the default and never changed get the narrator rule."""
+    path = _first_person_book(tmp_path)
+    _import_fp(path)
+    wd = Workdir.for_input(path)
+    for f in (wd.cast, wd.cast_base):
+        cast = json.loads(f.read_text(encoding="utf-8"))
+        cast["narrator"]["voice"] = "preset:serena"                         # as an older version wrote it
+        f.write_text(json.dumps(cast, ensure_ascii=False), encoding="utf-8")
+    assert _import_fp(path).narrator == "library:zh/narrator_male"
