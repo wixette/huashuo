@@ -585,7 +585,7 @@ def _audition_line(project, name: str) -> str:
 
 def cmd_audition(args) -> int:
     """One M4B with a chapter per character (or per library voice), from the unit cache."""
-    from huashuo.library import castable
+    from huashuo.library import castable, narrators
     from huashuo.m4b import BookInfo, make_cover, probe, write_m4b
     from huashuo.pipeline import load_project
     from huashuo.post import layout, stream
@@ -599,7 +599,7 @@ def cmd_audition(args) -> int:
     narrator = cast["narrator"]["voice"]
     items: list[tuple[str, str, str]] = []            # (chapter title, text, voice)
     if args.library:
-        for voice in castable(language):
+        for voice in narrators(language) + castable(language):
             items.append((f"{voice.ref} {voice.role}".strip(), PROBE.get(language, PROBE["zh"]), voice.ref))
     else:
         characters = cast.get("characters", {})
@@ -663,10 +663,15 @@ def cmd_clean(args) -> int:
 
 def cmd_voices(args) -> int:
     if args.library:
-        from huashuo.library import castable
+        from huashuo.library import castable, default_narrator, narrators
 
+        default = default_narrator(args.language)
+        for voice in narrators(args.language):
+            mark = "narrator (default)" if voice.ref == default else "narrator"
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}  [{mark}]")
         for voice in castable(args.language):
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}")
+            mark = "  [narrator (default)]" if voice.ref == default else ""
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}{mark}")
         return 0
     from huashuo.engines.qwen3 import DIALECT_PRESETS, Qwen3Engine
 

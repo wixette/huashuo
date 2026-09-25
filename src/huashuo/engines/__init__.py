@@ -37,7 +37,6 @@ class Engine(Protocol):
     def close(self) -> None: ...
 
 
-DEFAULT_NARRATOR = {"zh": "preset:serena", "en": "preset:ryan"}
 
 
 def parse_voice(voice: str) -> tuple[str, str]:

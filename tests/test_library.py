@@ -41,3 +41,33 @@ def test_missing_vector_is_an_error(tiny_library):
     library._load.cache_clear()
     with pytest.raises(LibraryError, match="missing lonely.npy"):
         all_voices()
+
+
+def test_narrator_voices_are_the_default_narrator_and_never_cast(tiny_library):
+    import json
+
+    import numpy as np
+
+    import huashuo.library as library
+    from huashuo.cast import default_cast
+
+    assert default_cast("zh")["narrator"]["voice"] == "preset:serena"      # no narrator in the library: a preset
+    for vid, default in (("reader", True), ("reader2", False)):
+        (tiny_library / "zh" / f"{vid}.json").write_text(json.dumps(
+            {"gender": "female", "age": "middle_aged", "role": vid, "traits": ["narrator"],
+             **({"default_narrator": True} if default else {})}), encoding="utf-8")
+        np.save(tiny_library / "zh" / f"{vid}.npy", np.ones(2048, dtype=np.float32))
+    library._load.cache_clear()
+    assert default_cast("zh")["narrator"]["voice"] == "library:zh/reader"
+    assert default_cast("en")["narrator"]["voice"] == "preset:ryan"
+    refs = {v.ref for v in library.castable("zh")}
+    assert "library:zh/reader" not in refs and "library:zh/reader2" not in refs and "preset:serena" in refs
+    assert [v.ref for v in library.narrators("zh")] == ["library:zh/reader", "library:zh/reader2"]
+
+
+def test_the_packaged_library_has_its_narrators():
+    from huashuo.library import castable, default_narrator, narrators
+
+    assert default_narrator("zh") == "library:zh/narrator_female"
+    assert {v.ref for v in narrators("zh")} == {"library:zh/narrator_female", "library:zh/narrator_male"}
+    assert not {v.ref for v in narrators("zh")} & {v.ref for v in castable("zh")}

@@ -1,0 +1,23 @@
+{
+  "id": "narrator_female",
+  "role": "女旁白，四十岁左右，知性温润",
+  "gender": "female",
+  "age": "middle_aged",
+  "traits": [
+    "narrator",
+    "沉稳",
+    "浑厚",
+    "温润"
+  ],
+  "description": "一位四十岁左右的中年女性，声音知性沉稳，音色温润饱满，吐字清晰，语速平缓，条理清楚，语气冷静平和。",
+  "ref_text": "这座城市建于明代，最早只是运河边的一个小码头。随着漕运兴起，南来北往的商船在这里停靠，街市也渐渐繁华起来。",
+  "seed": 1,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  },
+  "listening_notes": "第二轮试听：比基准（mid_woman_calm）浑厚，其他方面类似，总体稍强；选为默认女旁白",
+  "default_narrator": true
+}

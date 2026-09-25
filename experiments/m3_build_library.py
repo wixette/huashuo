@@ -8,6 +8,7 @@ what the listener said. Re-running is safe; it rewrites the entries it knows.
 
 Usage (from the repository root):
     .venv/bin/python experiments/m3_build_library.py CANDIDATES_DIR [experiments/m3_voices.json]
+    .venv/bin/python experiments/m3_build_library.py NARRATOR_CANDIDATES_DIR experiments/narrator_voices_2.json
 """
 
 from __future__ import annotations
@@ -38,7 +39,12 @@ ENTRIES = {
     "v13_old_man_kind": ("old_man_kind", "male", "elderly", ["慈祥", "温和", "语速慢"]),
     "v14_old_woman_kind": ("old_woman_kind", "female", "elderly", ["苍老", "慈祥", "絮叨"]),
     "v15_old_woman_stern": ("old_woman_stern", "female", "elderly", ["中气足", "严厉", "干脆"]),
+    # Narrators (experiments/narrator_voices_2.json): never cast to characters.
+    "f1_calm_full": ("narrator_female", "female", "middle_aged", ["narrator", "沉稳", "浑厚", "温润"]),
+    "m2_documentary": ("narrator_male", "male", "middle_aged", ["narrator", "沉稳", "醇厚", "平静"]),
 }
+# The narrator for new books in each language.
+DEFAULT_NARRATORS = {"f1_calm_full"}
 # Role labels shown to users; the EXP-1 roles named the wuxia test scenes they were designed for.
 ROLES = {
     "v0_elder": "老年男，六十多岁，略沙哑，语速慢",
@@ -76,6 +82,8 @@ def main() -> None:
                  "seed": voice["chosen_seed"], "made_with": MADE_WITH}
         if voice.get("listening_notes"):
             entry["listening_notes"] = voice["listening_notes"]
+        if voice["id"] in DEFAULT_NARRATORS:
+            entry["default_narrator"] = True
         (out / f"{name}.json").write_text(json.dumps(entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         written.append(name)
     print(f"{len(written)} voices in {out}: {', '.join(written)}")

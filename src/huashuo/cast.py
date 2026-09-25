@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from huashuo.engines import DEFAULT_NARRATOR
 from huashuo.huaben import merge_fields
 
 CAST_VERSION = 1
@@ -22,7 +21,9 @@ class CastError(Exception):
 
 
 def default_cast(language: str) -> dict:
-    return {"version": CAST_VERSION, "narrator": {"voice": DEFAULT_NARRATOR.get(language, DEFAULT_NARRATOR["zh"])},
+    from huashuo.library import default_narrator
+
+    return {"version": CAST_VERSION, "narrator": {"voice": default_narrator(language)},
             "characters": {}}
 
 

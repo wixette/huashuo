@@ -1,0 +1,22 @@
+{
+  "id": "narrator_male",
+  "role": "男旁白，三十五岁左右，纪录片解说",
+  "gender": "male",
+  "age": "middle_aged",
+  "traits": [
+    "narrator",
+    "沉稳",
+    "醇厚",
+    "平静"
+  ],
+  "description": "一位三十五岁左右的男子，嗓音醇厚，中音为主，不低沉，吐字清晰，语速平缓，语气平静克制，像纪录片的解说员。",
+  "ref_text": "这座城市建于明代，最早只是运河边的一个小码头。随着漕运兴起，南来北往的商船在这里停靠，街市也渐渐繁华起来。",
+  "seed": 3,
+  "made_with": {
+    "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+    "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+    "mlx_audio": "0.5.5"
+  },
+  "listening_notes": "第二轮试听：音色比 s0 好，语速稍慢，总体比第一轮最好的男旁白强；选为男旁白"
+}

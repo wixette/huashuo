@@ -40,6 +40,12 @@ class Voice:
     role: str = ""
     traits: tuple[str, ...] = field(default=())
     vector_path: Path | None = None
+    default_narrator: bool = False   # the narrator for new books in this language
+
+    @property
+    def narrator_only(self) -> bool:
+        """A library voice designed for narration: never given to a character."""
+        return self.kind == "library" and "narrator" in self.traits
 
     @property
     def kind(self) -> str:
@@ -81,7 +87,8 @@ def _load(root: Path) -> dict[str, Voice]:
         if not vector.is_file():
             raise LibraryError(f"{meta_path}: missing {vector.name}")
         voices[ref] = Voice(ref, meta_path.parent.name, info["gender"], info["age"], info.get("description", ""),
-                            info.get("role", ""), tuple(info.get("traits", ())), vector)
+                            info.get("role", ""), tuple(info.get("traits", ())), vector,
+                            bool(info.get("default_narrator")))
     return voices
 
 
@@ -106,5 +113,22 @@ def has_library(language: str, root: Path | None = None) -> bool:
 
 def castable(language: str, root: Path | None = None) -> list[Voice]:
     """Voices casting may choose from for a language: the library, plus presets that are
-    standard speech (dialect presets are only used when named explicitly, CAST-9)."""
-    return [v for v in _load(root or ROOT).values() if v.language == language and "dialect" not in v.traits]
+    standard speech (dialect presets are only used when named explicitly, CAST-9).
+    Narrator voices are left out: a character should not sound like the narration."""
+    return [v for v in _load(root or ROOT).values()
+            if v.language == language and "dialect" not in v.traits and not v.narrator_only]
+
+
+def narrators(language: str, root: Path | None = None) -> list[Voice]:
+    """Library voices designed for narration."""
+    return [v for v in _load(root or ROOT).values() if v.language == language and v.narrator_only]
+
+
+FALLBACK_NARRATOR = {"zh": "preset:serena", "en": "preset:ryan"}
+
+
+def default_narrator(language: str, root: Path | None = None) -> str:
+    """The narrator for a new book (CAST-4): the library's default narrator for the
+    language, else a preset."""
+    marked = [v.ref for v in _load(root or ROOT).values() if v.language == language and v.default_narrator]
+    return marked[0] if marked else FALLBACK_NARRATOR.get(language, FALLBACK_NARRATOR["zh"])

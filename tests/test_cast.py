@@ -8,7 +8,7 @@ def cast(**characters):
 
 
 def test_default_follows_language():
-    assert default_cast("zh")["narrator"]["voice"] == "preset:serena"
+    assert default_cast("zh")["narrator"]["voice"] == "library:zh/narrator_female"   # the packaged library's narrator
     assert default_cast("en")["narrator"]["voice"] == "preset:ryan"
 
 
