@@ -26,17 +26,13 @@ _FOLD = str.maketrans({"著": "着", "裏": "里", "於": "于", "祇": "只", "
                        "罷": "吧", "罢": "吧", "啦": "了", "師": "师", "傅": "父",
                        # The particles de: the recognizer writes 的 for all three.
                        "地": "的", "得": "的"})
-_converter = None
 
 
 def _to_simplified(text: str) -> str:
     """The recognizer always answers in simplified characters, so traditional-character
-    books are compared after conversion (OpenCC, Apache-2.0)."""
-    global _converter
-    if _converter is None:
-        import opencc
-        _converter = opencc.OpenCC("t2s")
-    return _converter.convert(text)
+    books are compared after conversion."""
+    from huashuo.chinese import to_simplified
+    return to_simplified(text)
 
 
 _CN_DIGITS = {"零": 0, "〇": 0, "一": 1, "幺": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,

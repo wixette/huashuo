@@ -76,7 +76,7 @@ def test_package_and_redo_reuse_the_synthesis_options(sample_txt):
     wd = Workdir.for_input(sample_txt)
     assert json.loads(wd.run_options.read_text()) == {"voice": "preset:vivian", "model": None, "titles": False,
                                                          "emotions": False, "opening": True, "closing": True,
-                                                         "credit": False}
+                                                         "credit": False, "simplify": None}
     assert run("package", sample_txt) == 0                 # finds the same units without repeating flags
 
 
@@ -190,3 +190,32 @@ def test_the_title_is_not_read_twice_when_the_opening_announces_it(tmp_path):
     texts = [u.text for u in make_plan(project).units]
     assert texts[0] == "《在桥上》。" and "在桥上" not in texts[1:]
     assert make_plan(project, opening=False).units[0].text == "在桥上"     # without the opening it stays
+
+
+TRADITIONAL = """熱包子
+
+一
+我纔想到，往很古遠裏說，那時的報紙和雜誌都沒有。白髮老翁們夜半裏常打架，迎接賀年的人卻很多。
+"""
+
+
+def test_a_traditional_book_is_read_from_a_simplified_conversion(tmp_path, capsys):
+    from huashuo.chinese import is_traditional
+    from huashuo.pipeline import load_project, make_plan
+
+    assert is_traditional(TRADITIONAL) and not is_traditional("我才想到，往很古远里说，那时的报纸和杂志都没有。")
+    book = tmp_path / "熱包子.txt"
+    book.write_text(TRADITIONAL, encoding="utf-8")
+    assert run("import", book, "--no-llm") == 0
+    assert "Traditional Chinese: read from a Simplified conversion" in capsys.readouterr().out
+    wd = Workdir.for_input(book)
+    project = load_project(wd)
+    assert "我纔想到" in project.text                                   # the book's text is unchanged
+    body = next(u for u in make_plan(project).units if u.kind == "body")
+    assert body.text.startswith("我才想到，往很古远里说，那时的报纸和杂志都没有。白发老翁")
+    assert body.page_text.startswith("我纔想到")                        # the ASR check reads the page
+    assert make_plan(project, simplify=False).units[0].text.startswith("《熱包子》")
+    # pron.txt entries match whether written in Traditional or Simplified characters.
+    wd.pron.write_text("報紙 = 报子\n杂志 = zá zhì\n", encoding="utf-8")
+    body = next(u for u in make_plan(project).units if u.kind == "body")
+    assert "报子和zá zhì" in body.text

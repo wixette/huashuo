@@ -77,6 +77,9 @@ def _parser() -> argparse.ArgumentParser:
                        help="begin with the title and author (default: yes)")
         p.add_argument("--closing", action=argparse.BooleanOptionalAction, default=None,
                        help="end with 「全书完」 / \"The End\" (default: yes)")
+        p.add_argument("--simplify", action=argparse.BooleanOptionalAction, default=None,
+                       help="read a Traditional-Chinese book from a Simplified conversion (default: when the "
+                            "book is Traditional; the book's text is not changed)")
         p.add_argument("--credit", action=argparse.BooleanOptionalAction, default=None,
                        help="add a line saying the audiobook was made with Huashuo (default: no)")
         p.add_argument("--sample", type=int, nargs="?", const=600, metavar="CHARS",
@@ -225,6 +228,10 @@ def cmd_import(args, quiet: bool = False):
           f"{', ' + result.encoding if result.encoding else ''}]  {chars:,} characters")
     print(f"work directory: {wd.root}")
     print(f"narrator: {result.narrator} ({result.narrator_reason})")
+    from huashuo.pipeline import load_project, speaks_simplified
+    if speaks_simplified(load_project(wd)):
+        print("Traditional Chinese: read from a Simplified conversion, which the TTS pronounces better "
+              "(the book's text is unchanged; --no-simplify to turn off)")
     for line in result.merge_report:
         print(f"  merge: {line}")
     _print_llm(result.llm, wd)
@@ -367,7 +374,7 @@ def _engine(args):
 # Options that change which units exist. synth records them in state/run.json and package
 # and redo reuse them, so a flag need not be repeated to find the same units again.
 _RUN_OPTIONS = {"voice": None, "model": None, "titles": True, "emotions": True, "opening": True, "closing": True,
-                "credit": False}
+                "credit": False, "simplify": None}
 
 
 def _resolve_run_options(args, wd, save: bool) -> None:
@@ -430,7 +437,7 @@ def _prepare(args, save_options: bool = False):
             print(problem, file=sys.stderr)
         raise SystemExit("the script has problems (above); fix them or re-run `huashuo import`")
     plan = make_plan(project, read_titles=args.titles, voice=args.voice, emotions=args.emotions,
-                     opening=args.opening, closing=args.closing, credit=args.credit,
+                     opening=args.opening, closing=args.closing, credit=args.credit, simplify=args.simplify,
                      sample_chars=args.sample, chapters=_parse_chapters(args.chapters))
     if not plan.units:
         raise SystemExit("nothing to read")

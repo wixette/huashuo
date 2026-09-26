@@ -66,6 +66,14 @@ class Dictionary:
         keys = sorted(self.entries, key=len, reverse=True)  # longest match first
         self._pattern = re.compile("|".join(map(re.escape, keys))) if keys else None
 
+    def mapped(self, convert) -> "Dictionary":
+        """The same entries with their words passed through `convert` too (a Traditional
+        book read from Simplified matches entries written either way)."""
+        entries = dict(self.entries)
+        for word, reading in self.entries.items():
+            entries.setdefault(convert(word), reading)
+        return Dictionary(entries, self.problems)
+
     def apply(self, text: str) -> str:
         if self._pattern is None:
             return text

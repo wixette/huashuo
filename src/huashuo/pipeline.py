@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable
 
 from huashuo import pron, punct
+from huashuo.chinese import is_traditional, to_simplified
 from huashuo import __version__
 from huashuo.cast import default_cast, load_cast, merge_cast
 from huashuo.huaben import Script, check, merge, read_script, write_script
@@ -470,14 +471,17 @@ def check_project(project: Project) -> list:
 def make_plan(project: Project, *, read_titles: bool = True, voice: str | None = None,
               max_chars: int = DEFAULT_MAX_CHARS, sample_chars: int | None = None,
               chapters: set[int] | None = None, emotions: bool = True, opening: bool = True,
-              closing: bool = True, credit: bool = False) -> Plan:
+              closing: bool = True, credit: bool = False, simplify: bool | None = None) -> Plan:
     """The units to synthesize; optionally only the first `sample_chars` characters of
     reading, or only some chapters (1-based, as listed by `huashuo import`)."""
     full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice, emotions)
     _announce(full, project, voice or project.cast["narrator"]["voice"], opening, closing, credit)
     readings = pron.load(project.workdir.pron)
+    convert = speaks_simplified(project) if simplify is None else (simplify and project.language == "zh")
+    if convert:
+        readings = readings.mapped(to_simplified)            # entries match in either script
     for unit in full.units:
-        spoken = readings.apply(unit.text)
+        spoken = readings.apply(to_simplified(unit.text) if convert else unit.text)
         if spoken != unit.text:
             unit.reference, unit.text = unit.text, spoken
     if chapters:
@@ -495,6 +499,12 @@ def make_plan(project: Project, *, read_titles: bool = True, voice: str | None =
 
 
 # 「作者」 rather than 「著」: plainer to hear, and the recognizer writes 著 as 住 (M5 check).
+def speaks_simplified(project: Project) -> bool:
+    """A Chinese book in Traditional characters is read from a Simplified conversion
+    (chinese.py); its own text stays as it is."""
+    return project.language == "zh" and is_traditional(project.text)
+
+
 OPENING = {"zh": "《{title}》，作者{author}。", "en": "{title}, by {author}."}
 OPENING_NO_AUTHOR = {"zh": "《{title}》。", "en": "{title}."}
 CLOSING = {"zh": "全书完。", "en": "The End."}
