@@ -64,6 +64,11 @@ _READINGS = [
     (re.compile(r"(?<!\d)(0\d{2,3})-(\d{7,8})(?!\d)"), r"\1 \2"),         # 010-12345678: not 零幺零到……
     (re.compile(r"(?<![A-Za-z])[Nn][Oo]\.\s*(\d+)"), r"第\1"),              # No.1
     (re.compile(r"(\d)\s*[xX×]\s*(?=\d+(?![0-9A-Za-z]))"), r"\1乘"),                         # 4x5 英寸: not 「在」 or the letter
+    # A lone lowercase letter before digits is a model or size name (p2, a4): as a capital
+    # the TTS says the letter, where 「p」 was sometimes read like the syllable pí. After a
+    # digit a single letter is usually a unit (5m, 3s), which the TTS reads as 米, 秒.
+    (re.compile(r"(?<![A-Za-z])([a-z])(?=\d)"), lambda m: m.group(1).upper()),
+    (re.compile(r"(?<=[A-Z]\d)([a-z])(?![A-Za-z])"), lambda m: m.group(1).upper()),   # b2b, p2p
 ]
 
 

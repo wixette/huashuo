@@ -248,8 +248,19 @@ def test_dimensions_are_read_with_cheng():
     """「4x5 英寸」: the x was read half as 「在」, half as the letter."""
     from huashuo.structure import speech_cleanup
 
-    assert speech_cleanup("那是一张仙娜 p2 相机拍的4x5 英寸底片。", "zh") == "那是一张仙娜 p2 相机拍的4乘5 英寸底片。"
+    assert speech_cleanup("那是一张仙娜 p2 相机拍的4x5 英寸底片。", "zh") == "那是一张仙娜 P2 相机拍的4乘5 英寸底片。"
     assert speech_cleanup("1920×1080的屏幕", "zh") == "1920乘1080的屏幕"
     assert speech_cleanup("8X10的照片", "zh") == "8乘10的照片"
     for fine in ("iPhone X的屏幕", "Xbox 360", "0x1F"):
+        assert speech_cleanup(fine, "zh") is None
+
+
+def test_lone_letters_before_digits_are_capitals():
+    """「仙娜 p2」: the lowercase p was sometimes read like the syllable pí."""
+    from huashuo.structure import speech_cleanup
+
+    assert speech_cleanup("仙娜 p2 相机", "zh") == "仙娜 P2 相机"
+    assert speech_cleanup("一张a4纸", "zh") == "一张A4纸"
+    assert speech_cleanup("b2b生意", "zh") == "B2B生意"
+    for fine in ("跑了5m", "mp3文件", "iPhone15", "3s内"):          # units after a digit, and words
         assert speech_cleanup(fine, "zh") is None
