@@ -15,15 +15,17 @@ def script(*specs):
     return Script(HEADER, blocks)
 
 
-def test_paragraphs_join_up_to_the_limit_and_never_cross_boundaries():
-    s = script(("chapter", "第一章", {"level": 1}), ("narration", "甲" * 150 + "。"),
-               ("narration", "乙" * 150 + "。"), ("narration", "丙" * 150 + "。"),
+def test_a_unit_is_at_most_one_paragraph_and_never_crosses_boundaries():
+    """Paragraphs are never joined: the pause between them is ours, not the model's
+    (一条被洗澡水拍死的鱼: a six-paragraph unit rushed, its paragraph pauses vanishing)."""
+    s = script(("chapter", "第一章", {"level": 1}), ("narration", "甲" * 60 + "。"),
+               ("narration", "乙" * 60 + "。"), ("narration", "丙" * 60 + "。"),
                ("break", "***"), ("narration", "丁。"), ("skip", "广告"), ("narration", "戊。"))
-    p = plan(s, CAST, "zh", max_chars=400)
+    p = plan(s, CAST, "zh")
     kinds = [(u.kind, len(u.text), u.after) for u in p.units]
-    assert kinds == [("title", 3, "title"), ("body", 302, "paragraph"), ("body", 151, "break"),
-                     ("body", 2, "paragraph"), ("body", 2, "end")]
-    assert p.units[1].block_ids == ["b1", "b2"]
+    assert kinds == [("title", 3, "title"), ("body", 61, "paragraph"), ("body", 61, "paragraph"),
+                     ("body", 61, "break"), ("body", 2, "paragraph"), ("body", 2, "end")]
+    assert p.units[1].block_ids == ["b1"]
 
 
 def test_long_paragraph_splits_at_sentences_then_clauses():
@@ -62,9 +64,9 @@ def test_say_voice_override_titles_off_and_pause_after():
 def test_english_joins_with_spaces():
     s = Script({**HEADER, "language": "en"}, [
         {"id": "c", "type": "chapter", "text": "Chapter 1", "level": 1},
-        {"id": "a", "type": "narration", "text": "It rained."},
-        {"id": "b", "type": "narration", "text": "He left."}])
-    assert plan(s, CAST, "en").units[1].text == "It rained. He left."
+        {"id": "c1.p1.01", "type": "narration", "text": "It rained,"},
+        {"id": "c1.p1.02", "type": "narration", "text": "he left."}])
+    assert plan(s, CAST, "en").units[1].text == "It rained, he left."
 
 
 def test_voice_change_inside_a_paragraph_is_a_turn():
@@ -75,8 +77,8 @@ def test_voice_change_inside_a_paragraph_is_a_turn():
                ("narration", "他坐下了。", {"id": "c1.p1.03"}),
                ("narration", "下一段。", {"id": "c1.p2"}))
     p = plan(s, cast, "zh")
-    assert [u.after for u in p.units] == ["title", "turn", "turn", "end"]
-    assert p.units[2].voice == "preset:uncle_fu" and p.units[3].text == "他坐下了。下一段。"
+    assert [u.after for u in p.units] == ["title", "turn", "turn", "paragraph", "end"]
+    assert p.units[2].voice == "preset:uncle_fu" and p.units[3].text == "他坐下了。" and p.units[4].text == "下一段。"
 
 
 def test_emotion_becomes_instruct_and_can_be_switched_off():

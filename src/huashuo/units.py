@@ -1,10 +1,17 @@
 """Group 话本 blocks into synthesis units and M4B chapters (docs/script-ir.md §6).
 
-A unit is one TTS call. Consecutive readable blocks with the same voice and emotion are
-joined up to `max_chars`, because short text without context comes out rushed; units
-never cross a chapter, heading, break, skip, or a change of voice or emotion. Each unit
-records what kind of boundary follows it, which is what post-processing turns into a
-pause (POST-3).
+A unit is one TTS call. Consecutive readable blocks of one paragraph with the same voice
+and emotion are joined, and a paragraph longer than `max_chars` is cut at sentence ends.
+Units never cross a paragraph, chapter, heading, break, skip, or a change of voice or
+emotion. Each unit records what kind of boundary follows it, which is what
+post-processing turns into a pause (POST-3).
+
+Units used to join whole paragraphs up to 400 characters, leaving the pauses between them
+to the model. On long inputs the model's pace is not reliable: in 一条被洗澡水拍死的鱼 one
+396-character unit of six paragraphs was read about 20% too fast, its pauses shrinking
+to a quarter of a second and vanishing at two paragraph breaks (design doc §5.13). With
+a paragraph at most per unit, every paragraph break gets the pause set for it, and a
+rushed take spoils one short piece at most.
 """
 
 from __future__ import annotations
@@ -14,7 +21,7 @@ from dataclasses import dataclass, field
 
 from huashuo.huaben import Script, spoken_text
 
-DEFAULT_MAX_CHARS = 400
+DEFAULT_MAX_CHARS = 150
 
 # Boundary kinds; post.py assigns each a pause. TURN is a change of voice inside one
 # paragraph (他说 / “好。” / 他走了), shorter than the pause between paragraphs.
@@ -162,7 +169,8 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             if not text:
                 continue
             size = sum(len(t) for _, t in group) + len(text)
-            if group and (voice != group_voice or size > max_chars):
+            new_paragraph = bool(group) and paragraph_of(group[-1][0]["id"]) != paragraph_of(block["id"])
+            if group and (voice != group_voice or size > max_chars or new_paragraph):
                 same_paragraph = paragraph_of(group[-1][0]["id"]) == paragraph_of(block["id"])
                 changed_voice = voice[0] != group_voice[0]     # not just the emotion
                 flush()

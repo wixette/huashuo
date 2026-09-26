@@ -138,3 +138,33 @@ def test_a_unit_that_keeps_losing_its_ending_is_made_in_two_parts(tmp_path):
     assert _split_last(text) == ("我伸手想抓住飘逝的记忆，却只抓到冰冷的墙壁。请将修改过的场景存入大脑。", "谢谢。")
     assert _split_last("“最高权限。谢谢。”") == ("“最高权限。", "谢谢。”")
     assert _split_last("只有一句话。") is None
+
+
+def test_the_pace_check_knows_each_voices_usual_pace():
+    from huashuo.synth import PaceBook
+
+    book = PaceBook()
+    text = "雪" * 60
+    assert book.problem("v", text, 10.0, "zh") == (None, 1.0)               # not enough known units yet
+    for seconds in (14, 15, 15, 16, 15, 14, 16, 15):                       # about 4 chars/s
+        book.add("v", text, seconds, "zh")
+    assert book.problem("v", text, 15.0, "zh")[0] is None
+    assert "rushed" in book.problem("v", text, 11.0, "zh")[0]               # 5.5 chars/s, 1.36x
+    assert "dragging" in book.problem("v", text, 22.0, "zh")[0]
+    assert book.problem("other voice", text, 11.0, "zh")[0] is None
+    assert book.problem("v", "雪" * 20, 2.0, "zh")[0] is None               # too short to judge
+
+
+def test_a_rushed_take_is_tried_again(tmp_path):
+    """The TTS sometimes reads a whole unit right but much too fast."""
+    from huashuo.engines.fake import FakeEngine
+
+    class Moody(FakeEngine):
+        def synthesize(self, text, voice, language, instruct, seed):
+            audio = super().synthesize(text, voice, language, instruct, seed)
+            return audio[: int(len(audio) * 0.7)] if "赶" in text and self.calls == 9 else audio
+
+    wd, engine = Workdir(tmp_path), Moody()
+    units = [unit("雪" * 50 + f"{n}。") for n in range(8)] + [unit("赶" * 50 + "。")]
+    stats = synthesize(units, engine, wd, "zh", show_progress=False)
+    assert stats.retried == 1 and not stats.warnings and engine.calls == 10

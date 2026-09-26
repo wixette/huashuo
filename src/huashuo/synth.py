@@ -78,6 +78,45 @@ def duration_problem(text: str, seconds: float, language: str, max_seconds: floa
     return None
 
 
+# The pace check (design doc §5.13): a take read much faster or slower than the voice's
+# own median in this book is tried again, like one that fails the ASR check. The TTS
+# sometimes rushes a whole unit, reading every word right but with its pauses shrunk.
+PACE_FAST, PACE_SLOW = 1.2, 0.75
+PACE_MIN_CHARS = 40          # shorter units vary too much for their pace to mean anything
+PACE_MIN_SAMPLES = 8         # units of the voice needed before its median is trusted
+
+
+class PaceBook:
+    """The pace (characters per second) of each voice's accepted units in this book."""
+
+    def __init__(self) -> None:
+        self.rates: dict[str, list[float]] = {}
+
+    @staticmethod
+    def rate(text: str, seconds: float, language: str) -> tuple[int, float]:
+        counted = len(_COUNTED.get(language, _COUNTED["zh"]).findall(text))
+        return counted, counted / max(seconds, 0.1)
+
+    def add(self, voice: str, text: str, seconds: float, language: str) -> None:
+        counted, rate = self.rate(text, seconds, language)
+        if counted >= PACE_MIN_CHARS:
+            self.rates.setdefault(voice, []).append(rate)
+
+    def problem(self, voice: str, text: str, seconds: float, language: str) -> tuple[str | None, float]:
+        """(a problem if the take is off pace, how far off it is: 1.0 is the median)."""
+        counted, rate = self.rate(text, seconds, language)
+        known = self.rates.get(voice, [])
+        if counted < PACE_MIN_CHARS or len(known) < PACE_MIN_SAMPLES:
+            return None, 1.0
+        median = float(np.median(known))
+        ratio = rate / median
+        if ratio > PACE_FAST:
+            return f"rushed ({rate:.1f} chars/s, {ratio:.2f}x this voice's usual {median:.1f})", ratio
+        if ratio < PACE_SLOW:
+            return f"dragging ({rate:.1f} chars/s, {ratio:.2f}x this voice's usual {median:.1f})", ratio
+        return None, ratio
+
+
 @dataclass
 class Stats:
     generated: int = 0
@@ -227,7 +266,7 @@ def _synthesize_split(unit: Unit, key: str, engine, asr, language: str, rerolls:
     transcript = "".join(heard)
     error_rate, problem = judge(unit.page_text, transcript, language, asr.max_cer)
     problem = problem or next((p for p in problems if p), None)
-    score = (False, problem is not None, error_rate or 0.0)
+    score = (False, problem is not None, round(error_rate or 0.0, 3), 0.0)
     return (score, audio, problem, transcript, error_rate, seeds[1])
 
 
@@ -262,6 +301,11 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                         chapters=[(u.chapter, len(u.text)) for u in units])
     max_seconds = getattr(engine, "max_unit_seconds", None)
     rerolls = read_json(wd.rerolls, {})
+    pace = PaceBook()
+    for unit, key in zip(units, keys):                        # the voices' pace so far in this book
+        meta = cached_ok(wd, key)
+        if meta is not None and not meta.get("problem"):
+            pace.add(unit.voice, unit.text, meta["seconds"], language)
 
     for voice in sorted({u.voice for u in units}):
         engine.check_voice(voice)
@@ -292,9 +336,13 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                     transcript = asr.transcribe(audio, engine.sample_rate, language)
                     from huashuo.asr import judge
                     error_rate, problem = judge(unit.page_text, transcript, language, _max_cer(unit, asr.max_cer))
-                # Best of the attempts: a duration failure is worst, then a failed ASR check,
-                # then the error rate.
-                score = (problem is not None and error_rate is None, problem is not None, error_rate or 0.0)
+                off_pace = 1.0
+                if problem is None and unit.kind == "body":
+                    problem, off_pace = pace.problem(unit.voice, unit.text, seconds, language)
+                # Best of the attempts: a duration failure is worst, then a failed check, then
+                # the error rate, then how far off the voice's usual pace.
+                score = (problem is not None and error_rate is None, problem is not None, round(error_rate or 0.0, 3),
+                         abs(off_pace - 1.0))
                 if best is None or score < best[0]:
                     best = (score, audio, problem, transcript, error_rate, seed)
                 if problem is None:
@@ -325,6 +373,8 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
             if problem:
                 stats.warnings.append({"key": key, "text": unit.text, "problem": problem})
                 progress.note(f"  ! kept despite: {problem} | {unit.text[:30]}…")
+            if not problem:
+                pace.add(unit.voice, unit.text, seconds, language)
             stats.generated += 1
             stats.audio_seconds += seconds
             progress.advance(len(unit.text), seconds, elapsed)
