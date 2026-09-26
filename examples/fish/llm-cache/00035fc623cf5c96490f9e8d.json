@@ -1,0 +1,12 @@
+{
+  "stage": "cast",
+  "model": "gpt-6-sol",
+  "output": {
+    "operations": []
+  },
+  "usage": {
+    "input": 2940,
+    "output": 11,
+    "cost": 0.00599
+  }
+}

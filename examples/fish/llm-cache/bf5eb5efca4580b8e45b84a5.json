@@ -1,0 +1,22 @@
+{
+  "stage": "cast",
+  "model": "gpt-6-sol",
+  "output": {
+    "operations": [
+      {
+        "op": "insert",
+        "name": "李忱",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "male",
+        "age": "unknown",
+        "description": "珠海市公安局刑警支队警察，接待“我”并告知栖芒前任男友的调查情况。"
+      }
+    ]
+  },
+  "usage": {
+    "input": 2810,
+    "output": 73,
+    "cost": 0.00635
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "stage": "speakers",
+  "model": "gpt-6-sol",
+  "output": {
+    "answers": [
+      {
+        "index": 205,
+        "speaker": "我",
+        "confidence": 0.94,
+        "emotion": ""
+      }
+    ]
+  },
+  "usage": {
+    "input": 1416,
+    "output": 29,
+    "cost": 0.003122
+  }
+}

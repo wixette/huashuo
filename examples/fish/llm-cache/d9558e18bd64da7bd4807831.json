@@ -1,0 +1,103 @@
+{
+  "stage": "speakers",
+  "model": "gpt-6-sol",
+  "output": {
+    "answers": [
+      {
+        "index": 37,
+        "speaker": "我",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 38,
+        "speaker": "栖芒",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 39,
+        "speaker": "我",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 40,
+        "speaker": "栖芒",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 43,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 46,
+        "speaker": "栖芒",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 48,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 51,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 53,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 56,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 58,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": "惊讶"
+      },
+      {
+        "index": 59,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": "低声"
+      },
+      {
+        "index": 61,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": "低声"
+      },
+      {
+        "index": 62,
+        "speaker": "我",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 63,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": "高兴"
+      }
+    ]
+  },
+  "usage": {
+    "input": 2682,
+    "output": 295,
+    "cost": 0.008314
+  }
+}

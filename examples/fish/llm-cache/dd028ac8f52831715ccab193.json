@@ -1,0 +1,21 @@
+{
+  "stage": "voices",
+  "model": "gpt-6-sol",
+  "output": {
+    "choices": [
+      {
+        "name": "栖芒",
+        "voice": "preset:serena"
+      },
+      {
+        "name": "李忱",
+        "voice": "library:zh/mid_man_steady"
+      }
+    ]
+  },
+  "usage": {
+    "input": 1798,
+    "output": 42,
+    "cost": 0.004016
+  }
+}

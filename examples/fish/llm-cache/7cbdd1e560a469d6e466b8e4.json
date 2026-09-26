@@ -1,0 +1,31 @@
+{
+  "stage": "cast",
+  "model": "gpt-6-sol",
+  "output": {
+    "operations": [
+      {
+        "op": "insert",
+        "name": "栖芒",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "female",
+        "age": "unknown",
+        "description": "神秘美丽的女子，声音纤细而富有诱惑力，握手能唤醒他人的记忆。"
+      },
+      {
+        "op": "insert",
+        "name": "我",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "unknown",
+        "age": "unknown",
+        "description": "《丽行时画》的首席摄影师，与栖芒相识并讲述两人的经历。"
+      }
+    ]
+  },
+  "usage": {
+    "input": 2895,
+    "output": 112,
+    "cost": 0.00691
+  }
+}

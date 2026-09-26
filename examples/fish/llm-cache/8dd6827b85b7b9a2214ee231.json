@@ -1,0 +1,79 @@
+{
+  "stage": "speakers",
+  "model": "gpt-6-sol",
+  "output": {
+    "answers": [
+      {
+        "index": 146,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 148,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 151,
+        "speaker": "我",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 152,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 154,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 155,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 156,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 157,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 159,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 167,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": "悲伤"
+      },
+      {
+        "index": 169,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": "悲伤"
+      }
+    ]
+  },
+  "usage": {
+    "input": 2707,
+    "output": 209,
+    "cost": 0.007504
+  }
+}

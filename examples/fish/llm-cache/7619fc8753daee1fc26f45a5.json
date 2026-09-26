@@ -1,0 +1,43 @@
+{
+  "stage": "speakers",
+  "model": "gpt-6-sol",
+  "output": {
+    "answers": [
+      {
+        "index": 71,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 73,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 75,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": "生气"
+      },
+      {
+        "index": 77,
+        "speaker": "我",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 79,
+        "speaker": "栖芒",
+        "confidence": 1.0,
+        "emotion": ""
+      }
+    ]
+  },
+  "usage": {
+    "input": 2615,
+    "output": 101,
+    "cost": 0.00624
+  }
+}

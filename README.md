@@ -70,6 +70,8 @@ key, or with `--no-llm`, the book is still made, with dialogue read by the narra
   research, measurements, architecture decisions and naming.
 - [docs/script-ir.md](docs/script-ir.md): the 话本 (Script IR) format, the cast table and
   the per-book work directory.
+- [examples/](examples/): 《一条被洗澡水拍死的鱼》, a short story by 半轻人 (CC BY-NC-ND 4.0),
+  as TXT and EPUB: the example input and the golden set for the tests.
 - [experiments/](experiments/): the original single-voice prototype and the scripts behind
   EXP-1 and M3 (voice library, emotion hints), EXP-2 (speaker attribution) and EXP-3
   (accent detection).
