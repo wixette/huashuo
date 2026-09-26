@@ -242,3 +242,14 @@ def test_a_title_that_is_only_a_number_is_read_as_an_ordinal():
     built = build(_book(["第一章 起", "1", "正文。"]))
     heading = next(b for b in built.script.blocks if b["type"] == "heading")
     assert heading["text"] == "1" and heading["say"] == "第一节"          # shown as written, read as an ordinal
+
+
+def test_dimensions_are_read_with_cheng():
+    """「4x5 英寸」: the x was read half as 「在」, half as the letter."""
+    from huashuo.structure import speech_cleanup
+
+    assert speech_cleanup("那是一张仙娜 p2 相机拍的4x5 英寸底片。", "zh") == "那是一张仙娜 p2 相机拍的4乘5 英寸底片。"
+    assert speech_cleanup("1920×1080的屏幕", "zh") == "1920乘1080的屏幕"
+    assert speech_cleanup("8X10的照片", "zh") == "8乘10的照片"
+    for fine in ("iPhone X的屏幕", "Xbox 360", "0x1F"):
+        assert speech_cleanup(fine, "zh") is None

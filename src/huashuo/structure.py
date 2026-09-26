@@ -63,6 +63,7 @@ _READINGS = [
     (re.compile(r"(?<![\d.])-(\d+(?:\.\d+)?)\s*(℃|°C|度)"), r"零下\1\2"),   # -5℃ was read 五摄氏度
     (re.compile(r"(?<!\d)(0\d{2,3})-(\d{7,8})(?!\d)"), r"\1 \2"),         # 010-12345678: not 零幺零到……
     (re.compile(r"(?<![A-Za-z])[Nn][Oo]\.\s*(\d+)"), r"第\1"),              # No.1
+    (re.compile(r"(\d)\s*[xX×]\s*(?=\d+(?![0-9A-Za-z]))"), r"\1乘"),                         # 4x5 英寸: not 「在」 or the letter
 ]
 
 
