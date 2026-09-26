@@ -67,7 +67,7 @@ _READINGS = [
     # A lone lowercase letter before digits is a model or size name (p2, a4): as a capital
     # the TTS says the letter, where 「p」 was sometimes read like the syllable pí. After a
     # digit a single letter is usually a unit (5m, 3s), which the TTS reads as 米, 秒.
-    (re.compile(r"(?<![A-Za-z])([a-z])(?=\d)"), lambda m: m.group(1).upper()),
+    (re.compile(r"(?<![A-Za-z0-9])([a-z])(?=\d)"), lambda m: m.group(1).upper()),
     (re.compile(r"(?<=[A-Z]\d)([a-z])(?![A-Za-z])"), lambda m: m.group(1).upper()),   # b2b, p2p
 ]
 
