@@ -1,6 +1,7 @@
 {
   "id": "young_man_warm",
   "role": "青年男，二十五岁左右，清朗温和",
+  "label": "young man, about 25, clear and gentle",
   "gender": "male",
   "age": "young_adult",
   "traits": [

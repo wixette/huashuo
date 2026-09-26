@@ -1,6 +1,7 @@
 {
   "id": "mid_man_jovial",
   "role": "中年男，五十岁左右，洪亮爽朗",
+  "label": "middle-aged man, about 50, loud and hearty",
   "gender": "male",
   "age": "middle_aged",
   "traits": [

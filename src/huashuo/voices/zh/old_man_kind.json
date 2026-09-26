@@ -1,6 +1,7 @@
 {
   "id": "old_man_kind",
   "role": "老年男，七十岁左右，慈祥温和",
+  "label": "old man, about 70, kind and gentle",
   "gender": "male",
   "age": "elderly",
   "traits": [

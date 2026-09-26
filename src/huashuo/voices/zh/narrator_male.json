@@ -1,6 +1,7 @@
 {
   "id": "narrator_male",
   "role": "男旁白，三十五岁左右，纪录片解说",
+  "label": "male narrator, about 35, documentary style",
   "gender": "male",
   "age": "middle_aged",
   "traits": [

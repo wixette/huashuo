@@ -33,7 +33,7 @@ def test_readings_change_only_the_units_with_the_word(sample_txt):
 
     assert run("import", sample_txt) == 0
     wd = Workdir.for_input(sample_txt)
-    assert wd.pron.read_text(encoding="utf-8").startswith("# 读音词典")      # a template to fill in
+    assert wd.pron.read_text(encoding="utf-8").startswith("# Pronunciation dictionary")      # a template to fill in
     engine = FakeEngine()
     before = unit_keys(make_plan(load_project(wd)).units, engine, "zh")
     wd.pron.write_text("甄士隐 = zhēn shì yǐn\n", encoding="utf-8")

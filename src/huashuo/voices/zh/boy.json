@@ -1,6 +1,7 @@
 {
   "id": "boy",
   "role": "男童，七八岁",
+  "label": "boy, about 7-8, bright and eager",
   "gender": "male",
   "age": "child",
   "traits": [

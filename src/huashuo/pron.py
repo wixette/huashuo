@@ -19,11 +19,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 TEMPLATE = """\
-# 读音词典：每行一条「词语 = 读法」，对全书生效（PRON-1）。
-# 读法可以是读音正确的其他汉字，或带声调符号的拼音；声调数字会自动换成符号。
-# 改完直接重新合成即可，只有含这些词的片段会重做。
 # Pronunciation dictionary: one "word = reading" per line, for the whole book. A reading is
 # other characters that sound right, or pinyin with tone marks (tone digits are converted).
+# Synthesize again after editing: only the units containing these words are redone.
 #
 # 单于 = chán yú
 # 尉迟恭 = yù chí gōng
@@ -100,7 +98,7 @@ def load(path: Path) -> Dictionary:
         parts = re.split(r"=|\t|→", line, maxsplit=1)
         word, reading = (parts[0].strip(), parts[1].strip()) if len(parts) == 2 else (line, "")
         if not word or not reading:
-            problems.append(f"{path.name}:{number}: expected 「词语 = 读法」, got {line!r}")
+            problems.append(f"{path.name}:{number}: expected 'word = reading', got {line!r}")
             continue
         entries[word] = tone_marks(reading)
     return Dictionary(entries, problems)

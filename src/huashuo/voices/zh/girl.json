@@ -1,6 +1,7 @@
 {
   "id": "girl",
   "role": "女童，八岁左右，活泼",
+  "label": "girl, about 8, lively",
   "gender": "female",
   "age": "child",
   "traits": [

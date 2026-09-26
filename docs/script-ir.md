@@ -147,7 +147,7 @@
 | `heading` | 读 | `level` | 章内小标题，不产生 M4B 章节。EPUB 的 h1–h6 取其级别；「一」「（二）」这类节号为 3 | ✅ |
 | `narration` | 读 | — | 旁白 / 叙述，用旁白音色 | ✅ |
 | `dialogue` | 读 | `speaker`、`emotion`、`conf` | 对白：导入时在引号处切分（`“”`「」『』与直引号，支持嵌套；段末未闭合的引语延续到段尾），再由 LLM 标注说话人与情绪 | ✅ M2；`emotion` M3 |
-| `skip` | **不读** | `reason` | 保留在话本里但不朗读，保证对账时原文仍被完整覆盖（TXT-4、TXT-5）。程序写入的 `reason`：`toc`（目录）、`copyright`（版权页）、`license`（Project Gutenberg 首尾的声明）、`notes`（注释段落，`--read-notes` 时改为朗读）、`duplicate`（紧接着重复一遍的标题）、`noise`（网文噪声行：求票、「本章完」、作者附言 PS、站点水印，TXT-5）、`author`（TXT 开头的「作者：某某」行，由开场白读出，POST-6）。用户自己跳过时可写任意 `reason`，如 `user` | ✅ |
+| `skip` | **不读** | `reason` | 保留在话本里但不朗读，保证对账时原文仍被完整覆盖（TXT-4、TXT-5）。程序写入的 `reason`：`toc`（目录）、`copyright`（版权页）、`license`（Project Gutenberg 首尾的声明）、`notes`（注释段落，`--read-notes` 时改为朗读）、`duplicate`（紧接着重复一遍的标题）、`noise`（网文噪声行：求票、「本章完」、作者附言 PS、站点水印，TXT-5）、`author`（TXT 开头的「作者：某某」行，由开场白读出，POST-6）。用户自己跳过时可写任意 `reason`，如 `user`；反过来，想让某段被跳过的文字读出来，把它的 `type` 改为 `narration` 即可（重新导入会保留这一修改） | ✅ |
 | `break` | 不读，插入停顿 | — | 场景分隔（`***`、`◇◇◇` 等），对应 POST-3 的场景停顿 | ✅ |
 | `equation` / `figure` / `table` / `footnote` | — | — | **预留**给论文与网页场景，第一阶段不产生、遇到时按 `skip` 处理 | 预留 |
 

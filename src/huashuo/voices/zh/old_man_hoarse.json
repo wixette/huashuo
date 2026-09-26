@@ -1,6 +1,7 @@
 {
   "id": "old_man_hoarse",
   "role": "老年男，六十多岁，略沙哑，语速慢",
+  "label": "old man, 60s, slightly hoarse, slow",
   "gender": "male",
   "age": "elderly",
   "traits": [

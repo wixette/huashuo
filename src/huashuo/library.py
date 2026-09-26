@@ -41,6 +41,7 @@ class Voice:
     traits: tuple[str, ...] = field(default=())
     vector_path: Path | None = None
     default_narrator: bool = False   # the narrator for new books in this language
+    label: str = ""                  # English summary for listings (role is in the voice's language)
 
     @property
     def narrator_only(self) -> bool:
@@ -79,7 +80,8 @@ def _load(root: Path) -> dict[str, Voice]:
         for name, info in json.loads(presets.read_text(encoding="utf-8")).items():
             ref = f"preset:{name}"
             voices[ref] = Voice(ref, info["language"], info["gender"], info["age"], info.get("description", ""),
-                                info.get("role", ""), tuple(info.get("traits", ())))
+                                info.get("role", ""), tuple(info.get("traits", ())),
+                                label=info.get("label", info.get("role", "")))
     for meta_path in sorted(root.glob("*/*.json")):
         info = json.loads(meta_path.read_text(encoding="utf-8"))
         ref = f"library:{meta_path.parent.name}/{meta_path.stem}"
@@ -88,7 +90,7 @@ def _load(root: Path) -> dict[str, Voice]:
             raise LibraryError(f"{meta_path}: missing {vector.name}")
         voices[ref] = Voice(ref, meta_path.parent.name, info["gender"], info["age"], info.get("description", ""),
                             info.get("role", ""), tuple(info.get("traits", ())), vector,
-                            bool(info.get("default_narrator")))
+                            bool(info.get("default_narrator")), info.get("label", info.get("role", "")))
     return voices
 
 

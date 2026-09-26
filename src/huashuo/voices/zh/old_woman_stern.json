@@ -1,6 +1,7 @@
 {
   "id": "old_woman_stern",
   "role": "老年女，六十五岁左右，严厉干练",
+  "label": "old woman, about 65, stern and capable",
   "gender": "female",
   "age": "elderly",
   "traits": [

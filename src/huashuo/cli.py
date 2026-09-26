@@ -28,7 +28,7 @@ log = logging.getLogger("huashuo")
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="huashuo", description="话说 Huashuo: novel in, M4B out.",
+    parser = argparse.ArgumentParser(prog="huashuo", description="Huashuo: novel in, M4B out.",
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      epilog=__doc__.split("\n\n", 1)[1])
     parser.add_argument("--version", action="version", version=f"huashuo {__version__}")
@@ -225,7 +225,7 @@ def cmd_import(args, quiet: bool = False):
                          title=args.title, author=args.author, narrator=args.narrator)
     h = result.script.header
     chars = sum(len(b.get("text", "")) for b in result.script.blocks if b.get("type") != "skip")
-    print(f"《{h['title']}》 {h.get('author') or '(author unknown)'}  [{h['language']}"
+    print(f"{h['title']} by {h.get('author') or '(author unknown)'}  [{h['language']}"
           f"{', ' + result.encoding if result.encoding else ''}]  {chars:,} characters")
     print(f"work directory: {wd.root}")
     print(f"narrator: {result.narrator} ({result.narrator_reason})")
@@ -343,14 +343,16 @@ def _print_structure(project) -> None:
             sizes[unit.chapter] += len(unit.text)
     print(f"\n{len(p.chapters)} chapters:")
     for number, (chapter, chars) in enumerate(zip(p.chapters, sizes), 1):
-        print(f"  {number:4d}  {chapter.title[:44]:<44} {chars:>8,} 字")
+        print(f"  {number:4d}  {chapter.title[:44]:<44} {chars:>8,} chars")
     skipped = [b for b in project.script.blocks if b.get("type") == "skip"]
     if skipped:
         print(f"\n{len(skipped)} paragraphs kept but not read:")
         for block in skipped[:15]:
             print(f"  [{block.get('reason')}] {block.get('text', '')[:50]}")
         if len(skipped) > 15:
-            print(f"  … and {len(skipped) - 15} more (type \"skip\" in the script)")
+            print(f"  … and {len(skipped) - 15} more")
+        print(f"They are the blocks with \"type\": \"skip\" in {project.workdir.script}; "
+              f"to have one read, change its type to \"narration\".")
 
 
 def cmd_check(args) -> int:
@@ -640,7 +642,7 @@ def cmd_audition(args) -> int:
     output = args.output or args.book.with_name(args.book.stem + ".audition.m4b")
     header = project.script.header
     cover = book_cover(wd, header.get("title") or args.book.stem)
-    info = BookInfo(title=f"{header.get('title', args.book.stem)}（试听 audition）", author=header.get("author", ""),
+    info = BookInfo(title=f"{header.get('title', args.book.stem)} (audition)", author=header.get("author", ""),
                     language=language)
     write_m4b(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover)
     for title, text, _ in items:
@@ -680,12 +682,12 @@ def cmd_voices(args) -> int:
         default = default_narrator(args.language)
         for voice in narrators(args.language):
             mark = "narrator (default)" if voice.ref == default else "narrator"
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}  [{mark}]")
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}  [{mark}]")
         for voice in castable(args.language):
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}")
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}")
         for voice in presets(args.language):
             mark = "narrator (default)" if voice.ref == default else "only when named in cast.json"
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}  [{mark}]")
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}  [{mark}]")
         return 0
     from huashuo.engines.qwen3 import DIALECT_PRESETS, Qwen3Engine
 

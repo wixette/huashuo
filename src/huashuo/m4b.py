@@ -29,7 +29,7 @@ class BookInfo:
     title: str
     author: str
     language: str
-    narrator: str = "话说 Huashuo（Qwen3-TTS）"
+    narrator: str = "Huashuo (Qwen3-TTS)"
     description: str = ""
     date: str = ""
 

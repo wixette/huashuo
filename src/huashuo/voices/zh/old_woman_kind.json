@@ -1,6 +1,7 @@
 {
   "id": "old_woman_kind",
   "role": "老年女，七十岁左右，慈祥絮叨",
+  "label": "old woman, about 70, kind and chatty",
   "gender": "female",
   "age": "elderly",
   "traits": [

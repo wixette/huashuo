@@ -167,9 +167,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
     consented = record.get("llm_consent", [])
     if not config.local and config.endpoint not in consented:
         if not agreed:
-            message = (f"全书约 {chars:,} 字将发送给 {config.endpoint}（模型 {config.model}）用于说话人标注，"
-                       f"预计费用约 ${estimate:.2f}（上限 ${config.max_cost:.2f}）。\n"
-                       f"The text (about {chars:,} characters) will be sent to {config.endpoint} ({config.model}) "
+            message = (f"The text (about {chars:,} characters) will be sent to {config.endpoint} ({config.model}) "
                        f"for speaker attribution, estimated ${estimate:.2f} (cap ${config.max_cost:.2f}). Continue?")
             if not (options.assume_yes or (options.confirm is not None and options.confirm(message))):
                 raise PipelineError(f"not sending the book to {config.endpoint} without your agreement: run again "
@@ -337,8 +335,7 @@ def write_review(wd: Workdir, review: list[dict]) -> Path | None:
     if not review:
         path.unlink(missing_ok=True)
         return None
-    lines = ["# 待审阅的对白：说话人未知或把握不高。改 script.huaben.jsonl 中对应 id 的 speaker 即可。",
-             "# Quotes with an unknown or uncertain speaker; fix `speaker` for the id in script.huaben.jsonl.", ""]
+    lines = ["# Quotes with an unknown or uncertain speaker; fix `speaker` for the id in script.huaben.jsonl.", ""]
     for item in review:
         conf = "" if item["conf"] is None else f" ({item['conf']:.2f})"
         lines.append(f"{item['id']}\t{item['speaker']}{conf}\t{item['text']}")

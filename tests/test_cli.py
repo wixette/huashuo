@@ -126,7 +126,7 @@ def test_gbk_web_novel_with_volumes_and_mixed_punctuation(tmp_path, capsys):
     book.write_bytes(WEBNOVEL_TXT.encode("gbk"))
     assert run("import", book, "--no-llm") == 0
     out = capsys.readouterr().out
-    assert "gb18030" in out and "《剑来长安》" in out
+    assert "gb18030" in out and "剑来长安 by 青衫客" in out
     wd = Workdir.for_input(book)
     project = load_project(wd)
     chapters = [c.title for c in make_plan(project).chapters]
@@ -219,3 +219,25 @@ def test_a_traditional_book_is_read_from_a_simplified_conversion(tmp_path, capsy
     wd.pron.write_text("報紙 = 报子\n杂志 = zá zhì\n", encoding="utf-8")
     body = next(u for u in make_plan(project).units if u.kind == "body")
     assert "报子和zá zhì" in body.text
+
+
+def test_the_cli_speaks_english(tmp_path, capsys):
+    """Stage 1's interface is English only (requirements CLI-8): Chinese in the output is
+    the book's own text (titles, skipped lines), never a message or a label."""
+    import re
+
+    from helpers import WEBNOVEL_TXT
+
+    book = tmp_path / "剑来长安.txt"
+    book.write_bytes(WEBNOVEL_TXT.encode("gbk"))
+    assert run("import", book, "--no-llm") == 0
+    out = capsys.readouterr().out
+    script = read_script(Workdir.for_input(book).script)                   # the text after cleanup (TXT-7)
+    text = "\n".join([book.stem, *map(str, script.header.values()),
+                      *(b.get("text", "") for b in script.blocks)])
+    foreign = [run_ for run_ in re.findall(r"[　-〿一-鿿＀-￯]+", out) if run_ not in text]
+    assert not foreign, f"Chinese that is not from the book: {foreign}"
+    assert run("voices", "--library") == 0
+    assert not re.search(r"[一-鿿]", capsys.readouterr().out)
+    template = Workdir.for_input(book).pron.read_text(encoding="utf-8").splitlines()
+    assert all(line.isascii() for line in template if "=" not in line)  # the examples are Chinese words

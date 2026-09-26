@@ -31,7 +31,7 @@ def test_txt_to_m4b_resume_and_edit(sample_txt, capsys):
     assert chapters == ["第一回 甄士隐梦幻识通灵", "第二回 贾夫人仙逝扬州城"]
     tags = {k.lower(): v for k, v in info["format"]["tags"].items()}
     assert (tags["title"], tags["artist"], tags["genre"]) == ("红楼梦", "曹雪芹", "Audiobook")
-    assert tags["composer"].startswith("话说 Huashuo") and tags["major_brand"].strip() == "M4B"
+    assert tags["composer"] == "Huashuo (Qwen3-TTS)" and tags["major_brand"].strip() == "M4B"
     audio = next(s for s in info["streams"] if s["codec_type"] == "audio")
     assert audio["codec_name"] == "aac" and audio["channels"] == 1 and audio["sample_rate"] == "24000"
     assert any(s["codec_type"] == "video" for s in info["streams"])      # generated cover

@@ -1,6 +1,7 @@
 {
   "id": "mid_man_steady",
   "role": "中年男，四十五岁左右，浑厚沉稳",
+  "label": "middle-aged man, about 45, deep and steady",
   "gender": "male",
   "age": "middle_aged",
   "traits": [

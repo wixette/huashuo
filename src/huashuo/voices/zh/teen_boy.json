@@ -1,6 +1,7 @@
 {
   "id": "teen_boy",
   "role": "少年男，十五六岁，爽朗",
+  "label": "teenage boy, 15-16, cheerful",
   "gender": "male",
   "age": "teen",
   "traits": [

@@ -1,6 +1,7 @@
 {
   "id": "narrator_female",
   "role": "女旁白，四十岁左右，知性温润",
+  "label": "female narrator, about 40, cultured and warm",
   "gender": "female",
   "age": "middle_aged",
   "traits": [

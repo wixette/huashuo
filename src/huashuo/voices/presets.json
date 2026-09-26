@@ -1,9 +1,9 @@
 {
-  "serena":   {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置音色：青年女声，平和清晰"},
-  "vivian":   {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置音色：青年女声，明亮"},
-  "uncle_fu": {"language": "zh", "gender": "male",   "age": "middle_aged", "role": "预置音色：中年男声，低沉"},
-  "dylan":    {"language": "zh", "gender": "male",   "age": "young_adult", "role": "预置音色：北京话", "traits": ["dialect"]},
-  "eric":     {"language": "zh", "gender": "male",   "age": "young_adult", "role": "预置音色：四川话", "traits": ["dialect"]},
+  "serena":   {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置音色：青年女声，平和清晰", "label": "preset: young woman, calm and clear"},
+  "vivian":   {"language": "zh", "gender": "female", "age": "young_adult", "role": "预置音色：青年女声，明亮", "label": "preset: young woman, bright"},
+  "uncle_fu": {"language": "zh", "gender": "male",   "age": "middle_aged", "role": "预置音色：中年男声，低沉", "label": "preset: middle-aged man, low"},
+  "dylan":    {"language": "zh", "gender": "male",   "age": "young_adult", "role": "预置音色：北京话", "label": "preset: Beijing dialect", "traits": ["dialect"]},
+  "eric":     {"language": "zh", "gender": "male",   "age": "young_adult", "role": "预置音色：四川话", "label": "preset: Sichuan dialect", "traits": ["dialect"]},
   "ryan":     {"language": "en", "gender": "male",   "age": "young_adult", "role": "preset: young adult male", "traits": ["narrator"]},
   "aiden":    {"language": "en", "gender": "male",   "age": "young_adult", "role": "preset: young adult male"}
 }

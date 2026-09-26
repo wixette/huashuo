@@ -1,6 +1,7 @@
 {
   "id": "teen_girl",
   "role": "少女，十六岁左右",
+  "label": "teenage girl, about 16",
   "gender": "female",
   "age": "teen",
   "traits": [
