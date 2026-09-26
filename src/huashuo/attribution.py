@@ -45,6 +45,7 @@ ATTR_CHUNK_CHARS = 1500
 CONTEXT_SEGMENTS = 3
 MAX_OUTPUT_TOKENS = {"cast": 3000, "speakers": 2000, "voices": 1500}
 DEFAULT_CONCURRENCY = 6              # pass-2 calls in flight at once
+MAX_REQUESTS = 4                     # per call: the first and up to 3 validation retries
 
 # USD per million tokens (input, output), design doc §6.3 (2026-09).
 PRICES = {"gpt-6-luna": (0.10, 0.50), "gpt-6-sol": (2.00, 10.00), "gpt-6-astra": (10.00, 50.00),
@@ -156,26 +157,46 @@ def expected_cast_size(quotes: int) -> int:
     return round(2 * math.sqrt(quotes))
 
 
-def estimate_cost(script: Script, language: str, config: LLMConfig) -> float:
-    """What attributing the whole book costs with nothing cached, from the prompts the two
-    passes will send; the cast they carry is not known yet, so its size is expected."""
+def estimate_cost(script: Script, language: str, config: LLMConfig, cache: Path | None = None) -> float:
+    """What attributing the book costs, from the prompts the two passes will send. The cast
+    they carry is not known before pass 1, so its size is expected.
+
+    With `cache`, answers already there are not counted: a run the cap stopped costs only
+    what is left. Pass 1 is replayed from the cache as far as it goes; once it is complete
+    the cast is known and pass 2's remaining calls are priced exactly."""
     paragraphs, segments = split_script(script)
     quotes = sum(s.kind == "quote" for s in segments)
     if not quotes:
         return 0.0
     rate = TOKENS_PER_CHAR.get(language, TOKENS_PER_CHAR["zh"])
-    cast = expected_cast_size(quotes)
+    expected = expected_cast_size(quotes)
     cast_chunks = _chunks(paragraphs, CAST_CHUNK_CHARS, len)
+    cast: dict[str, dict] = {}
+    done = [0]
+    if cache is not None and cache.is_dir():
+        replay = Caller(config, cache, offline=True)
+        try:
+            build_cast(paragraphs, language, replay, lambda stage, n, total, usage: done.__setitem__(0, n), cast)
+        except LLMError:
+            pass
+        finally:
+            replay.close()
     tokens_in = tokens_out = 0.0
     instructions = len(CAST_INSTRUCTIONS.get(language, CAST_INSTRUCTIONS["zh"]))
-    for n, chunk in enumerate(cast_chunks):
-        known = cast * min(1.0, 1.6 * n / len(cast_chunks))      # characters appear early on
-        tokens_in += (instructions + CAST_SCHEMA_CHARS + sum(map(len, chunk))) * rate \
+    for n in range(done[0], len(cast_chunks)):
+        known = max(len(cast), expected * min(1.0, 1.6 * n / len(cast_chunks)))   # characters appear early on
+        tokens_in += (instructions + CAST_SCHEMA_CHARS + sum(map(len, cast_chunks[n]))) * rate \
             + known * CAST_JSON_CHARS * CAST_JSON_TOKENS_PER_CHAR
         tokens_out += CAST_OUTPUT_TOKENS
+    if done[0] == len(cast_chunks) and cache is not None:
+        instructions_, output_type = _speaker_request(cast, language)
+        todo = [(prompt, wanted) for prompt, wanted in _speaker_prompts(segments, _cast_summary(cast, language), language)
+                if not replay.cached("speakers", instructions_, prompt, output_type)]
+        return (tokens_in * config.price_in + tokens_out * config.price_out) / 1e6 \
+            + _speaker_cost(todo, instructions_, output_type, language, config)
     instructions = len(SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])) \
         + len(EMOTION_INSTRUCTIONS.get(language, EMOTION_INSTRUCTIONS["zh"]))
-    for prompt, wanted in _speaker_prompts(segments, "x" * (cast * CAST_LIST_CHARS), language):
+    for prompt, wanted in _speaker_prompts(segments, "x" * (expected * CAST_LIST_CHARS), language):
         tokens_in += (instructions + SPEAKER_SCHEMA_CHARS + len(prompt)) * rate
         tokens_out += len(wanted) * QUOTE_OUTPUT_TOKENS
     return (tokens_in * config.price_in + tokens_out * config.price_out) / 1e6
@@ -279,9 +300,11 @@ class Caller:
         # exceed the cap. A call that does not fit waits for calls in flight to settle
         # (their actual cost is usually far below the reservation) and fails only when
         # nothing is in flight and it still does not fit.
+        # Worst case: a token per character of everything sent (a Chinese character is less
+        # than one), the longest answer, and all of it again on each validation retry.
         max_output = MAX_OUTPUT_TOKENS[stage]
-        worst = ((len(prompt) + len(instructions) + 500) * self.config.price_in
-                 + max_output * 4 * self.config.price_out) / 1e6       # up to 3 validation retries
+        sent = len(prompt) + len(instructions) + len(json.dumps(output_type.model_json_schema())) + 500
+        worst = MAX_REQUESTS * (sent * self.config.price_in + max_output * self.config.price_out) / 1e6
         if self._budget is None:
             self._budget = asyncio.Condition()
         async with self._budget:
@@ -302,7 +325,7 @@ class Caller:
         started = time.time()
         result = None
         try:
-            result = await agent.run(prompt, model_settings=settings, usage_limits=UsageLimits(request_limit=4))
+            result = await agent.run(prompt, model_settings=settings, usage_limits=UsageLimits(request_limit=MAX_REQUESTS))
         except Exception as exc:
             raise LLMError(f"{stage} call to {self.config.model} failed: {exc}") from exc
         finally:
@@ -434,11 +457,12 @@ Progress = Callable[[str, int, int, Usage], None]    # (stage, done, total, usag
 
 
 def build_cast(paragraphs: list[str], language: str, caller: Caller,
-               progress: Progress | None = None) -> dict[str, dict]:
-    """Sequential by nature: each chunk is read against the cast built so far."""
+               progress: Progress | None = None, cast: dict[str, dict] | None = None) -> dict[str, dict]:
+    """Sequential by nature: each chunk is read against the cast built so far. `cast` is
+    filled in place, so what was built before a failed call is still there."""
     instructions = CAST_INSTRUCTIONS.get(language, CAST_INSTRUCTIONS["zh"])
     label = ("目前的角色表：", "原文：") if language == "zh" else ("Current cast:", "Passage:")
-    cast: dict[str, dict] = {}
+    cast = {} if cast is None else cast
     chunks = _chunks(paragraphs, CAST_CHUNK_CHARS, len)
     for done, chunk in enumerate(chunks, 1):
         prompt = f"{label[0]}\n{json.dumps(cast, ensure_ascii=False)}\n\n{label[1]}\n" + "\n".join(chunk)
@@ -558,6 +582,24 @@ def _speaker_prompt(segments: list[Segment], core: list[Segment], wanted: list[i
             + body + "\n\n" + ask_line)
 
 
+def _speaker_request(cast: dict[str, dict], language: str, emotions: bool = True) -> tuple[str, type]:
+    """Pass 2's instructions and answer type for this cast."""
+    instructions = SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])
+    if not emotions:
+        return instructions, _answers_type(list(cast))
+    return (instructions + EMOTION_INSTRUCTIONS.get(language, EMOTION_INSTRUCTIONS["zh"]),
+            _answers_type(list(cast), list(EMOTIONS.get(language, EMOTIONS["zh"]))))
+
+
+def _speaker_cost(todo: list[tuple[str, list[int]]], instructions: str, output_type, language: str,
+                  config: LLMConfig) -> float:
+    """What these pass-2 calls cost, the cast being known."""
+    rate = TOKENS_PER_CHAR.get(language, TOKENS_PER_CHAR["zh"])
+    schema = len(json.dumps(output_type.model_json_schema(), ensure_ascii=False))
+    return sum((len(instructions) + schema + len(prompt)) * rate * config.price_in
+               + len(wanted) * QUOTE_OUTPUT_TOKENS * config.price_out for prompt, wanted in todo) / 1e6
+
+
 def _speaker_prompts(segments: list[Segment], cast_list: str, language: str) -> list[tuple[str, list[int]]]:
     return [(_speaker_prompt(segments, core, wanted, cast_list, language), wanted)
             for core, wanted in _speaker_batches(segments)]
@@ -573,12 +615,8 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
     With `emotions`, each answer also carries an emotion label. The prompt without them is
     kept exactly as before, so answers cached before emotion hints existed stay valid: with
     no calls allowed, a chunk not cached with emotions falls back to the plain answer."""
-    plain_instructions = SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])
-    plain_type = _answers_type(list(cast))
-    labels = list(EMOTIONS.get(language, EMOTIONS["zh"])) if emotions else []
-    instructions = plain_instructions + EMOTION_INSTRUCTIONS.get(language, EMOTION_INSTRUCTIONS["zh"]) \
-        if emotions else plain_instructions
-    output_type = _answers_type(list(cast), labels) if emotions else plain_type
+    plain_instructions, plain_type = _speaker_request(cast, language, emotions=False)
+    instructions, output_type = _speaker_request(cast, language, emotions)
     cast_list = _cast_summary(cast, language)
     answers = {} if answers is None else answers        # filled in place: kept if a call fails
 
@@ -615,12 +653,9 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
     if not caller.offline:
         # The cast is known now, so what this pass costs is too: stop here rather than
         # spend up to the cap and leave most of the book unattributed.
-        rate = TOKENS_PER_CHAR.get(language, TOKENS_PER_CHAR["zh"])
-        schema = len(json.dumps(output_type.model_json_schema(), ensure_ascii=False))
         todo = [(prompt, wanted) for prompt, wanted in _speaker_prompts(segments, cast_list, language)
                 if not caller.cached("speakers", instructions, prompt, output_type)]
-        cost = sum((len(instructions) + schema + len(prompt)) * rate * caller.config.price_in
-                   + len(wanted) * QUOTE_OUTPUT_TOKENS * caller.config.price_out for prompt, wanted in todo) / 1e6
+        cost = _speaker_cost(todo, instructions, output_type, language, caller.config)
         if caller.usage.cost + cost > caller.config.max_cost:
             raise BudgetExceeded(f"assigning the speakers would cost about ${cost:.2f} more ({len(todo)} calls); "
                                  f"${caller.usage.cost:.2f} of the ${caller.config.max_cost:.2f} cap is spent. "

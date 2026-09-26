@@ -57,11 +57,13 @@ an explicit `--max-cost` cap (see `experiments/exp2_batch_tagging.py`).
 Speaker attribution (with emotion hints and voice suggestions for the main characters)
 uses an LLM (default `gpt-6-sol`, any OpenAI-compatible endpoint) set
 by `HUASHUO_LLM_MODEL`, `HUASHUO_LLM_API_KEY` and `HUASHUO_LLM_BASE_URL`, or a git-ignored
-`.env` in the current directory. The cost is estimated first (about $3 for a
-300,000-character novel) and capped by `--max-llm-cost` (default $5); the first time a
-book is sent to an endpoint you are asked to agree (`--yes` in scripts). Answers are
-cached, so re-imports are free; if the text changed since (for example after an upgrade),
-the previous answers are kept and you are asked before anything is paid again. Without a
+`.env` in the current directory. The cost is estimated first (about $10 for a
+300,000-character novel with many characters) and capped by `--max-llm-cost` (default $5
+per run); the first time a book is sent to an endpoint you are asked to agree (`--yes` in
+scripts). Answers are cached as they arrive, so re-imports are free, and a run the cap
+stopped resumes where it stopped: import again with a higher `--max-llm-cost` and only the
+rest is paid for. If the text changed since (for example after an upgrade), the previous
+answers are kept and you are asked before anything is paid again. Without a
 key, or with `--no-llm`, the book is still made, with dialogue read by the narrator. Quotes that need a look are listed in
 `book.huashuo/review.txt`.
 

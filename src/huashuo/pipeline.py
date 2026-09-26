@@ -143,10 +143,12 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
             return attribution, LLMReport("cache", config.model, offline.usage, None, None, attribution.review,
                                           suggestions_failed=attribution.suggestions_failed)
         quotes = sum(1 for b in script.blocks if b.get("type") == "dialogue")
-        gap = (f"{missing} of {quotes} quotes are not in the answer cache (the text changed since they were "
-               f"answered)" if missing else "the cached answers predate emotion hints")
-        message = (f"{gap}. Attributing again sends the text to {config.endpoint} ({config.model}), estimated "
-                   f"up to ${estimate:.2f}; otherwise the previous answers are kept. Continue?")
+        gap = (f"{missing} of {quotes} quotes have no answer in the cache (an earlier run stopped at the cost "
+               f"cap, or the text changed since)" if missing else "the cached answers predate emotion hints")
+        estimate = estimate_cost(script, language, config, cache)       # answers in the cache are free
+        message = (f"{gap}. Attributing them sends the text to {config.endpoint} ({config.model}), estimated "
+                   f"${estimate:.2f} more (cap ${config.max_cost:.2f}); otherwise the previous answers are kept. "
+                   f"Continue?")
         if not (options.assume_yes or (options.confirm is not None and options.confirm(message))):
             return attribution, LLMReport(
                 "cache", config.model, offline.usage, None, None, attribution.review,

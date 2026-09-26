@@ -57,7 +57,8 @@ def _parser() -> argparse.ArgumentParser:
                        help="make no LLM calls; earlier answers are still reused from the cache")
         g.add_argument("--llm-model", help="default: $HUASHUO_LLM_MODEL or gpt-6-sol")
         g.add_argument("--llm-base-url", help="OpenAI-compatible endpoint (default: $HUASHUO_LLM_BASE_URL or OpenAI)")
-        g.add_argument("--max-llm-cost", type=float, help="stop before spending more than this many USD (default 5)")
+        g.add_argument("--max-llm-cost", type=float, help="stop before this run spends more than this many USD (default 5); answers "
+                            "already paid for are reused free, so a stopped run can be resumed with a higher cap")
         g.add_argument("--llm-concurrency", type=int, help="speaker-attribution calls in flight at once (default 6)")
         g.add_argument("--yes", action="store_true",
                        help="agree to send the book's text to the LLM endpoint without asking")

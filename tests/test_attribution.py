@@ -121,6 +121,33 @@ def test_estimate_above_the_cap_stops_before_any_call(book):
     assert llm.calls["cast"] == llm.calls["speakers"] == 0
 
 
+
+def test_a_run_the_cap_stopped_resumes_paying_only_for_the_rest(tmp_path, monkeypatch):
+    """Every answer is cached as it arrives; importing again with a higher cap asks with
+    the cost of what is left and pays only for that."""
+    monkeypatch.setattr("huashuo.attribution.TOKENS_PER_CHAR", {"zh": 0.1})    # estimated too low
+    path = tmp_path / "客栈.txt"
+    path.write_text("客栈\n\n第一章 风雪\n" + "\n".join(
+        f"雪下了整整一夜，这是第{n}段叙述，写得足够长以便分成多个块。“店家，来一壶热酒。”他说。" for n in range(150)),
+        encoding="utf-8")
+    wd = Workdir.for_input(path)
+
+    def run(cap):
+        llm, asked = ScriptedLLM(tokens_per_call=3000), []                # $0.30 a call
+        config = LLMConfig("test-model", "https://llm.example.invalid/v1", "x", 100.0, 0.0, max_cost=cap)
+        result = import_book(path, wd, llm=LLMOptions(config_override=config, model_override=llm.model(),
+                                                        confirm=lambda m: asked.append(m) or True))
+        unknown = sum(b.get("speaker") == "unknown" for b in read_script(wd.script).blocks if b["type"] == "dialogue")
+        return result.llm, llm.calls, asked, unknown
+
+    report, calls, _, unknown = run(3.0)
+    assert "cap" in report.stopped and calls == {"cast": 3, "speakers": 3, "voices": 0} and 0 < unknown < 150
+    report, calls, asked, unknown = run(10.0)
+    assert calls == {"cast": 0, "speakers": 2, "voices": 1} and unknown == 0 and not report.stopped
+    assert "stopped at the cost cap" in asked[0] and f"${report.estimate:.2f} more" in asked[0]
+    assert report.estimate < estimate_cost(read_script(wd.script), "zh", LLMConfig(
+        "test-model", "https://llm.example.invalid/v1", "x", 100.0, 0.0))  # what is left, not the book
+
 def test_reimport_without_llm_keeps_speakers_and_user_edits(book):
     wd = Workdir.for_input(book)
     import_book(book, wd, llm=LLMOptions(config_override=LOCAL, model_override=ScriptedLLM().model()))
@@ -218,7 +245,7 @@ def test_budget_holds_under_concurrency_and_keeps_partial_answers(tmp_path, monk
     # far too low here (a model more verbose than measured), so it starts; the cap holds anyway.
     monkeypatch.setattr("huashuo.attribution.TOKENS_PER_CHAR", {"zh": 0.1})
     llm = ScriptedLLM(tokens_per_call=3000)
-    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 100.0, 0.0, max_cost=2.0, concurrency=6)
+    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 100.0, 0.0, max_cost=3.0, concurrency=6)
     caller = Caller(config, tmp_path, model=llm.model())
     result = attribute_script(long_script().script, "zh", caller)
     assert result.stopped and "cap" in result.stopped
@@ -242,10 +269,10 @@ def test_calls_waiting_for_the_budget_give_up_once_nothing_is_in_flight(tmp_path
     class Answer(BaseModel):
         ok: bool
 
-    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 0.7, 0.0, max_cost=0.002, concurrency=4,
+    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 0.7, 0.0, max_cost=0.008, concurrency=4,
                        output_mode="tool")
     caller = Caller(config, tmp_path, model=TestModel())
-    prompts = ["甲" * 100, "乙" * 100, "丙" * 121, "丁" * 5000]           # the last never fits the cap
+    prompts = ["甲" * 100, "乙" * 100, "丙" * 109, "丁" * 5000]           # the last never fits the cap
     results = []
     worker = threading.Thread(target=lambda: results.extend(caller.run_many(
         [lambda p=p: caller.acall("speakers", "", p, Answer) for p in prompts])), daemon=True)
@@ -276,9 +303,9 @@ def test_speaker_pass_that_cannot_fit_the_cap_stops_before_its_first_call(tmp_pa
     """Once pass 1 has found the cast, pass 2's cost is known: stop there, instead of
     spending up to the cap and leaving most quotes unattributed."""
     llm = ScriptedLLM(tokens_per_call=1000)                                 # $0.10 a call
-    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 100.0, 0.0, max_cost=1.0)
-    result = attribute_script(long_script().script, "zh", Caller(config, tmp_path, model=llm.model()))
-    assert llm.calls["cast"] == 3 and llm.calls["speakers"] == 0
+    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 100.0, 0.0, max_cost=4.0)
+    result = attribute_script(long_script(600).script, "zh", Caller(config, tmp_path, model=llm.model()))
+    assert llm.calls["cast"] == 11 and llm.calls["speakers"] == 0
     assert "would cost about" in result.stopped and "--max-llm-cost" in result.stopped
 
 # ---- emotion hints (SCR-12) ----------------------------------------------------------------
@@ -343,7 +370,7 @@ def test_paying_again_for_a_changed_text_needs_consent(book):
     again, asked = ScriptedLLM(), []
     result = import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=again.model(),
                                                   confirm=lambda m: asked.append(m) or False))
-    assert "not in the answer cache" in asked[0] and again.calls["cast"] == again.calls["speakers"] == 0
+    assert "no answer in the cache" in asked[0] and again.calls["cast"] == again.calls["speakers"] == 0
     assert "kept the previous answers" in result.llm.notice and result.llm.kept == 4
     paid = ScriptedLLM()
     import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=paid.model(), assume_yes=True))
