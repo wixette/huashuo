@@ -1,6 +1,6 @@
 # 一条被洗澡水拍死的鱼: who says each quote (the golden speaker labels).
-# DRAFT from gpt-6-sol (2026-09-26); to be checked by the author. Fix the speaker column only;
-# speakers are the names in the cast: 我, 栖芒, 李忱 (or narrator for a quote that is not speech).
+# Checked by the author (2026-09-26): the golden labels. Drafted with gpt-6-sol.
+# Speakers are the names in the cast: 我, 栖芒, 李忱 (or narrator for a quote that is not speech).
 # n	speaker	quote	context
 1	栖芒	“洗澡水拍在背上，是粘的，像胶水。不信，你摸我肩膀，都板结了，硬得像岩石。没事，你别怕。我就要死了。他们说，僵硬是死前最后的感觉。”	… ⟨Q⟩ 其实，栖芒的身子并不僵硬，只…
 2	栖芒	“我妨碍你了？”	…。风被染成玫瑰色，轻轻拂过她的长发。 ⟨Q⟩ 栖芒声音纤细，却有种难以言状…
