@@ -25,6 +25,14 @@ def test_a_lost_last_word_fails_the_check_under_the_error_threshold():
     assert not lost_ending("地流走，什么意思么？", "的流走，什么意思吗？", "zh")   # 么 heard as 吗
 
 
+
+def test_erhua_is_not_a_lost_ending():
+    line = "“为什么？”我接连冲了两次澡，还是洗不掉下水道淤泥的腐臭味儿。"
+    heard = "为什么我接连冲了两次澡，还是洗不掉下水道淤泥的腐臭味？"     # 一条被洗澡水拍死的鱼
+    assert judge(line, heard, "zh", 0.10) == (0.0, None)
+    assert cer("他在哪儿玩儿呢？", "他在哪玩呢", "zh") == 0.0
+    assert lost_ending("这件事我想了很久，还是觉得应该告诉你。", "这件事我想了很久，还是觉得应该告诉儿", "zh")
+
 def test_numbers_compare_however_the_tts_read_them():
     """Transcripts from experiments/m5_reading_check.py: the TTS reads each number its own
     way and the recognizer writes what it heard."""

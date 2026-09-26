@@ -104,6 +104,9 @@ def _zh_chars(text: str) -> str:
     for pattern, spoken in _SPOKEN_SYMBOLS:
         text = pattern.sub(spoken, text)
     text = text.replace("点三十", "点半")                      # 八点三十 = 八点半
+    # Erhua: 味儿 is one syllable, wèir, and the recognizer often writes just 味
+    # (一条被洗澡水拍死的鱼: 「……腐臭味儿。」 heard as 「……腐臭味」, failed as a lost ending).
+    text = re.sub(r"(?<=[\u4e00-\u9fff])儿", "", text)
     text = re.sub(r"百分之(?=[零〇一幺二两三四五六七八九十百千万亿])", "", text)
     # A lone numeral stays a word, compared by its sound: 七 in 七夕 sounds like 栖 in 栖息
     # (一条被洗澡水拍死的鱼: 「我叫栖芒，栖息的栖」 heard as 「七芒，七夕的七」), and a lone
