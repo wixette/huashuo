@@ -4,64 +4,76 @@
   "output": {
     "answers": [
       {
-        "index": 0,
-        "speaker": "栖芒",
-        "confidence": 0.99,
-        "emotion": "害怕"
-      },
-      {
-        "index": 7,
-        "speaker": "栖芒",
-        "confidence": 0.99,
-        "emotion": ""
-      },
-      {
-        "index": 9,
+        "index": 146,
         "speaker": "我",
         "confidence": 0.99,
         "emotion": ""
       },
       {
-        "index": 14,
+        "index": 148,
         "speaker": "我",
         "confidence": 0.99,
         "emotion": ""
       },
       {
-        "index": 20,
-        "speaker": "栖芒",
-        "confidence": 0.99,
-        "emotion": ""
-      },
-      {
-        "index": 21,
+        "index": 151,
         "speaker": "我",
         "confidence": 0.99,
         "emotion": ""
       },
       {
-        "index": 23,
+        "index": 152,
         "speaker": "栖芒",
         "confidence": 0.99,
         "emotion": ""
       },
       {
-        "index": 25,
+        "index": 154,
+        "speaker": "我",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 155,
         "speaker": "栖芒",
         "confidence": 0.99,
         "emotion": ""
       },
       {
-        "index": 28,
+        "index": 156,
+        "speaker": "我",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 157,
         "speaker": "栖芒",
         "confidence": 0.99,
         "emotion": ""
+      },
+      {
+        "index": 159,
+        "speaker": "栖芒",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 167,
+        "speaker": "栖芒",
+        "confidence": 0.99,
+        "emotion": "悲伤"
+      },
+      {
+        "index": 169,
+        "speaker": "栖芒",
+        "confidence": 0.99,
+        "emotion": "悲伤"
       }
     ]
   },
   "usage": {
-    "input": 2771,
-    "output": 192,
-    "cost": 0.007462
+    "input": 2709,
+    "output": 229,
+    "cost": 0.007708
   }
 }

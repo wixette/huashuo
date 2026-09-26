@@ -4,28 +4,28 @@
   "output": {
     "operations": [
       {
-        "op": "insert",
+        "op": "update",
         "name": "栖芒",
         "merge_into": null,
         "aliases": [],
         "gender": "female",
         "age": "unknown",
-        "description": "曾是女子合唱团员，声音纤细而富有诱惑力，与她握手能唤醒他人的记忆。"
+        "description": "自由职业者，给海外心理健康杂志写英文稿；皮肤接触能唤醒他人记忆，性格爱笑，与“我”相恋。"
       },
       {
-        "op": "insert",
+        "op": "update",
         "name": "我",
         "merge_into": null,
         "aliases": [],
         "gender": "unknown",
         "age": "unknown",
-        "description": "《丽行时画》的首席摄影师，被栖芒吸引，握手后唤醒了久远的记忆。"
+        "description": "《丽行时画》的首席摄影师，与栖芒相恋；接触她的皮肤会唤醒大量记忆。"
       }
     ]
   },
   "usage": {
-    "input": 2895,
-    "output": 121,
-    "cost": 0.007
+    "input": 2949,
+    "output": 129,
+    "cost": 0.007188
   }
 }

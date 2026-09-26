@@ -123,7 +123,10 @@ def _mismatch(character: dict, voice: Voice) -> int:
     return score
 
 
-_UNKNOWN_AGE_COST = {"child": 80, "teen": 50, "young_adult": 0, "middle_aged": 0, "elderly": 35}
+# A young adult is the likelier reading of an unstated age (一条被洗澡水拍死的鱼: 栖芒, a
+# former chorus singer and the narrator's lover, was given a brisk woman in her forties
+# when middle age cost nothing and the tie went alphabetically).
+_UNKNOWN_AGE_COST = {"child": 80, "teen": 50, "young_adult": 0, "middle_aged": 10, "elderly": 35}
 # Spreading bit parts over voices is nice, but never at the price of a wrong age: the
 # penalty for a crowded voice stops growing below the cost of a wrong-age voice.
 _USE_COST, _MAX_USE_COST = 8, 32

@@ -91,7 +91,7 @@ def test_a_crowded_adult_voice_beats_a_wrong_age_one():
 
 
 def test_equally_good_voices_share_the_crowd():
-    pool = [Voice("lib:a", "zh", "male", "young_adult"), Voice("lib:b", "zh", "male", "middle_aged")]
+    pool = [Voice("lib:a", "zh", "male", "young_adult"), Voice("lib:b", "zh", "male", "young_adult")]
     chars = {f"路人{i}": {"gender": "male", "age": "unknown", "lines": 30 - i} for i in range(20)}
     counts = Counter(cast_voices(chars, NARRATOR, "zh", pool=pool, main=0).values())
     assert counts == {"lib:a": 10, "lib:b": 10}

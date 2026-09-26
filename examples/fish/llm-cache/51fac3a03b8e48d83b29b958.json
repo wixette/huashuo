@@ -4,76 +4,70 @@
   "output": {
     "answers": [
       {
-        "index": 146,
-        "speaker": "我",
+        "index": 173,
+        "speaker": "narrator",
         "confidence": 1.0,
         "emotion": ""
       },
       {
-        "index": 148,
-        "speaker": "我",
+        "index": 176,
+        "speaker": "narrator",
         "confidence": 1.0,
         "emotion": ""
       },
       {
-        "index": 151,
+        "index": 178,
+        "speaker": "narrator",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 181,
+        "speaker": "narrator",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 189,
         "speaker": "我",
         "confidence": 0.99,
         "emotion": ""
       },
       {
-        "index": 152,
+        "index": 191,
+        "speaker": "我",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 193,
         "speaker": "栖芒",
         "confidence": 1.0,
         "emotion": ""
       },
       {
-        "index": 154,
+        "index": 195,
         "speaker": "我",
         "confidence": 1.0,
         "emotion": ""
       },
       {
-        "index": 155,
+        "index": 197,
         "speaker": "栖芒",
-        "confidence": 1.0,
-        "emotion": ""
+        "confidence": 0.99,
+        "emotion": "悲伤"
       },
       {
-        "index": 156,
+        "index": 198,
         "speaker": "我",
         "confidence": 1.0,
         "emotion": ""
-      },
-      {
-        "index": 157,
-        "speaker": "栖芒",
-        "confidence": 1.0,
-        "emotion": ""
-      },
-      {
-        "index": 159,
-        "speaker": "栖芒",
-        "confidence": 1.0,
-        "emotion": ""
-      },
-      {
-        "index": 167,
-        "speaker": "栖芒",
-        "confidence": 1.0,
-        "emotion": "悲伤"
-      },
-      {
-        "index": 169,
-        "speaker": "栖芒",
-        "confidence": 1.0,
-        "emotion": "悲伤"
       }
     ]
   },
   "usage": {
-    "input": 2707,
-    "output": 209,
-    "cost": 0.007504
+    "input": 2608,
+    "output": 192,
+    "cost": 0.007136
   }
 }

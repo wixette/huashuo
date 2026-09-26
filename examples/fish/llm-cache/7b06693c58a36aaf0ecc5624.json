@@ -5,7 +5,7 @@
     "choices": [
       {
         "name": "栖芒",
-        "voice": "preset:serena"
+        "voice": "library:zh/young_woman_warm"
       },
       {
         "name": "李忱",
@@ -14,8 +14,8 @@
     ]
   },
   "usage": {
-    "input": 1798,
-    "output": 42,
-    "cost": 0.004016
+    "input": 1705,
+    "output": 47,
+    "cost": 0.00388
   }
 }

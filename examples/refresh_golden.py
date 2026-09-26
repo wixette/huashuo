@@ -3,7 +3,8 @@
 
 Needed when the prompts change: tests/test_golden.py then skips its speaker tests. Imports
 both formats of the story with the real LLM into a temporary directory, capped, and
-replaces the stored answers. The speaker labels (speakers.tsv) are the author's and are
+replaces the stored answers. The stored answers seed each import, so
+unchanged prompts are answered from them for free. The speaker labels (speakers.tsv) are the author's and are
 not touched; the script reports where the new answers disagree with them.
 
 Usage (from the repository root; needs HUASHUO_LLM_API_KEY or a .env):
@@ -17,6 +18,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import huashuo.workdir
 from huashuo.attribution import llm_config
 from huashuo.pipeline import LLMOptions, import_book, load_project
 from huashuo.workdir import Workdir
@@ -35,12 +37,24 @@ def main() -> None:
     gold = [line.split("\t")[1] for line in (FISH / "speakers.tsv").read_text(encoding="utf-8").splitlines()
             if line and not line.startswith("#")]
     answers: dict[str, bytes] = {}
+    # Keep only the answers these imports asked for (seeded ones that are stale are dropped).
+    asked: set[str] = set()
+    read_json = huashuo.workdir.read_json
+
+    def recording(path, *args, **kwargs):
+        if Path(path).parent.name == "llm-cache":
+            asked.add(Path(path).name)
+        return read_json(path, *args, **kwargs)
+    huashuo.workdir.read_json = recording
     with tempfile.TemporaryDirectory() as tmp:
         for source in SOURCES:
             book = Path(tmp) / source.suffix[1:] / source.name
             book.parent.mkdir()
             shutil.copy(source, book)
             wd = Workdir.for_input(book)
+            # Start from the stored answers: only requests whose prompts changed are paid for.
+            if (FISH / "llm-cache").is_dir():
+                shutil.copytree(FISH / "llm-cache", wd.state / "llm-cache")
             result = import_book(book, wd, llm=LLMOptions(config_override=config, assume_yes=True))
             usage = result.llm.usage
             got = [b.get("speaker") for b in load_project(wd).script.blocks if b["type"] == "dialogue"]
@@ -48,7 +62,8 @@ def main() -> None:
             print(f"{source.suffix[1:]}: {usage.requests} requests, ${usage.cost:.3f}; "
                   f"{len(got) - len(differ)}/{len(gold)} match the labels" + (f"; differ: {differ}" if differ else ""))
             for f in (wd.state / "llm-cache").glob("*.json"):
-                answers[f.name] = f.read_bytes()
+                if f.name in asked:
+                    answers[f.name] = f.read_bytes()
     target = FISH / "llm-cache"
     shutil.rmtree(target, ignore_errors=True)
     target.mkdir()

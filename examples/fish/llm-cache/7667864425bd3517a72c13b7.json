@@ -7,97 +7,97 @@
         "index": 120,
         "speaker": "栖芒",
         "confidence": 0.99,
-        "emotion": "悲伤"
+        "emotion": ""
       },
       {
         "index": 127,
         "speaker": "我",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 129,
         "speaker": "李忱",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 130,
         "speaker": "我",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 131,
         "speaker": "李忱",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 132,
         "speaker": "我",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": "惊讶"
       },
       {
         "index": 134,
         "speaker": "李忱",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 136,
         "speaker": "李忱",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 137,
         "speaker": "我",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 138,
         "speaker": "李忱",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 139,
         "speaker": "我",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": "惊讶"
       },
       {
         "index": 140,
         "speaker": "李忱",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 141,
         "speaker": "栖芒",
-        "confidence": 1.0,
-        "emotion": "害怕"
+        "confidence": 0.99,
+        "emotion": ""
       },
       {
         "index": 143,
         "speaker": "我",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       },
       {
         "index": 145,
         "speaker": "栖芒",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "emotion": ""
       }
     ]
   },
   "usage": {
-    "input": 2321,
-    "output": 280,
-    "cost": 0.007442
+    "input": 2323,
+    "output": 306,
+    "cost": 0.007706
   }
 }

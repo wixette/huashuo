@@ -74,7 +74,11 @@ def test_speakers_match_the_authors_labels(tmp_path, source):
 def test_the_first_person_narrator_reads_the_narration(tmp_path):
     wd, result = _attributed(tmp_path, TXT)
     cast = load_project(wd).cast
-    assert result.narrator == "library:zh/narrator_male" and "first-person" in result.narrator_reason
+    assert "first-person narrator 我" in result.narrator_reason
+    # 我's gender is not stated in the text; the LLM answers male or unknown, which picks
+    # the male narrator or the default (female) one.
+    gender = cast["characters"]["我"]["gender"]
+    assert result.narrator == ("library:zh/narrator_male" if gender == "male" else "library:zh/narrator_female")
     voices = {name: c["voice"] for name, c in cast["characters"].items()}
     assert voices["我"] == cast["narrator"]["voice"]
     assert len(set(voices.values())) == len(voices)                           # 栖芒 and 李忱 each their own
