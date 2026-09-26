@@ -41,7 +41,8 @@
   cast.json                      选角表（用户可编辑）
   pron.txt                       读音词典（用户可编辑，PRON-1）：每行「词语 = 读法」，导入时生成带说明的模板
   review.txt                     说话人未知或把握不高的对白，供优先审阅（SCR-11；没有时不生成）
-  cover.jpg / cover.png          封面：用户 --cover 提供的、EPUB 自带的，或打包时生成的文字封面
+  cover.jpg / cover.png          封面：用户 --cover 提供的或 EPUB 自带的（也可以手工放一张进来）
+  cover.generated.jpg            没有封面时，打包时用设计模板生成的封面（书名变了会重新生成）
   state/                         机器状态，用户无需查看
     script.auto.jsonl            上一次机器生成的话本（三方合并的基准，§7）
     cast.auto.json               上一次机器生成的选角表（§8）
@@ -51,6 +52,7 @@
     run.json                     合成与封装的选项（音色、模型、章节标题、情绪、开场结尾、响度、停顿），
                                  package / redo 沿用
     rerolls.json                 `huashuo redo` 重做过的单元及次数
+    cover.json                   生成封面所用的书名与模板指纹
     orphaned-edits.jsonl         重新导入时放不回去的用户修改（§7），只追加，不丢
   cache/
     units/<key>.wav              合成单元的音频缓存（§6）

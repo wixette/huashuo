@@ -120,45 +120,11 @@ def probe(path: Path) -> dict:
 
 
 # --------------------------------------------------------------------------------------
-# A plain text cover for books that have none (M4B-4)
+# A cover for books that have none (M4B-4): the designer's templates, see cover.py
 # --------------------------------------------------------------------------------------
 
-_FONTS = ["/System/Library/Fonts/Hiragino Sans GB.ttc", "/System/Library/Fonts/STHeiti Medium.ttc",
-          "/System/Library/Fonts/PingFang.ttc", "/System/Library/Fonts/Helvetica.ttc",
-          "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]
 
-
-def make_cover(path: Path, title: str, author: str, size: int = 1400) -> Path:
-    from PIL import Image, ImageDraw, ImageFont
-
-    font_path = next((f for f in _FONTS if Path(f).is_file()), None)
-
-    def font(px: int):
-        return ImageFont.truetype(font_path, px) if font_path else ImageFont.load_default(size=px)
-
-    image = Image.new("RGB", (size, size), (38, 42, 48))
-    draw = ImageDraw.Draw(image)
-    draw.rectangle([60, 60, size - 60, size - 60], outline=(196, 160, 98), width=6)
-
-    def wrap(text: str, fnt, width: int) -> list[str]:
-        lines, current = [], ""
-        for ch in text:
-            if draw.textlength(current + ch, font=fnt) > width and current:
-                lines.append(current)
-                current = ch
-            else:
-                current += ch
-        return lines + ([current] if current else [])
-
-    title_font = font(130 if len(title) <= 8 else 96)
-    lines = wrap(title, title_font, size - 280)
-    line_height = title_font.size * 1.3
-    y = size * 0.42 - line_height * len(lines) / 2
-    for line in lines:
-        draw.text((size / 2, y), line, font=title_font, fill=(240, 234, 220), anchor="mt")
-        y += line_height
-    if author:
-        draw.text((size / 2, y + 60), author, font=font(64), fill=(196, 160, 98), anchor="mt")
-    draw.text((size / 2, size - 150), "话说 Huashuo", font=font(44), fill=(150, 150, 150), anchor="mt")
-    image.save(path, "JPEG", quality=90)
-    return path
+def make_cover(path: Path, title: str, author: str = "") -> Path:
+    """The title set on a cover template (the design shows no author)."""
+    from huashuo.cover import render
+    return render(title, path)

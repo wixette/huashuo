@@ -1,0 +1,11 @@
+{
+  "note": "Cover templates for books without a cover (M4B-4). Backgrounds 3000x3000 by the project's designer; the title in Noto Serif SC Bold (OFL.txt), white, 360 px, centred at the top of the box [left, top, width, height]. One template is picked per book from its title.",
+  "font": "NotoSerifSC-Bold.ttf",
+  "title": {"size": 360, "min_size": 200, "color": "#FFFFFF", "align": "center", "valign": "top"},
+  "templates": [
+    {"image": "template-1.png", "title_box": [78, 330, 2843, 1034]},
+    {"image": "template-2.png", "title_box": [78, 330, 2843, 1034]},
+    {"image": "template-3.png", "title_box": [78, 700, 2843, 1034]},
+    {"image": "template-4.png", "title_box": [78, 700, 2843, 1034]}
+  ]
+}

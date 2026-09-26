@@ -1056,6 +1056,8 @@ Script
 | `structure.py` | 生成 `text.txt` 与话本 block：章节 / 卷 / 故事集篇名、场景分隔、各类跳过（目录、注释、网文噪声……）、硬换行合并、`say` 自动清理与数字读法 |
 | `punct.py` | 全角/半角标点规整（TXT-7，中文标点表来自 `zhon`） |
 | `pron.py` | 读音词典 `pron.txt`（PRON-1），声调数字转声调符号 |
+| `chinese.py` | 繁体检测与转简体（OpenCC，§5.12） |
+| `cover.py` / `covers/` | 没有封面时按设计模板生成封面（M4B-4）：4 张 3000×3000 背景、Noto Serif SC Bold（OFL）、`templates.json` 给出书名框；与设计稿逐像素对照，差异仅为抗锯齿（<0.5% 像素） |
 | `huaben.py` | 话本读写、不变式检查、按文字对齐的三方合并 |
 | `cast.py` | 选角表：默认值、校验、按角色合并 |
 | `pipeline.py` | 导入阶段（`machine_output()` 是 M2 接入剧本化的位置）、检查、规划、估算 |

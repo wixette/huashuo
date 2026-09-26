@@ -74,4 +74,6 @@ key, or with `--no-llm`, the book is still made, with dialogue read by the narra
   EXP-1 and M3 (voice library, emotion hints), EXP-2 (speaker attribution) and EXP-3
   (accent detection).
 
-License: Apache-2.0.
+License: Apache-2.0. The cover font, Noto Serif SC (`src/huashuo/covers/`), is under the SIL
+Open Font License (`src/huashuo/covers/OFL.txt`); the cover templates and logos
+(`docs/assets/`) were made for the project by its designer.

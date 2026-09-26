@@ -484,7 +484,8 @@ def _partial_suffix(args) -> str:
 
 
 def cmd_package(args) -> int:
-    from huashuo.m4b import BookInfo, make_cover, probe, write_m4b
+    from huashuo.m4b import BookInfo, probe, write_m4b
+    from huashuo.pipeline import book_cover
     from huashuo.post import layout, stream
     from huashuo.synth import cached_ok, unit_keys
 
@@ -500,9 +501,7 @@ def cmd_package(args) -> int:
     default_name = args.book.stem + _partial_suffix(args) + ".m4b"
     output = args.output or args.book.with_name(default_name)
 
-    cover = wd.find_cover()
-    if cover is None:
-        cover = make_cover(wd.cover(".jpg"), header.get("title", ""), header.get("author", ""))
+    cover = book_cover(wd, header.get("title") or args.book.stem)
     info = BookInfo(title=header.get("title", args.book.stem), author=header.get("author", ""),
                     language=project.language, description=header.get("meta", {}).get("description", ""),
                     date=header.get("meta", {}).get("date", ""))
@@ -597,7 +596,8 @@ def _audition_line(project, name: str) -> str:
 def cmd_audition(args) -> int:
     """One M4B with a chapter per character (or per library voice), from the unit cache."""
     from huashuo.library import castable, narrators
-    from huashuo.m4b import BookInfo, make_cover, probe, write_m4b
+    from huashuo.m4b import BookInfo, probe, write_m4b
+    from huashuo.pipeline import book_cover
     from huashuo.pipeline import load_project
     from huashuo.post import layout, stream
     from huashuo.synth import synthesize, unit_keys
@@ -638,7 +638,7 @@ def cmd_audition(args) -> int:
     timeline = layout(plan, keys, wd, loudness, pauses)
     output = args.output or args.book.with_name(args.book.stem + ".audition.m4b")
     header = project.script.header
-    cover = wd.find_cover() or make_cover(wd.cover(".jpg"), header.get("title", ""), header.get("author", ""))
+    cover = book_cover(wd, header.get("title") or args.book.stem)
     info = BookInfo(title=f"{header.get('title', args.book.stem)}（试听 audition）", author=header.get("author", ""),
                     language=language)
     write_m4b(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover)

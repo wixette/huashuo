@@ -333,10 +333,38 @@ def write_review(wd: Workdir, review: list[dict]) -> Path | None:
     return path
 
 
+def _old_generated(path: Path | None) -> bool:
+    """A plain cover drawn by versions before the templates: 1400 px, dark slate. It was
+    saved as cover.jpg, where it would be mistaken for the book's own."""
+    if path is None or path.suffix != ".jpg":
+        return False
+    try:
+        from PIL import Image
+        with Image.open(path) as image:
+            pixel = image.convert("RGB").getpixel((20, 20))
+            return image.size == (1400, 1400) and all(abs(a - b) <= 4 for a, b in zip(pixel, (38, 42, 48)))
+    except OSError:
+        return False
+
+
+def book_cover(wd: Workdir, title: str) -> Path:
+    """The cover to package: the user's (--cover, or an image put into the work directory
+    by hand) or the book's own, else one made from the templates (cover.py)."""
+    from huashuo.cover import generated_cover
+
+    found = wd.find_cover()
+    if found is not None and not _old_generated(found):
+        return found
+    return generated_cover(wd.root, wd.state, title)
+
+
 def _place_cover(wd: Workdir, book, cover: Path | None, previous: dict) -> tuple[Path | None, str | None]:
     """The cover to use, and who chose it. A cover the user supplied (--cover, recorded in
     state/ingest.json) is never replaced by the book's own on a later import."""
     existing = wd.find_cover()
+    if _old_generated(existing):
+        existing.unlink()                    # replaced by a template cover at packaging
+        existing = None
     if cover is not None:
         for old in (wd.cover(e) for e in (".jpg", ".jpeg", ".png")):
             old.unlink(missing_ok=True)
