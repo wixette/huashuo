@@ -121,3 +121,20 @@ def test_titles_are_only_checked_for_a_lost_ending(tmp_path):
     asr = FakeAsr(["剑来长安，作者青山"] * 3)
     stats = synthesize([cut], FakeEngine(), Workdir(tmp_path), "zh", asr=asr, show_progress=False)
     assert asr.calls == 3 and "lost ending" in stats.warnings[0]["problem"]
+
+
+def test_a_unit_that_keeps_losing_its_ending_is_made_in_two_parts(tmp_path):
+    """一条被洗澡水拍死的鱼: long units lost their last syllable on every attempt, the last
+    sentence on its own never did."""
+    text = "我伸手想抓住飘逝的记忆，却只抓到冰冷的墙壁。请将修改过的场景存入大脑。谢谢。"
+    cut = "我伸手想抓住飘逝的记忆，却只抓到冰冷的墙壁。请将修改过的场景存入大脑。"
+    asr = FakeAsr([cut] * 3 + ["我伸手想抓住飘逝的记忆，却只抓到冰冷的墙壁。请将修改过的场景存入大脑。", "谢谢。"])
+    wd = Workdir(tmp_path)
+    stats = synthesize([unit(text)], FakeEngine(), wd, "zh", asr=asr, show_progress=False)
+    meta = json.loads(next(wd.units.glob("*.json")).read_text())
+    assert asr.calls == 5 and meta["split"] is True and meta["problem"] is None and not stats.warnings
+    assert meta["asr"].endswith("谢谢。")
+    from huashuo.synth import _split_last
+    assert _split_last(text) == ("我伸手想抓住飘逝的记忆，却只抓到冰冷的墙壁。请将修改过的场景存入大脑。", "谢谢。")
+    assert _split_last("“最高权限。谢谢。”") == ("“最高权限。", "谢谢。”")
+    assert _split_last("只有一句话。") is None

@@ -229,3 +229,16 @@ def test_a_story_with_numbered_chapters_prefixes_them_in_a_collection():
     assert "阿Q正传 · 第一章 序" in titles and "阿Q正传 · 第二章 优胜记略" in titles
     assert "故乡" in titles and "社戏" in titles                              # not under 阿Q正传
     assert not any(t.startswith("目录 ·") for t in titles)
+
+
+def test_a_title_that_is_only_a_number_is_read_as_an_ordinal():
+    """「1」 alone was read yì; 「（一）」 alone set the TTS off into a minute of invented speech."""
+    from huashuo.structure import section_reading
+
+    cases = {"1": "第一节", "10": "第十节", "12": "第十二节", "105": "第一百零五节", "（一）": "第一节",
+             "一、": "第一节", "IV": "第四节", "３": "第三节"}
+    assert {t: section_reading(t, "zh") for t in cases} == cases
+    assert section_reading("第一章", "zh") is None and section_reading("1", "en") is None
+    built = build(_book(["第一章 起", "1", "正文。"]))
+    heading = next(b for b in built.script.blocks if b["type"] == "heading")
+    assert heading["text"] == "1" and heading["say"] == "第一节"          # shown as written, read as an ordinal

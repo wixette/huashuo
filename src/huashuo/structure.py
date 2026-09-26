@@ -80,6 +80,47 @@ def speech_cleanup(text: str, language: str) -> str | None:
     return cleaned if cleaned != text and cleaned else None
 
 
+_DIGITS_ZH = "零一二三四五六七八九"
+_ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
+
+
+def _chinese_number(n: int) -> str:
+    """12 -> 十二, 105 -> 一百零五 (up to 9999)."""
+    if n < 10:
+        return _DIGITS_ZH[n]
+    out, zero = "", False
+    for value, unit in ((1000, "千"), (100, "百"), (10, "十"), (1, "")):
+        digit, n = divmod(n, value)
+        if digit:
+            if zero:
+                out += "零"
+            out += ("" if (unit == "十" and digit == 1 and not out) else _DIGITS_ZH[digit]) + unit
+            zero = False
+        elif out:
+            zero = True
+    return out
+
+
+def section_reading(text: str, language: str) -> str | None:
+    """How to read a title that is only a number (「1」「（一）」「一、」「IV」): as an ordinal,
+    「第一节」. Read bare, the TTS gets the tone of 一 wrong (yí or yì instead of yī), and a
+    number in brackets alone can set it off into a minute of invented speech; 第一 is
+    always read yī (design doc §5.13)."""
+    match = _SECTION_NUMBER.match(text.strip())
+    if language != "zh" or not match:
+        return None
+    number = match.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+    if number.isdigit():
+        numeral = _chinese_number(int(number))
+    elif set(number) <= set(_ROMAN):
+        values = [_ROMAN[c] for c in number]
+        numeral = _chinese_number(sum(-v if i + 1 < len(values) and v < values[i + 1] else v
+                                      for i, v in enumerate(values)))
+    else:
+        numeral = number
+    return f"第{numeral}节"
+
+
 def is_break(line: str) -> bool:
     return bool(_BREAK.match(line)) and sum(not c.isspace() for c in line) >= 3
 
@@ -406,6 +447,8 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
     for block in b.blocks:
         if block["type"] in ("chapter", "heading", "narration", "dialogue"):
             say = speech_cleanup(block["text"], language)
+            if block["type"] in ("chapter", "heading"):
+                say = section_reading(block["text"], language) or say
             if say:
                 block["say"] = say
 

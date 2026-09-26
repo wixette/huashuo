@@ -95,3 +95,10 @@ def test_characters_that_sound_the_same_compare_equal():
     assert judge("他停顿了一下，嗓音沙沙地继续说道：", "他停顿了一下，嗓沙地继续说道。", "zh", 0.10)[1]
     assert "lost ending" in judge("这件事我想了很久，还是觉得应该告诉你。", "这件事我想了很久，还是觉得应该告诉。",
                                   "zh", 0.10)[1]
+
+
+def test_a_lone_numeral_is_compared_by_its_sound():
+    """一条被洗澡水拍死的鱼: 「栖息的栖」 heard as 「七夕的七」, both qīxī."""
+    assert judge("“你忘了？我叫栖芒，栖息的栖，芒果的芒。”", "你忘了，我叫七芒，七夕的七，芒果的芒。", "zh", 0.10)[1] is None
+    assert cer("他考了第3名。", "他考了第三名。", "zh") == 0.0
+    assert cer("一年只有一次。", "一年只有一次。", "zh") == 0.0

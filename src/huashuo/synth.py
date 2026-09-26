@@ -176,6 +176,61 @@ def cached_ok(wd: Workdir, key: str) -> dict | None:
     return None
 
 
+# Long units often lose their last syllable on every attempt, while the same last sentence
+# on its own keeps it (一条被洗澡水拍死的鱼: 4 units, 3 of 3 seeds each; design doc §5.10).
+# Such a unit is then made of two clips: everything before its last sentence, and that
+# sentence, joined by the pause that follows a sentence (post.PAUSES["sentence"]).
+SPLIT_PAUSE = 0.45
+_SENTENCE_END = re.compile(r"[。！？!?…]+[”’」』）)]*")
+
+
+def _split_last(text: str) -> tuple[str, str] | None:
+    """(everything before the last sentence, the last sentence), or None for one sentence."""
+    ends = [m.end() for m in _SENTENCE_END.finditer(text.rstrip()) if m.end() < len(text.rstrip())]
+    if not ends:
+        return None
+    head, tail = text[:ends[-1]], text[ends[-1]:]
+    return (head, tail) if head.strip() and tail.strip() else None
+
+
+def _synthesize_split(unit: Unit, key: str, engine, asr, language: str, rerolls: int, max_attempts: int,
+                      max_seconds) -> tuple | None:
+    from huashuo.asr import judge
+    from huashuo.audio import trim_bounds
+
+    spoken, page = _split_last(unit.text), _split_last(unit.page_text)
+    if spoken is None or page is None:
+        return None
+    clips, heard, problems, seeds = [], [], [], []
+    for n, (text, reference) in enumerate(zip(spoken, page)):
+        best = None
+        for attempt in range(max_attempts):
+            seed = seed_for(key, 50 + 10 * n + attempt, rerolls)
+            audio = engine.synthesize(text, unit.voice, language, unit.instruct, seed)
+            problem = duration_problem(text, len(audio) / engine.sample_rate, language, max_seconds)
+            transcript = ""
+            if problem is None:
+                transcript = asr.transcribe(audio, engine.sample_rate, language)
+                _, problem = judge(reference, transcript, language, asr.max_cer)
+            if best is None or (problem is None) > (best[1] is None):
+                best = (audio, problem, transcript, seed)
+            if problem is None:
+                break
+        audio, problem, transcript, seed = best
+        a, b = trim_bounds(audio, engine.sample_rate)
+        clips.append(audio[a:b])
+        heard.append(transcript)
+        problems.append(problem)
+        seeds.append(seed)
+    pause = np.zeros(int(SPLIT_PAUSE * engine.sample_rate), dtype=np.float32)
+    audio = np.concatenate([clips[0], pause, clips[1]])
+    transcript = "".join(heard)
+    error_rate, problem = judge(unit.page_text, transcript, language, asr.max_cer)
+    problem = problem or next((p for p in problems if p), None)
+    score = (False, problem is not None, error_rate or 0.0)
+    return (score, audio, problem, transcript, error_rate, seeds[1])
+
+
 def _max_cer(unit: Unit, max_cer: float) -> float:
     """Titles, headings and the opening are mostly names, which the recognizer spells
     with any homophone (青衫客 -> 青山客) and a retry cannot fix; only a lost ending
@@ -248,6 +303,14 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                     stats.retried += 1
                     progress.note(f"  ! {unit.text[:24]}…: {problem}; retrying")
 
+            split = False
+            if best[2] and "lost ending" in best[2] and asr is not None and unit.kind == "body":
+                joined = _synthesize_split(unit, key, engine, asr, language, rerolls.get(key, 0), max_attempts,
+                                           max_seconds)
+                if joined is not None and (joined[2] is None or joined[0] < best[0]):
+                    best, split = joined, True
+                    progress.note(f"  ~ {unit.text[:24]}…: last sentence synthesized on its own"
+                                  + (f"; still {best[2]}" if best[2] else ""))
             _, audio, problem, transcript, error_rate, seed = best
             elapsed = time.time() - started
             seconds = len(audio) / engine.sample_rate
@@ -258,7 +321,7 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                 "seed": seed, "seconds": round(seconds, 3), "elapsed": round(elapsed, 3),
                 "problem": problem, "asr": transcript,
                 "cer": round(error_rate, 4) if error_rate is not None else None,
-                "engine": identity, "blocks": unit.block_ids})
+                "engine": identity, "blocks": unit.block_ids, **({"split": True} if split else {})})
             if problem:
                 stats.warnings.append({"key": key, "text": unit.text, "problem": problem})
                 progress.note(f"  ! kept despite: {problem} | {unit.text[:30]}…")

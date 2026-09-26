@@ -105,7 +105,11 @@ def _zh_chars(text: str) -> str:
         text = pattern.sub(spoken, text)
     text = text.replace("点三十", "点半")                      # 八点三十 = 八点半
     text = re.sub(r"百分之(?=[零〇一幺二两三四五六七八九十百千万亿])", "", text)
-    text = _CN_NUMBER.sub(_arabic, text)
+    # A lone numeral stays a word, compared by its sound: 七 in 七夕 sounds like 栖 in 栖息
+    # (一条被洗澡水拍死的鱼: 「我叫栖芒，栖息的栖」 heard as 「七芒，七夕的七」), and a lone
+    # digit becomes its numeral (第3名 = 第三名). Longer numbers become Arabic numerals.
+    text = _CN_NUMBER.sub(lambda m: m.group(0) if len(m.group(0)) == 1 else _arabic(m), text)
+    text = re.sub(r"(?<![\d.:])\d(?![\d.:])", lambda m: "零一二三四五六七八九"[int(m.group(0))], text)
     return re.sub(r"[^\w]|_", "", text)
 
 
