@@ -113,6 +113,17 @@ def test_import_asks_before_sending_the_book_away(book):
     import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=ScriptedLLM().model()))   # no second ask
 
 
+
+def test_agreement_is_remembered_even_if_the_import_is_interrupted(book, monkeypatch):
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+    monkeypatch.setattr("huashuo.attribution.attribute_script", interrupted)
+    wd = Workdir.for_input(book)
+    with pytest.raises(KeyboardInterrupt):
+        import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=ScriptedLLM().model(),
+                                             confirm=lambda m: True))
+    assert json.loads(wd.ingest_record.read_text())["llm_consent"] == ["https://llm.example.invalid/v1"]
+
 def test_estimate_above_the_cap_stops_before_any_call(book):
     llm = ScriptedLLM()
     pricey = LLMConfig("test-model", "http://localhost:9/v1", "x", 1e6, 1e6, max_cost=1.0)
@@ -142,8 +153,10 @@ def test_a_run_the_cap_stopped_resumes_paying_only_for_the_rest(tmp_path, monkey
 
     report, calls, _, unknown = run(3.0)
     assert "cap" in report.stopped and calls == {"cast": 3, "speakers": 3, "voices": 0} and 0 < unknown < 150
+    wd.ingest_record.unlink()                      # as after a run stopped with Ctrl-C (白夜行)
     report, calls, asked, unknown = run(10.0)
     assert calls == {"cast": 0, "speakers": 2, "voices": 1} and unknown == 0 and not report.stopped
+    assert len(asked) == 1                         # agreeing to resume is agreeing to send the text
     assert "stopped at the cost cap" in asked[0] and f"${report.estimate:.2f} more" in asked[0]
     assert report.estimate < estimate_cost(read_script(wd.script), "zh", LLMConfig(
         "test-model", "https://llm.example.invalid/v1", "x", 100.0, 0.0))  # what is left, not the book

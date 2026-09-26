@@ -103,6 +103,12 @@ def _readable_chars(script: Script) -> int:
     return sum(len(b.get("text", "")) for b in script.blocks if b.get("type") in ("narration", "dialogue"))
 
 
+def _check_cap(estimate: float, config) -> None:
+    if estimate > config.max_cost:
+        raise PipelineError(f"speaker attribution is estimated at ${estimate:.2f} with {config.model}, above the "
+                            f"${config.max_cost:.2f} cap; raise it with --max-llm-cost, or use --no-llm")
+
+
 def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                   options: LLMOptions, narrator: str | None = None) -> tuple[object | None, LLMReport]:
     """Attribute speakers (and suggest voices for the main characters), with calls if
@@ -132,6 +138,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
 
     chars = _readable_chars(script)
     estimate = estimate_cost(script, language, config)
+    agreed = False                           # to sending the text, in this run
     if cache.is_dir() and any(cache.iterdir()) and not config.local:
         # Attributed before: answer from the cache first, and ask before paying again
         # when it no longer covers the book (the text changed, or answers predate emotion
@@ -146,6 +153,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
         gap = (f"{missing} of {quotes} quotes have no answer in the cache (an earlier run stopped at the cost "
                f"cap, or the text changed since)" if missing else "the cached answers predate emotion hints")
         estimate = estimate_cost(script, language, config, cache)       # answers in the cache are free
+        _check_cap(estimate, config)
         message = (f"{gap}. Attributing them sends the text to {config.endpoint} ({config.model}), estimated "
                    f"${estimate:.2f} more (cap ${config.max_cost:.2f}); otherwise the previous answers are kept. "
                    f"Continue?")
@@ -154,19 +162,22 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                 "cache", config.model, offline.usage, None, None, attribution.review,
                 notice=f"{gap}; kept the previous answers. Run again with --yes to attribute again "
                        f"(about ${estimate:.2f}).", suggestions_failed=attribution.suggestions_failed)
-    if estimate > config.max_cost:
-        raise PipelineError(f"speaker attribution is estimated at ${estimate:.2f} with {config.model}, above the "
-                            f"${config.max_cost:.2f} cap; raise it with --max-llm-cost, or use --no-llm")
+        agreed = True
+    _check_cap(estimate, config)
     consented = record.get("llm_consent", [])
     if not config.local and config.endpoint not in consented:
-        message = (f"全书约 {chars:,} 字将发送给 {config.endpoint}（模型 {config.model}）用于说话人标注，"
-                   f"预计费用约 ${estimate:.2f}（上限 ${config.max_cost:.2f}）。\n"
-                   f"The text (about {chars:,} characters) will be sent to {config.endpoint} ({config.model}) "
-                   f"for speaker attribution, estimated ${estimate:.2f} (cap ${config.max_cost:.2f}). Continue?")
-        if not (options.assume_yes or (options.confirm is not None and options.confirm(message))):
-            raise PipelineError(f"not sending the book to {config.endpoint} without your agreement: run again "
-                                f"with --yes, or use --no-llm to skip speaker attribution")
+        if not agreed:
+            message = (f"全书约 {chars:,} 字将发送给 {config.endpoint}（模型 {config.model}）用于说话人标注，"
+                       f"预计费用约 ${estimate:.2f}（上限 ${config.max_cost:.2f}）。\n"
+                       f"The text (about {chars:,} characters) will be sent to {config.endpoint} ({config.model}) "
+                       f"for speaker attribution, estimated ${estimate:.2f} (cap ${config.max_cost:.2f}). Continue?")
+            if not (options.assume_yes or (options.confirm is not None and options.confirm(message))):
+                raise PipelineError(f"not sending the book to {config.endpoint} without your agreement: run again "
+                                    f"with --yes, or use --no-llm to skip speaker attribution")
+        # Remembered at once: an import stopped halfway (Ctrl-C) must not ask again.
         record["llm_consent"] = consented + [config.endpoint]
+        stored = read_json(wd.ingest_record) or {}
+        write_json_atomic(wd.ingest_record, {**stored, "llm_consent": record["llm_consent"]})
     caller = Caller(config, cache, model=options.model_override)
     attribution = attribute_script(script, language, caller, options.progress, voices, narrator)
     record["llm_model"] = config.model
