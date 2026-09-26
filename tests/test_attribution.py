@@ -86,7 +86,6 @@ def test_config_needs_a_key_and_known_prices(monkeypatch):
     with pytest.raises(LLMError, match="no price"):
         llm_config(model="some-new-model")
     assert llm_config(base_url="http://localhost:1234/v1", model="local-model").price_in == 0.0
-    assert estimate_cost(300_000, llm_config()) == pytest.approx(3.21, abs=0.05)   # NFR-4: about $3
 
 
 # ---- through import_book ------------------------------------------------------------
@@ -213,9 +212,11 @@ def test_speaker_calls_run_concurrently_within_the_limit(tmp_path):
     assert not result.stopped and state["peak"] == 3                       # parallel, but never above 3
 
 
-def test_budget_holds_under_concurrency_and_keeps_partial_answers(tmp_path):
+def test_budget_holds_under_concurrency_and_keeps_partial_answers(tmp_path, monkeypatch):
     # Every call reports 3,000 input tokens at $100/M: $0.30 a call. The cap leaves room for
-    # the cast pass and a few speaker calls, not all of them.
+    # the cast pass and a few speaker calls, not all of them. The speaker pass is estimated
+    # far too low here (a model more verbose than measured), so it starts; the cap holds anyway.
+    monkeypatch.setattr("huashuo.attribution.TOKENS_PER_CHAR", {"zh": 0.1})
     llm = ScriptedLLM(tokens_per_call=3000)
     config = LLMConfig("test-model", "http://localhost:9/v1", "x", 100.0, 0.0, max_cost=2.0, concurrency=6)
     caller = Caller(config, tmp_path, model=llm.model())
@@ -225,6 +226,60 @@ def test_budget_holds_under_concurrency_and_keeps_partial_answers(tmp_path):
     got = [b["speaker"] for b in result.blocks if b["type"] == "dialogue"]
     assert 0 < got.count("unknown") < len(got)                             # answered chunks are kept
 
+
+
+def test_calls_waiting_for_the_budget_give_up_once_nothing_is_in_flight(tmp_path):
+    """白夜行 hung at $4.901 of $5.00: speaker calls waited for calls in flight to settle,
+    and "nothing in flight" was a float test. Reserving and releasing these three worst
+    cases leaves 1e-19 behind, so the waiting call slept forever."""
+    import threading
+
+    from pydantic import BaseModel
+    from pydantic_ai.models.test import TestModel
+
+    from huashuo.attribution import BudgetExceeded
+
+    class Answer(BaseModel):
+        ok: bool
+
+    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 0.7, 0.0, max_cost=0.002, concurrency=4,
+                       output_mode="tool")
+    caller = Caller(config, tmp_path, model=TestModel())
+    prompts = ["甲" * 100, "乙" * 100, "丙" * 121, "丁" * 5000]           # the last never fits the cap
+    results = []
+    worker = threading.Thread(target=lambda: results.extend(caller.run_many(
+        [lambda p=p: caller.acall("speakers", "", p, Answer) for p in prompts])), daemon=True)
+    worker.start()
+    worker.join(timeout=20)
+    assert not worker.is_alive(), "a call waiting for the budget never gave up"
+    caller.close()
+    assert [type(r) for r in results[:3]] == [Answer] * 3 and isinstance(results[3], BudgetExceeded)
+
+
+def test_the_estimate_counts_the_cast_every_call_carries():
+    """白夜行 (304,715 characters) was estimated at $3.26 and cost about $9.4: every call
+    carries the cast, which grows with the book. The fish story really cost $0.091."""
+    from pathlib import Path
+
+    from huashuo.ingest import read_book
+
+    config = LLMConfig("gpt-6-sol", "https://llm.example.invalid/v1", "x", 2.0, 10.0, max_cost=5.0)
+    fish = build(read_book(Path(__file__).resolve().parents[1] / "examples/fish/txt/一条被洗澡水拍死的鱼.txt"))
+    assert 0.09 <= estimate_cost(fish.script, "zh", config) <= 0.2
+    short, long = estimate_cost(long_script(150).script, "zh", config), estimate_cost(long_script(300).script, "zh", config)
+    assert long > 2.1 * short                          # twice the book, more than twice the cost
+    assert estimate_cost(build(Book("书", "", "zh", [Section([Paragraph("没有对话。")])], "txt")).script,
+                         "zh", config) == 0.0
+
+
+def test_speaker_pass_that_cannot_fit_the_cap_stops_before_its_first_call(tmp_path):
+    """Once pass 1 has found the cast, pass 2's cost is known: stop there, instead of
+    spending up to the cap and leaving most quotes unattributed."""
+    llm = ScriptedLLM(tokens_per_call=1000)                                 # $0.10 a call
+    config = LLMConfig("test-model", "http://localhost:9/v1", "x", 100.0, 0.0, max_cost=1.0)
+    result = attribute_script(long_script().script, "zh", Caller(config, tmp_path, model=llm.model()))
+    assert llm.calls["cast"] == 3 and llm.calls["speakers"] == 0
+    assert "would cost about" in result.stopped and "--max-llm-cost" in result.stopped
 
 # ---- emotion hints (SCR-12) ----------------------------------------------------------------
 

@@ -22,6 +22,7 @@ import asyncio
 import hashlib
 from collections import Counter
 import json
+import math
 import os
 import time
 from dataclasses import dataclass, field
@@ -50,8 +51,19 @@ PRICES = {"gpt-6-luna": (0.10, 0.50), "gpt-6-sol": (2.00, 10.00), "gpt-6-astra":
           "gpt-5.6-luna": (0.20, 1.20), "gpt-5.6-sol": (4.00, 20.00), "gpt-5.6-terra": (2.00, 12.00),
           "gpt-5.4-mini": (0.75, 4.50), "gpt-5.4-nano": (0.20, 1.25), "gpt-5-nano": (0.05, 0.40),
           "gpt-4o-mini": (0.15, 0.60)}
-# Measured in EXP-2 over both passes: ~3.6 input and ~0.35 output tokens per character.
-TOKENS_PER_CHAR = (3.6, 0.35)
+# The cost model (estimate_cost), measured on 白夜行 (2026-09: 304,715 characters, 6,605
+# quotes, 159 speaking characters; $2.30 for pass 1, $0.035 per pass-2 call). Every call
+# carries the cast: pass 1 as JSON (about 125 characters per character), pass 2 as a list
+# plus the names in the answer schema (about 80). On a long book that is most of the
+# prompt, so a flat rate per character of text (the old 3.6 tokens, from short samples)
+# came out at a third of the real cost.
+TOKENS_PER_CHAR = {"zh": 0.85, "en": 0.3}    # prose, instructions and the cast list
+CAST_JSON_TOKENS_PER_CHAR = 0.43
+CAST_JSON_CHARS = 125                        # per character, in pass 1's cast JSON
+CAST_LIST_CHARS = 80                         # per character, in each pass-2 prompt and schema
+CAST_SCHEMA_CHARS, SPEAKER_SCHEMA_CHARS = 1300, 650
+CAST_OUTPUT_TOKENS = 150                     # per pass-1 call
+QUOTE_OUTPUT_TOKENS = 25                     # per quote answered in pass 2
 
 
 class LLMError(Exception):
@@ -138,8 +150,34 @@ def offline_config(model: str | None) -> LLMConfig:
     return LLMConfig(model or os.environ.get("HUASHUO_LLM_MODEL") or DEFAULT_MODEL, None, None, 0.0, 0.0)
 
 
-def estimate_cost(chars: int, config: LLMConfig) -> float:
-    tokens_in, tokens_out = chars * TOKENS_PER_CHAR[0], chars * TOKENS_PER_CHAR[1]
+def expected_cast_size(quotes: int) -> int:
+    """Speaking characters to expect before pass 1 has found them: about 2·√quotes (白夜行:
+    6,605 quotes, 159 characters; short stories have fewer, so this errs high for them)."""
+    return round(2 * math.sqrt(quotes))
+
+
+def estimate_cost(script: Script, language: str, config: LLMConfig) -> float:
+    """What attributing the whole book costs with nothing cached, from the prompts the two
+    passes will send; the cast they carry is not known yet, so its size is expected."""
+    paragraphs, segments = split_script(script)
+    quotes = sum(s.kind == "quote" for s in segments)
+    if not quotes:
+        return 0.0
+    rate = TOKENS_PER_CHAR.get(language, TOKENS_PER_CHAR["zh"])
+    cast = expected_cast_size(quotes)
+    cast_chunks = _chunks(paragraphs, CAST_CHUNK_CHARS, len)
+    tokens_in = tokens_out = 0.0
+    instructions = len(CAST_INSTRUCTIONS.get(language, CAST_INSTRUCTIONS["zh"]))
+    for n, chunk in enumerate(cast_chunks):
+        known = cast * min(1.0, 1.6 * n / len(cast_chunks))      # characters appear early on
+        tokens_in += (instructions + CAST_SCHEMA_CHARS + sum(map(len, chunk))) * rate \
+            + known * CAST_JSON_CHARS * CAST_JSON_TOKENS_PER_CHAR
+        tokens_out += CAST_OUTPUT_TOKENS
+    instructions = len(SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])) \
+        + len(EMOTION_INSTRUCTIONS.get(language, EMOTION_INSTRUCTIONS["zh"]))
+    for prompt, wanted in _speaker_prompts(segments, "x" * (cast * CAST_LIST_CHARS), language):
+        tokens_in += (instructions + SPEAKER_SCHEMA_CHARS + len(prompt)) * rate
+        tokens_out += len(wanted) * QUOTE_OUTPUT_TOKENS
     return (tokens_in * config.price_in + tokens_out * config.price_out) / 1e6
 
 
@@ -184,6 +222,7 @@ class Caller:
         # it first runs on, so a fresh loop per call (asyncio.run) breaks the second call.
         self._loop: asyncio.AbstractEventLoop | None = None
         self._reserved = 0.0             # worst-case cost of calls in flight
+        self._in_flight = 0              # counted, not read off _reserved: float sums leave dust
         self._budget: asyncio.Condition | None = None
 
     def close(self) -> None:
@@ -202,6 +241,9 @@ class Caller:
                               "instructions": instructions, "prompt": prompt,
                               "schema": output_type.model_json_schema()}, ensure_ascii=False, sort_keys=True)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+    def cached(self, stage: str, instructions: str, prompt: str, output_type) -> bool:
+        return (self.cache_dir / f"{self._key(stage, instructions, prompt, output_type)}.json").is_file()
 
     def call(self, stage: str, instructions: str, prompt: str, output_type):
         return self._run(self.acall(stage, instructions, prompt, output_type))
@@ -244,12 +286,13 @@ class Caller:
             self._budget = asyncio.Condition()
         async with self._budget:
             while self.usage.cost + self._reserved + worst > self.config.max_cost:
-                if self._reserved <= 0:
+                if self._in_flight == 0:
                     raise BudgetExceeded(f"the next call could cost up to ${worst:.3f}; ${self.usage.cost:.3f} "
                                          f"of the ${self.config.max_cost:.2f} cap is spent "
                                          f"(raise it with --max-llm-cost)")
                 await self._budget.wait()
             self._reserved += worst
+            self._in_flight += 1
 
         wrap = {"native": NativeOutput, "tool": ToolOutput, "prompted": PromptedOutput}[self.config.output_mode]
         agent = Agent(self.model, output_type=wrap(output_type), instructions=instructions, retries=3)
@@ -273,6 +316,9 @@ class Caller:
                     self.usage.output_tokens += usage.output_tokens or 0
                     self.usage.cost += cost
                 self._reserved -= worst
+                self._in_flight -= 1
+                if self._in_flight == 0:
+                    self._reserved = 0.0
                 self._budget.notify_all()
         self.usage.seconds += time.time() - started
         write_json_atomic(path, {"stage": stage, "model": self.config.model, "output": result.output.model_dump(),
@@ -492,6 +538,31 @@ class Segment:
 Answer = tuple[str, float, str]     # speaker, confidence, emotion label ("" for none)
 
 
+def _speaker_batches(segments: list[Segment]) -> list[tuple[list[Segment], list[int]]]:
+    """Pass 2's chunks that contain quotes, each with the indices of its quotes."""
+    batches = [(core, [s.index for s in core if s.kind == "quote"])
+               for core in _chunks(segments, ATTR_CHUNK_CHARS, lambda s: len(s.text))]
+    return [b for b in batches if b[1]]
+
+
+def _speaker_prompt(segments: list[Segment], core: list[Segment], wanted: list[int], cast_list: str,
+                    language: str) -> str:
+    zh = language == "zh"
+    tag = {"quote": "引" if zh else "Q", "narration": "叙" if zh else "N"}
+    lo = max(0, core[0].index - CONTEXT_SEGMENTS)
+    hi = min(len(segments), core[-1].index + 1 + CONTEXT_SEGMENTS)
+    body = "\n".join(f"[{s.index}] {tag[s.kind]}：{s.text}" if zh else f"[{s.index}] {tag[s.kind]}: {s.text}"
+                     for s in segments[lo:hi])
+    ask_line = ("需要回答的编号：" if zh else "Answer for indices: ") + ", ".join(map(str, wanted))
+    return (("角色表：\n" if zh else "Cast:\n") + cast_list + "\n\n" + ("原文（编号片段）：\n" if zh else "Segments:\n")
+            + body + "\n\n" + ask_line)
+
+
+def _speaker_prompts(segments: list[Segment], cast_list: str, language: str) -> list[tuple[str, list[int]]]:
+    return [(_speaker_prompt(segments, core, wanted, cast_list, language), wanted)
+            for core, wanted in _speaker_batches(segments)]
+
+
 def attribute_segments(segments: list[Segment], cast: dict[str, dict], language: str,
                        caller: Caller, progress: Progress | None = None,
                        answers: dict[int, Answer] | None = None, emotions: bool = True,
@@ -508,18 +579,11 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
     instructions = plain_instructions + EMOTION_INSTRUCTIONS.get(language, EMOTION_INSTRUCTIONS["zh"]) \
         if emotions else plain_instructions
     output_type = _answers_type(list(cast), labels) if emotions else plain_type
-    zh = language == "zh"
-    header = ("角色表：\n" if zh else "Cast:\n") + _cast_summary(cast, language) + "\n\n"
-    tag = {"quote": "引" if zh else "Q", "narration": "叙" if zh else "N"}
+    cast_list = _cast_summary(cast, language)
     answers = {} if answers is None else answers        # filled in place: kept if a call fails
 
     def job(core: list[Segment], wanted: list[int], stage: str, total: int, done: list[int]):
-        lo = max(0, core[0].index - CONTEXT_SEGMENTS)
-        hi = min(len(segments), core[-1].index + 1 + CONTEXT_SEGMENTS)
-        body = "\n".join(f"[{s.index}] {tag[s.kind]}：{s.text}" if zh else f"[{s.index}] {tag[s.kind]}: {s.text}"
-                         for s in segments[lo:hi])
-        ask_line = ("需要回答的编号：" if zh else "Answer for indices: ") + ", ".join(map(str, wanted))
-        prompt = header + ("原文（编号片段）：\n" if zh else "Segments:\n") + body + "\n\n" + ask_line
+        prompt = _speaker_prompt(segments, core, wanted, cast_list, language)
 
         async def run():
             try:
@@ -547,9 +611,22 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
         if errors:
             raise next((e for e in errors if isinstance(e, LLMError)), errors[0])
 
-    batches = [(core, [s.index for s in core if s.kind == "quote"])
-               for core in _chunks(segments, ATTR_CHUNK_CHARS, lambda s: len(s.text))]
-    run_all([b for b in batches if b[1]], "speakers")
+    batches = _speaker_batches(segments)
+    if not caller.offline:
+        # The cast is known now, so what this pass costs is too: stop here rather than
+        # spend up to the cap and leave most of the book unattributed.
+        rate = TOKENS_PER_CHAR.get(language, TOKENS_PER_CHAR["zh"])
+        schema = len(json.dumps(output_type.model_json_schema(), ensure_ascii=False))
+        todo = [(prompt, wanted) for prompt, wanted in _speaker_prompts(segments, cast_list, language)
+                if not caller.cached("speakers", instructions, prompt, output_type)]
+        cost = sum((len(instructions) + schema + len(prompt)) * rate * caller.config.price_in
+                   + len(wanted) * QUOTE_OUTPUT_TOKENS * caller.config.price_out for prompt, wanted in todo) / 1e6
+        if caller.usage.cost + cost > caller.config.max_cost:
+            raise BudgetExceeded(f"assigning the speakers would cost about ${cost:.2f} more ({len(todo)} calls); "
+                                 f"${caller.usage.cost:.2f} of the ${caller.config.max_cost:.2f} cap is spent. "
+                                 f"Raise the cap with --max-llm-cost: the answers so far are kept, so a new "
+                                 f"run pays only for the rest")
+    run_all(batches, "speakers")
     missing = [s.index for s in segments if s.kind == "quote" and s.index not in answers]
     if missing:                                          # reconcile, one quote per call
         run_all([([segments[i]], [i]) for i in missing], "retry")
@@ -622,6 +699,24 @@ def suggest_voices(characters: dict[str, dict], voices: list, narrator: str, lan
 LOW_CONFIDENCE = 0.6
 
 
+def split_script(script: Script) -> tuple[list[str], list[Segment]]:
+    """The readable text as pass 1 sees it (paragraphs) and as pass 2 does (numbered
+    narration and quote segments)."""
+    readable = [b for b in script.blocks if b.get("type") in ("narration", "dialogue")]
+    paragraphs: list[str] = []
+    last = None
+    for b in readable:
+        para = paragraph_of(b["id"])
+        if para == last:
+            paragraphs[-1] += b["text"]
+        else:
+            paragraphs.append(b["text"])
+            last = para
+    segments = [Segment(n, "quote" if b["type"] == "dialogue" else "narration", b["text"])
+                for n, b in enumerate(readable)]
+    return paragraphs, segments
+
+
 def attribute_script(script: Script, language: str, caller: Caller,
                      progress: Progress | None = None, voices: list | None = None,
                      narrator: str | None = None, emotions: bool = True) -> Attribution:
@@ -633,17 +728,7 @@ def attribute_script(script: Script, language: str, caller: Caller,
     """
     blocks = [dict(b) for b in script.blocks]
     readable = [i for i, b in enumerate(blocks) if b.get("type") in ("narration", "dialogue")]
-    paragraphs: list[str] = []
-    last = None
-    for i in readable:
-        para = paragraph_of(blocks[i]["id"])
-        if para == last:
-            paragraphs[-1] += blocks[i]["text"]
-        else:
-            paragraphs.append(blocks[i]["text"])
-            last = para
-    segments = [Segment(n, "quote" if blocks[i]["type"] == "dialogue" else "narration", blocks[i]["text"])
-                for n, i in enumerate(readable)]
+    paragraphs, segments = split_script(script)
 
     cast: dict[str, dict] = {}
     answers: dict[int, Answer] = {}

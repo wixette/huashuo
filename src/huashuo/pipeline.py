@@ -131,7 +131,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                                       attribution.suggestions_failed)
 
     chars = _readable_chars(script)
-    estimate = estimate_cost(chars, config)
+    estimate = estimate_cost(script, language, config)
     if cache.is_dir() and any(cache.iterdir()) and not config.local:
         # Attributed before: answer from the cache first, and ask before paying again
         # when it no longer covers the book (the text changed, or answers predate emotion
