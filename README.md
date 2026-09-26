@@ -32,7 +32,8 @@ Needs an Apple Silicon Mac and ffmpeg (`brew install ffmpeg`). The work director
 `book.huashuo/` holds the editable script (`script.huaben.jsonl`, see
 [docs/script-ir.md](docs/script-ir.md)) and the cast (`cast.json`: who speaks with which
 voice, chosen automatically by gender, age and personality); edits there survive
-re-imports. `huashuo voices --library` lists the voices to choose from, and
+re-imports. `huashuo voices --library` lists the voices to choose from (characters are cast from the 16
+designed library voices; the model's presets only when named in `cast.json`), and
 `--no-emotions` reads dialogue without the emotion hints. A name read wrongly? Add
 `单于 = chán yú` (or a homophone) to `book.huashuo/pron.txt` and synthesize again; only the
 parts with that word are redone. `--title`/`--author` override the metadata, `--loudness`

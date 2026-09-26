@@ -112,11 +112,21 @@ def has_library(language: str, root: Path | None = None) -> bool:
 
 
 def castable(language: str, root: Path | None = None) -> list[Voice]:
-    """Voices casting may choose from for a language: the library, plus presets that are
-    standard speech (dialect presets are only used when named explicitly, CAST-9).
-    Narrator voices are left out: a character should not sound like the narration."""
+    """Voices casting may choose from for a language: the library's character voices.
+
+    Presets are left out; they are used only when named in cast.json. The library voices
+    were designed and checked for accent; the presets were not, and serena drifts into a
+    Shaanxi-like dialect: in a blind test 3 of 12 takes of her lines did (with a
+    「用标准普通话说」 instruct 1 of 12, plus 3 with odd sounds added), a library voice 0 of
+    12 (design doc §5.8, requirements Q21). Narrator voices are left out too: a character
+    should not sound like the narration."""
     return [v for v in _load(root or ROOT).values()
-            if v.language == language and "dialect" not in v.traits and not v.narrator_only]
+            if v.language == language and v.kind == "library" and not v.narrator_only]
+
+
+def presets(language: str, root: Path | None = None) -> list[Voice]:
+    """The model's preset voices for a language, for choosing by hand."""
+    return [v for v in _load(root or ROOT).values() if v.language == language and v.kind == "preset"]
 
 
 def narrators(language: str, root: Path | None = None) -> list[Voice]:

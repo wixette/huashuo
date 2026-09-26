@@ -63,14 +63,14 @@ def test_casting_avoids_the_narrator_the_user_chose(book, tiny_library):
 
 
 def test_llm_suggestions_cast_main_characters_within_the_rules(book, tiny_library):
-    llm = ScriptedLLM(voice_choices={"林渊": "preset:uncle_fu", "老者": "preset:vivian"})
+    # The suggestions swap what the rules alone would pick (林渊 young_man, 老者 old_man).
+    llm = ScriptedLLM(voice_choices={"林渊": "library:zh/old_man", "老者": "library:zh/young_man"})
     _import(book, llm)
     assert llm.calls["voices"] == 1
-    # 林渊 takes the suggestion; 老者's is a woman's voice, so the rules decide.
-    assert _voices(book)[1] == {"林渊": "preset:uncle_fu", "老者": "library:zh/old_man"}
+    assert _voices(book)[1] == {"林渊": "library:zh/old_man", "老者": "library:zh/young_man"}
     # Without a key the answer comes from the cache, and casting is the same.
     import_book(book, Workdir.for_input(book), llm=LLMOptions())
-    assert _voices(book)[1] == {"林渊": "preset:uncle_fu", "老者": "library:zh/old_man"}
+    assert _voices(book)[1] == {"林渊": "library:zh/old_man", "老者": "library:zh/young_man"}
 
 
 def test_failed_suggestions_are_a_note_not_a_stopped_attribution(book, tiny_library):
@@ -213,7 +213,7 @@ def test_audition_the_whole_library(book, tiny_library):
     _import(book)
     assert main(["audition", str(book), "--engine", "fake", "--library"]) == 0
     titles = [c["tags"]["title"] for c in probe(book.with_name("客栈.audition.m4b"))["chapters"]]
-    assert len(titles) == 5 and not any("dylan" in t for t in titles)
+    assert len(titles) == 2 and not any("preset" in t for t in titles)          # the voices casting uses
 
 
 def test_voices_library_lists_without_a_model(tiny_library, capsys):
@@ -221,7 +221,7 @@ def test_voices_library_lists_without_a_model(tiny_library, capsys):
 
     assert main(["voices", "--library"]) == 0
     out = capsys.readouterr().out
-    assert "library:zh/old_man" in out and "preset:dylan" not in out
+    assert "library:zh/old_man" in out and "preset:dylan" in out and "only when named in cast.json" in out
 
 
 # ---- English books: the narrator reads everyone until there is an English library (Q19) ----

@@ -674,15 +674,17 @@ def cmd_clean(args) -> int:
 
 def cmd_voices(args) -> int:
     if args.library:
-        from huashuo.library import castable, default_narrator, narrators
+        from huashuo.library import castable, default_narrator, narrators, presets
 
         default = default_narrator(args.language)
         for voice in narrators(args.language):
             mark = "narrator (default)" if voice.ref == default else "narrator"
             print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}  [{mark}]")
         for voice in castable(args.language):
-            mark = "  [narrator (default)]" if voice.ref == default else ""
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}{mark}")
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}")
+        for voice in presets(args.language):
+            mark = "narrator (default)" if voice.ref == default else "only when named in cast.json"
+            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.role}  [{mark}]")
         return 0
     from huashuo.engines.qwen3 import DIALECT_PRESETS, Qwen3Engine
 

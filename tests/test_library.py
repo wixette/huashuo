@@ -17,9 +17,13 @@ def test_presets_and_library_voices_load(tiny_library):
     assert get("preset:serena").kind == "preset" and get("preset:serena").vector_path is None
 
 
-def test_castable_leaves_out_dialect_presets(tiny_library):
+def test_only_library_voices_are_cast(tiny_library):
+    """Presets are used only when named: serena drifted into dialect in 3 of 12 blind takes."""
+    from huashuo.library import presets
+
     refs = {v.ref for v in castable("zh")}
-    assert "preset:dylan" not in refs and "library:zh/young_man" in refs and "preset:serena" in refs
+    assert refs == {"library:zh/young_man", "library:zh/old_man"}
+    assert {v.ref for v in presets("zh")} == {"preset:serena", "preset:vivian", "preset:uncle_fu", "preset:dylan"}
     assert castable("en") == []
 
 
@@ -61,7 +65,7 @@ def test_narrator_voices_are_the_default_narrator_and_never_cast(tiny_library):
     assert default_cast("zh")["narrator"]["voice"] == "library:zh/reader"
     assert default_cast("en")["narrator"]["voice"] == "preset:ryan"
     refs = {v.ref for v in library.castable("zh")}
-    assert "library:zh/reader" not in refs and "library:zh/reader2" not in refs and "preset:serena" in refs
+    assert "library:zh/reader" not in refs and "library:zh/reader2" not in refs and "library:zh/old_man" in refs
     assert [v.ref for v in library.narrators("zh")] == ["library:zh/reader", "library:zh/reader2"]
 
 
