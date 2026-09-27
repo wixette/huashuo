@@ -14,7 +14,7 @@ not be cast.
 |---|---|
 | `txt/广告.txt` | The story: title line, `作者：半轻人`, then the text |
 | `speakers.tsv` | The speaker of every quote: the golden labels for speaker attribution |
-| `cast.json` | The demo's cast: the machine's, with one choice changed by ear (the TV host 小胡子 in `mid_man_jovial`, the chef, who speaks right after him, in `mid_man_steady`) |
+| `cast.json` | The demo's cast: the machine's, with choices changed by ear (the TV host 小胡子 in `mid_man_jovial` and the chef, who speaks right after him, in `mid_man_steady`; the pilot, in his forties, in `young_man_deep` rather than an old man's voice, and the engineer in `young_man_warm`) |
 | `llm-cache/` | The LLM's answers for this story, replayed offline by `tests/test_golden.py`; re-record them with `examples/refresh_golden.py ad` (a capped, paid run) when the prompts change |
 
     huashuo examples/ad/txt/广告.txt

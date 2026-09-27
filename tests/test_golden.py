@@ -177,15 +177,20 @@ def test_ad_units_are_whole_sentences(tmp_path, voices):
 
 
 def test_ad_the_demo_cast_is_kept(tmp_path):
-    """examples/ad/cast.json is the demo's cast, one choice changed by ear: the slogan-shouting
+    """examples/ad/cast.json is the demo's cast, some choices changed by ear: the slogan-shouting
     TV host (小胡子) in the jolly voice, not the dignified one the LLM suggested (design doc
-    §8.7), and the chef, who speaks right after him, in the dignified one instead."""
+    §8.7), and the chef, who speaks right after him, in the dignified one; the pilot, in his
+    forties, in a young man's low voice rather than an old man's, the engineer in a bright one.
+    Kept on every re-import, not just the first."""
     from huashuo.pipeline import check_project
 
     wd, result = _attributed(tmp_path, AD_TXT, AD, cast=AD / "cast.json")
+    for _ in range(2):
+        import_book(wd.root.parent / AD_TXT.name, wd, llm=LLMOptions(enabled=False, model="gpt-6-sol"))
     project = load_project(wd)
     voices = {name: c["voice"] for name, c in project.cast["characters"].items()}
     assert voices["小胡子"] == "library:zh/mid_man_jovial" and voices["厨师"] == "library:zh/mid_man_steady"
+    assert voices["空军飞行员"] == "library:zh/young_man_deep" and voices["工程师"] == "library:zh/young_man_warm"
     assert check_project(project) == []
     slogan = next(u for u in make_plan(project).units if "远道而来是朋友" in u.text)
     assert slogan.voice == "library:zh/mid_man_jovial"

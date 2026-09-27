@@ -319,6 +319,25 @@ def _user_voice_choices(wd: Workdir, language: str) -> tuple[str | None, dict[st
     return (narrator if edited else None), fixed
 
 
+def _machine_base(cast: dict, previous: dict | None, fixed: dict[str, str], user_narrator: str | None) -> dict:
+    """The cast to remember as the machine's (state/cast.auto.json). Casting took the
+    user's own voices as given, so the machine's cast holds them too; remembered as they
+    are, they would match cast.json next time and stop counting as the user's. So for
+    those, the machine's own earlier choice is remembered, or none."""
+    base = json.loads(json.dumps(cast))
+    before = (previous or {}).get("characters", {})
+    for name in fixed:
+        if name in base["characters"]:
+            earlier = before.get(name, {}).get("voice")
+            if earlier:
+                base["characters"][name]["voice"] = earlier
+            else:
+                base["characters"][name].pop("voice", None)
+    if user_narrator is not None:
+        base["narrator"]["voice"] = (previous or {}).get("narrator", {}).get("voice", "")
+    return base
+
+
 def resolve_narrator(choice: str | None, language: str) -> str | None:
     """--narrator: female / male (the library's narrator voice of that gender), a voice
     reference, or auto / None (choose per book)."""
@@ -412,7 +431,8 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     lang = language or book.language or record.get("language") or "zh"
     flag_voice = resolve_narrator(narrator, lang)
     user_narrator, fixed = _user_voice_choices(wd, lang)
-    chosen = flag_voice if narrator_now not in (None, "auto") else (user_narrator or flag_voice)
+    # --narrator on this run wins over cast.json; --narrator auto hands the choice back to the rule.
+    chosen = flag_voice if narrator_now is not None else (user_narrator or flag_voice)
     base = read_script(wd.script_base) if wd.script_base.is_file() else None
     machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions(),
                              chosen, fixed, base, read_json(wd.cast_base))
@@ -453,7 +473,8 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
         # An explicit --narrator replaces whatever cast.json had; auto hands it back to the rule.
         cast["narrator"]["voice"] = machine.cast["narrator"]["voice"]
     write_json_atomic(wd.cast, cast)
-    write_json_atomic(wd.cast_base, machine.cast)
+    write_json_atomic(wd.cast_base, _machine_base(machine.cast, base_cast, fixed,
+                                                  user_narrator if narrator_now is None else None))
 
     if voices == "single":
         write_review(wd, [])                            # speakers do not matter with one voice
@@ -470,6 +491,8 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                                                      "narrator": None if narrator == "auto" else narrator}})
     if narrator_now not in (None, "auto"):
         reason = "--narrator"
+    elif narrator_now == "auto":
+        reason = machine.narrator_reason
     elif user_narrator is not None or cast["narrator"]["voice"] != machine.cast["narrator"]["voice"]:
         reason = "your choice in cast.json"
     elif flag_voice is not None:

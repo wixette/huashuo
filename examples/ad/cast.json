@@ -51,7 +51,7 @@
       "age": "middle_aged",
       "description": "地球旅游广告中驾驶战斗机、声称保障旅客安全的四十多岁飞行员。",
       "lines": 1,
-      "voice": "library:zh/old_man_hoarse"
+      "voice": "library:zh/young_man_deep"
     },
     "导游": {
       "aliases": [],
@@ -84,7 +84,7 @@
       "description": "地球旅游广告中站在汽车前、为地球机动车感到骄傲的年轻人。",
       "gender_inferred": true,
       "lines": 1,
-      "voice": "library:zh/young_man_deep"
+      "voice": "library:zh/young_man_warm"
     },
     "女科学家": {
       "aliases": [],

@@ -47,8 +47,9 @@ def test_a_voice_chosen_by_hand_survives_reimport(book, tiny_library):
     cast = json.loads(wd.cast.read_text(encoding="utf-8"))
     cast["characters"]["老者"]["voice"] = "preset:uncle_fu"
     wd.cast.write_text(json.dumps(cast, ensure_ascii=False), encoding="utf-8")
-    _import(book)
-    assert _voices(book)[1] == {"林渊": "library:zh/young_man", "老者": "preset:uncle_fu"}
+    for _ in range(3):                                  # every re-import, not just the next one
+        _import(book)
+        assert _voices(book)[1] == {"林渊": "library:zh/young_man", "老者": "preset:uncle_fu"}
 
 
 def test_casting_avoids_the_narrator_the_user_chose(book, tiny_library):
@@ -57,9 +58,10 @@ def test_casting_avoids_the_narrator_the_user_chose(book, tiny_library):
     cast = json.loads(wd.cast.read_text(encoding="utf-8"))
     cast["narrator"]["voice"] = "library:zh/old_man"
     wd.cast.write_text(json.dumps(cast, ensure_ascii=False), encoding="utf-8")
-    _import(book)
-    narrator, voices = _voices(book)
-    assert narrator == "library:zh/old_man" and narrator not in voices.values()
+    for _ in range(3):
+        _import(book)
+        narrator, voices = _voices(book)
+        assert narrator == "library:zh/old_man" and narrator not in voices.values()
 
 
 def test_llm_suggestions_cast_main_characters_within_the_rules(book, tiny_library):
@@ -464,3 +466,15 @@ def test_a_failed_gender_call_keeps_the_rest(tmp_path, monkeypatch):
     assert not result.llm.stopped and "timeout" in result.llm.genders_failed
     cast = json.loads(Workdir.for_input(path).cast.read_text(encoding="utf-8"))["characters"]
     assert cast["林默"]["gender"] == "unknown" and cast["周强"]["voice"]            # speakers and casting done
+
+
+def test_narrator_auto_hands_a_hand_picked_narrator_back_to_the_rule(tmp_path):
+    path = _first_person_book(tmp_path)
+    _import_fp(path)
+    wd = Workdir.for_input(path)
+    cast = json.loads(wd.cast.read_text(encoding="utf-8"))
+    cast["narrator"]["voice"] = "library:zh/mid_woman_calm"
+    wd.cast.write_text(json.dumps(cast, ensure_ascii=False), encoding="utf-8")
+    assert _import_fp(path).narrator == "library:zh/mid_woman_calm"          # kept
+    result = _import_fp(path, narrator="auto")
+    assert result.narrator == "library:zh/narrator_male" and "first-person" in result.narrator_reason
