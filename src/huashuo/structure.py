@@ -14,6 +14,7 @@ from dataclasses import dataclass, replace
 from huashuo import punct
 from huashuo.huaben import FORMAT_VERSION, Script, sha256_text
 from huashuo.ingest import Book, Paragraph, Section, detect_language
+from huashuo.ingest.txt import AUTHOR_LINE
 
 _ZH_NUM = r"[0-9０-９零〇一二三四五六七八九十百千万两]+"
 # 第X章 / 第X回 …; the character after the heading word must not continue a sentence,
@@ -200,8 +201,6 @@ _URL_TEXT = re.compile(r"(?:https?://)?[A-Za-z0-9.-]+\.(?:com|net|org|cc|la|info
 _SITE_PHRASES = re.compile(r"最新章节|免费阅读|手机阅读|笔趣阁|一秒记住|记住本站|本书首发|首发网址|全文阅读|无弹窗|txt下载|小说网")
 
 
-# 「作者：青衫客」 at the top of a TXT: metadata, read by the opening announcement (POST-6).
-_AUTHOR_LINE = re.compile(r"^(?:作者|著者|author|by)\s*[:：]?\s*(?P<author>\S.{0,38})$", re.IGNORECASE)
 
 
 def is_noise(text: str, language: str) -> bool:
@@ -347,7 +346,7 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
 
     def story_title(i: int, text: str) -> bool:
         """A story in a collection that has numbered chapters of its own: 「阿Q正傳」 right
-        before 「第一章序」 (script-ir §10 S4)."""
+        before 「第一章序」 (script-ir §9)."""
         following = items[i + 1].paragraph.text if i + 1 < len(items) else ""
         # The chapter must start with prose: in a table of contents (目录 / 第一章 / 第二章 …)
         # headings follow one another.
@@ -397,7 +396,8 @@ def build(book: Book, language: str | None = None, read_notes: bool = False, spl
             b.block("skip", text, reason="noise")
             skipped += 1
             continue
-        author_line = _AUTHOR_LINE.match(text.strip())
+        # 「作者：青衫客」 at the top of a TXT: metadata, read by the opening (POST-6).
+        author_line = AUTHOR_LINE.match(text.strip())
         if b.chapter <= 0 and book.author and author_line and author_line["author"].strip() == book.author:
             b.ensure_chapter(book.title)
             b.block("skip", text, reason="author")

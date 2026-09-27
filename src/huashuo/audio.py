@@ -13,7 +13,7 @@ MAX_TRUE_PEAK_DB = -1.5
 MAX_GAIN_DB = 12.0           # never boost a unit more than this, whatever it measures
 TRIM_BELOW_PEAK_DB = 40.0    # a 20 ms frame this far below the peak counts as silence
 TRIM_MARGIN = 0.03           # keep a little air so word onsets and tails are not clipped
-FADE_IN, FADE_OUT = 0.005, 0.015   # seconds; the model sometimes stops mid-sound (M3), which clicks
+FADE_IN, FADE_OUT = 0.005, 0.015   # seconds; the model sometimes stops mid-sound, which clicks
 
 
 def write_wav(path: Path, audio: np.ndarray, sample_rate: int) -> None:

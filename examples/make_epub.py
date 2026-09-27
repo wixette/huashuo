@@ -9,7 +9,7 @@ The cover is drawn from huashuo's cover templates. The archive is reproducible: 
 timestamps and a stable identifier, so rebuilding an unchanged text gives the same bytes.
 
 Usage (from the repository root):
-    .venv/bin/python examples/make_epub.py examples/fish/一条被洗澡水拍死的鱼.txt \\
+    .venv/bin/python examples/make_epub.py examples/fish/txt/一条被洗澡水拍死的鱼.txt \\
         --date 2016-04-01 --source https://ygwang.info/fictions/fish/ --rights "CC BY-NC-ND 4.0"
 """
 

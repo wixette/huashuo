@@ -117,14 +117,3 @@ def probe(path: Path) -> dict:
                           "-show_streams", "-of", "json", str(path)],
                          capture_output=True, text=True, check=True).stdout
     return json.loads(out)
-
-
-# --------------------------------------------------------------------------------------
-# A cover for books that have none (M4B-4): the designer's templates, see cover.py
-# --------------------------------------------------------------------------------------
-
-
-def make_cover(path: Path, title: str, author: str = "") -> Path:
-    """The title set on a cover template (the design shows no author)."""
-    from huashuo.cover import render
-    return render(title, path)

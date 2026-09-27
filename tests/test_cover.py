@@ -38,10 +38,9 @@ def test_a_generated_cover_is_redrawn_only_when_the_title_changes(tmp_path):
     assert first.stat().st_mtime_ns != stamp                                        # redrawn
 
 
-def test_the_books_own_cover_wins_and_an_old_plain_cover_is_replaced(tmp_path):
+def test_the_books_own_cover_wins(tmp_path):
     wd = Workdir(tmp_path / "book.huashuo")
     wd.root.mkdir(parents=True)
-    Image.new("RGB", (1400, 1400), (38, 42, 48)).save(wd.cover(".jpg"))             # drawn by an older version
     assert book_cover(wd, "在桥上").name == "cover.generated.jpg"
     Image.new("RGB", (600, 800), (200, 10, 10)).save(wd.cover(".jpg"))              # the book's, or the user's
     assert book_cover(wd, "在桥上") == wd.cover(".jpg")

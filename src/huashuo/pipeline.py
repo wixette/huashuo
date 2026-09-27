@@ -1,6 +1,8 @@
-"""The stages behind the CLI: import, check, plan, synthesize, package.
+"""The steps behind the CLI that work on the book itself: import (with speaker
+attribution and casting), check, plan the units, estimate. Synthesis is in synth.py,
+packaging in post.py and m4b.py.
 
-Each stage reads what the previous one left in the work directory, so any of them can be
+Each step reads what the previous one left in the work directory, so any of them can be
 re-run on its own (CLI-3) and a crash in one never costs the work of the others.
 """
 
@@ -15,10 +17,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from huashuo import pron, punct
-from huashuo.chinese import is_traditional, to_simplified
-from huashuo import __version__
+from huashuo import __version__, pron, punct
 from huashuo.cast import default_cast, load_cast, merge_cast
+from huashuo.chinese import is_traditional, to_simplified
 from huashuo.huaben import Script, check, merge, read_script, write_script
 from huashuo.ingest import read_book
 from huashuo.structure import build
@@ -344,38 +345,19 @@ def write_review(wd: Workdir, review: list[dict]) -> Path | None:
     return path
 
 
-def _old_generated(path: Path | None) -> bool:
-    """A plain cover drawn by versions before the templates: 1400 px, dark slate. It was
-    saved as cover.jpg, where it would be mistaken for the book's own."""
-    if path is None or path.suffix != ".jpg":
-        return False
-    try:
-        from PIL import Image
-        with Image.open(path) as image:
-            pixel = image.convert("RGB").getpixel((20, 20))
-            return image.size == (1400, 1400) and all(abs(a - b) <= 4 for a, b in zip(pixel, (38, 42, 48)))
-    except OSError:
-        return False
-
-
 def book_cover(wd: Workdir, title: str) -> Path:
     """The cover to package: the user's (--cover, or an image put into the work directory
     by hand) or the book's own, else one made from the templates (cover.py)."""
     from huashuo.cover import generated_cover
 
     found = wd.find_cover()
-    if found is not None and not _old_generated(found):
-        return found
-    return generated_cover(wd.root, wd.state, title)
+    return found if found is not None else generated_cover(wd.root, wd.state, title)
 
 
 def _place_cover(wd: Workdir, book, cover: Path | None, previous: dict) -> tuple[Path | None, str | None]:
     """The cover to use, and who chose it. A cover the user supplied (--cover, recorded in
     state/ingest.json) is never replaced by the book's own on a later import."""
     existing = wd.find_cover()
-    if _old_generated(existing):
-        existing.unlink()                    # replaced by a template cover at packaging
-        existing = None
     if cover is not None:
         for old in (wd.cover(e) for e in (".jpg", ".jpeg", ".png")):
             old.unlink(missing_ok=True)
@@ -424,9 +406,9 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     flag_voice = resolve_narrator(narrator, lang)
     user_narrator, fixed = _user_voice_choices(wd, lang)
     chosen = flag_voice if narrator_now not in (None, "auto") else (user_narrator or flag_voice)
-    previous = read_script(wd.script_base) if wd.script_base.is_file() else None
+    base = read_script(wd.script_base) if wd.script_base.is_file() else None
     machine = machine_output(book, language, read_notes, wd, record, llm if llm is not None else LLMOptions(),
-                             chosen, fixed, previous, read_json(wd.cast_base))
+                             chosen, fixed, base, read_json(wd.cast_base))
     header = machine.script.header
     # --title / --author win over what the book says (IN-4); applied to the machine's
     # version, so an edit the user makes to the header afterwards still wins on merge.
@@ -444,7 +426,6 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     if not wd.pron.exists():
         write_text_atomic(wd.pron, pron.TEMPLATE)
 
-    base = read_script(wd.script_base) if wd.script_base.is_file() else None
     current = read_script(wd.script) if wd.script.is_file() else None
     result = merge(base, current, machine.script)
     merged = result.script
@@ -551,13 +532,13 @@ def make_plan(project: Project, *, read_titles: bool = True, max_chars: int = DE
     return full
 
 
-# 「作者」 rather than 「著」: plainer to hear, and the recognizer writes 著 as 住 (M5 check).
 def speaks_simplified(project: Project) -> bool:
     """A Chinese book in Traditional characters is read from a Simplified conversion
     (chinese.py); its own text stays as it is."""
     return project.language == "zh" and is_traditional(project.text)
 
 
+# 「作者」 rather than 「著」: plainer to hear, and the recognizer writes 著 as 住.
 OPENING = {"zh": "《{title}》，作者{author}。", "en": "{title}, by {author}."}
 OPENING_NO_AUTHOR = {"zh": "《{title}》。", "en": "{title}."}
 CLOSING = {"zh": "全书完。", "en": "The End."}
@@ -615,6 +596,7 @@ def _announce(p: Plan, project: Project, narrator: str, opening: bool, closing: 
     words = ([CLOSING[lang]] if closing else []) + ([CREDIT[lang]] if credit else [])
     if words:
         p.units[-1].after = "chapter_end"
+        # A heading unit: like a title, checked only for a lost ending, never for pace.
         p.units.append(Unit("heading", "".join(words) if lang == "zh" else " ".join(words), narrator, None,
                             ["closing"], p.units[-1].chapter, after=END))
 

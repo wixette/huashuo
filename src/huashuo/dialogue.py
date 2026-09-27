@@ -17,7 +17,6 @@ _PAIRS = {
     "en": {"“": "”", '"': '"'},
 }
 
-
 # English books set in the British style quote speech with single marks, ‘like this,’ and
 # the closing mark is also the apostrophe (don’t, O’Brien, the boys’). An opening ‘ counts
 # only at the start or after a space or dash; a closing ’ only right after punctuation,

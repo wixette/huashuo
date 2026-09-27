@@ -12,9 +12,8 @@ import re
 import numpy as np
 
 DEFAULT_ASR_MODEL = "mlx-community/Qwen3-ASR-1.7B-8bit"
-# On full 400-character units the recognizer's own mistakes (homophones, classical
-# phrasing) cost up to ~5% (M1, 《吶喊》); a dropped sentence or runaway repetition costs
-# far more. A single dropped word on a long unit is below any usable threshold.
+# The recognizer's own mistakes cost a few percent; a dropped sentence or runaway
+# repetition costs far more. A single dropped last word is caught by lost_ending().
 DEFAULT_MAX_CER = 0.10
 _LANGUAGES = {"zh": "Chinese", "en": "English"}
 
@@ -87,13 +86,13 @@ _SPOKEN_SYMBOLS = [
 
 
 def normalize(text: str, language: str) -> str:
-    """Drop punctuation and spaces; compare Chinese in simplified form, with
-    interchangeable variants folded together and numbers as Arabic numerals.
+    """The text as compared: Chinese by sound (toneless pinyin, simplified, variants
+    folded), English as lowercase words; punctuation and spaces dropped.
 
     The TTS reads a number however suits it (1998年 as 一九九八, 1234个 as 一千两百三十四,
     5% as 百分之五) and the recognizer writes what it hears, so both sides are brought to
     digits: a Chinese numeral with 十/百/千/万 is a cardinal, one without is read digit by
-    digit."""
+    digit. A lone numeral stays a character (七 in 七夕 sounds like 栖)."""
     if language == "zh":
         return _zh_sound(_zh_chars(text))
     return "".join(_english_words(text))
@@ -123,7 +122,7 @@ def _zh_sound(chars: str) -> str:
     """Each Chinese character becomes a code for its syllable (toneless pinyin, reading
     chosen from context by pypinyin), so characters that sound the same compare equal.
     Speech cannot tell 他 from 她 or 它, 只 from 支, 使 from 驶; the recognizer picks one
-    (在桥上, M5: 71 of the substitutions were 他/她/它). Other characters stay as they are.
+    (在桥上: 71 of the substitutions were 他/她/它). Other characters stay as they are.
     One character stays one symbol, so error rates are still per character."""
     from pypinyin import lazy_pinyin
 
@@ -214,7 +213,7 @@ def lost_ending(reference: str, hypothesis: str, language: str) -> bool:
     """True when the last word of the text is missing from the end of the transcript.
 
     Some voices sometimes stop in the middle of the final syllable, or say it so softly
-    it is barely audible (M3 listening: old_woman_stern's 「……应该告诉你」). On a
+    it is barely audible (old_woman_stern's 「……应该告诉你」). On a
     20-character line that is a 5% error rate, under the threshold, but it is the most
     noticeable kind of mistake. The recognizer may add a trailing particle, so the last
     word only has to appear among the transcript's last few.

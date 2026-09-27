@@ -32,7 +32,8 @@ def validate(cast, where: str = "cast.json") -> dict:
         raise CastError(f"{where}: expected a JSON object")
     narrator = cast.get("narrator")
     if not isinstance(narrator, dict) or not isinstance(narrator.get("voice"), str) or not narrator["voice"]:
-        raise CastError(f'{where}: needs "narrator": {{"voice": "preset:<name>"}}')
+        raise CastError(f'{where}: needs "narrator": {{"voice": "library:zh/narrator_female"}} or another voice '
+                       f'(huashuo voices)')
     characters = cast.setdefault("characters", {})
     if not isinstance(characters, dict):
         raise CastError(f'{where}: "characters" must be an object keyed by character name')

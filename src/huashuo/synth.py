@@ -40,7 +40,7 @@ MIN_ASR_CHARS = 6
 
 def unit_key(unit: Unit, engine_identity: dict, language: str, voice_identity: str | None = None) -> str:
     """Cache key of a unit. `voice_identity` (engine.voice_identity) adds a library voice's
-    fingerprint; presets are keyed by name, as before."""
+    fingerprint; presets are keyed by name."""
     payload = json.dumps({"v": CACHE_VERSION, "engine": engine_identity, "voice": voice_identity or unit.voice,
                           "instruct": unit.instruct, "language": language, "text": unit.text},
                          ensure_ascii=False, sort_keys=True)
@@ -216,7 +216,7 @@ def cached_ok(wd: Workdir, key: str) -> dict | None:
 
 
 # Long units often lose their last syllable on every attempt, while the same last sentence
-# on its own keeps it (一条被洗澡水拍死的鱼: 4 units, 3 of 3 seeds each; design doc §5.10).
+# on its own keeps it (一条被洗澡水拍死的鱼: 4 units, 3 of 3 seeds each; design doc §5.13).
 # Such a unit is then made of two clips: everything before its last sentence, and that
 # sentence, joined by the pause that follows a sentence (post.PAUSES["sentence"]).
 SPLIT_PAUSE = 0.45
@@ -293,6 +293,8 @@ def _rejudge(wd: Workdir, key: str, meta: dict, unit: Unit, language: str, max_c
 
 def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                max_attempts: int = 3, show_progress: bool = True) -> Stats:
+    from huashuo.asr import judge
+
     stats = Stats()
     identity = engine.identity()
     keys = unit_keys(units, engine, language)
@@ -334,7 +336,6 @@ def synthesize(units: list[Unit], engine, wd: Workdir, language: str, asr=None,
                 long_enough = len(_COUNTED.get(language, _COUNTED["zh"]).findall(unit.text)) >= MIN_ASR_CHARS
                 if problem is None and asr is not None and long_enough:
                     transcript = asr.transcribe(audio, engine.sample_rate, language)
-                    from huashuo.asr import judge
                     error_rate, problem = judge(unit.page_text, transcript, language, _max_cer(unit, asr.max_cer))
                 off_pace = 1.0
                 if problem is None and unit.kind == "body":

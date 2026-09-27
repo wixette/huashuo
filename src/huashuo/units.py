@@ -6,12 +6,9 @@ Units never cross a paragraph, chapter, heading, break, skip, or a change of voi
 emotion. Each unit records what kind of boundary follows it, which is what
 post-processing turns into a pause (POST-3).
 
-Units used to join whole paragraphs up to 400 characters, leaving the pauses between them
-to the model. On long inputs the model's pace is not reliable: in 一条被洗澡水拍死的鱼 one
-396-character unit of six paragraphs was read about 20% too fast, its pauses shrinking
-to a quarter of a second and vanishing at two paragraph breaks (design doc §5.13). With
-a paragraph at most per unit, every paragraph break gets the pause set for it, and a
-rushed take spoils one short piece at most.
+A unit is at most one paragraph: on long inputs the model's pace is not reliable, its
+pauses shrinking and vanishing at paragraph breaks (design doc §5.13). So every paragraph
+break gets the pause set for it, and a rushed take spoils one short piece at most.
 """
 
 from __future__ import annotations

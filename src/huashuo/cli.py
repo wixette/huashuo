@@ -213,15 +213,12 @@ def _workdir(args):
 
 
 def cmd_import(args, quiet: bool = False, summary: bool = True):
-    from huashuo.pipeline import import_book
+    from huashuo.pipeline import LLMOptions, import_book, load_project, speaks_simplified
 
     started = time.time()
-
     if not args.book.is_file():
         print(f"error: {args.book} not found", file=sys.stderr)
         return 2
-    from huashuo.pipeline import LLMOptions
-
     wd = _workdir(args)
     _setup_logging(wd)
     llm = LLMOptions(model=args.llm_model, base_url=args.llm_base_url,
@@ -238,7 +235,6 @@ def cmd_import(args, quiet: bool = False, summary: bool = True):
     if result.voices == "single":
         print("single voice: the narrator reads everything, dialogue included (--multi-voice to give "
               "characters their own voices)")
-    from huashuo.pipeline import load_project, speaks_simplified
     if speaks_simplified(load_project(wd)):
         print("Traditional Chinese: read from a Simplified conversion, which the TTS pronounces better "
               "(the book's text is unchanged; --no-simplify to turn off)")
@@ -247,7 +243,6 @@ def cmd_import(args, quiet: bool = False, summary: bool = True):
     _print_llm(None if result.voices == "single" else result.llm, wd)
     _print_pron(wd, result.script)
     if not quiet:
-        from huashuo.pipeline import load_project
         _print_structure(load_project(wd))
     run = _run(args)
     single = result.voices == "single"
@@ -658,8 +653,7 @@ def cmd_audition(args) -> int:
     """One M4B with a chapter per character (or per library voice), from the unit cache."""
     from huashuo.library import castable, narrators
     from huashuo.m4b import BookInfo, probe, write_m4b
-    from huashuo.pipeline import book_cover
-    from huashuo.pipeline import load_project
+    from huashuo.pipeline import book_cover, load_project
     from huashuo.post import layout, stream
     from huashuo.synth import synthesize, unit_keys
     from huashuo.units import END, PARAGRAPH, Chapter, Plan, Unit

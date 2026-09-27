@@ -8,8 +8,8 @@ a library voice sounds the same in every book. Each voice ships as two small fil
     voices/<language>/<id>.json   description, how it was made, tags used for casting
     voices/<language>/<id>.npy    the 2048-value speaker vector (float32)
 
-Presets of the CustomVoice model are described in voices/presets.json with the same tags,
-so casting can treat both alike.
+The CustomVoice model's presets are described in voices/presets.json with the same tags, for
+listing; they are used only when named in cast.json.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class LibraryError(Exception):
 
 @dataclass(frozen=True)
 class Voice:
-    ref: str                     # "library:zh/v5_young_man" or "preset:serena"
+    ref: str                     # "library:zh/young_man_deep" or "preset:serena"
     language: str
     gender: str                  # male / female
     age: str                     # one of AGES
@@ -116,12 +116,10 @@ def has_library(language: str, root: Path | None = None) -> bool:
 def castable(language: str, root: Path | None = None) -> list[Voice]:
     """Voices casting may choose from for a language: the library's character voices.
 
-    Presets are left out; they are used only when named in cast.json. The library voices
-    were designed and checked for accent; the presets were not, and serena drifts into a
-    Shaanxi-like dialect: in a blind test 3 of 12 takes of her lines did (with a
-    「用标准普通话说」 instruct 1 of 12, plus 3 with odd sounds added), a library voice 0 of
-    12 (design doc §5.8, requirements Q21). Narrator voices are left out too: a character
-    should not sound like the narration."""
+    Presets are left out: unlike the library voices they were not checked for accent, and
+    serena drifts into dialect (design doc §5.8, requirements Q21); they are used only when
+    named in cast.json. Narrator voices are left out too: a character should not sound like
+    the narration."""
     return [v for v in _load(root or ROOT).values()
             if v.language == language and v.kind == "library" and not v.narrator_only]
 

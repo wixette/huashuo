@@ -9,7 +9,7 @@ generation steps use the real table untouched.
 This reaches into mlx-audio internals (`_prepare_generation_inputs`, `talker_config.spk_id`,
 `supported_speakers`) that are not a public API, so it is checked against the exact
 version it was written for. The proper fix is an upstream option to pass a speaker vector
-directly (design doc §10.2).
+directly (design doc §10.5).
 """
 
 from __future__ import annotations

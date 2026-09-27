@@ -68,13 +68,14 @@ def title_author_from_name(stem: str) -> tuple[str, str]:
     return match["title"].strip(), (match["author"] or "").strip()
 
 
-_AUTHOR_LINE = re.compile(r"^(?:作者|著者|author|by)\s*[:：]?\s*(?P<author>\S.{0,38})$", re.IGNORECASE)
+# 「作者：曹雪芹」 or "Author: Jane Austen" on a line of its own (structure.py skips it later).
+AUTHOR_LINE = re.compile(r"^(?:作者|著者|author|by)\s*[:：]?\s*(?P<author>\S.{0,38})$", re.IGNORECASE)
 
 
 def author_from_opening(paragraphs: list[Paragraph], limit: int = 10) -> str:
     """「作者：曹雪芹」 or "Author: Jane Austen" among the first few lines, if present."""
     for p in paragraphs[:limit]:
-        match = _AUTHOR_LINE.match(p.text)
+        match = AUTHOR_LINE.match(p.text)
         if match:
             return match["author"].strip()
     return ""

@@ -20,11 +20,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections import Counter
 import json
 import math
 import os
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Literal
@@ -38,8 +38,8 @@ from huashuo.units import paragraph_of
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
 PROMPT_VERSION = 1
-DEFAULT_MODEL = "gpt-6-sol"          # requirements §9.1 Q17
-DEFAULT_MAX_COST = 5.0               # NFR-4: about $3, at most $5 per 300k characters
+DEFAULT_MODEL = "gpt-6-sol"          # requirements Q17
+DEFAULT_MAX_COST = 5.0               # USD per run (LLM-4); a long book costs about $10 (NFR-4)
 CAST_CHUNK_CHARS = 2500
 ATTR_CHUNK_CHARS = 1500
 CONTEXT_SEGMENTS = 3
@@ -56,8 +56,7 @@ PRICES = {"gpt-6-luna": (0.10, 0.50), "gpt-6-sol": (2.00, 10.00), "gpt-6-astra":
 # quotes, 159 speaking characters; $2.30 for pass 1, $0.035 per pass-2 call). Every call
 # carries the cast: pass 1 as JSON (about 125 characters per character), pass 2 as a list
 # plus the names in the answer schema (about 80). On a long book that is most of the
-# prompt, so a flat rate per character of text (the old 3.6 tokens, from short samples)
-# came out at a third of the real cost.
+# prompt, so a flat rate per character of text would be far too low.
 TOKENS_PER_CHAR = {"zh": 0.85, "en": 0.3}    # prose, instructions and the cast list
 CAST_JSON_TOKENS_PER_CHAR = 0.43
 CAST_JSON_CHARS = 125                        # per character, in pass 1's cast JSON
@@ -103,7 +102,7 @@ class LLMConfig:
     price_in: float
     price_out: float
     max_cost: float = DEFAULT_MAX_COST
-    output_mode: str = "native"      # response_format; avoids the reasoning + tools error (§6.4)
+    output_mode: str = "native"      # response_format; avoids the reasoning + tools error (design doc §6.4)
     reasoning_effort: str | None = "none"
     concurrency: int = DEFAULT_CONCURRENCY
 
