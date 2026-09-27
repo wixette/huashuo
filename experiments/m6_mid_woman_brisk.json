@@ -1,0 +1,39 @@
+{
+  "language": "chinese",
+  "note": "2026-09-27: mid_woman_brisk redesigned. The M3 voice (客栈老板娘, 音色略微粗厚, an old-style inn greeting as reference) sounded older than its age and much like 刘兰芳, the 评书 performer, in 广告. New descriptions: a present-day brisk woman around forty, bright and clean rather than thick; a present-day reference text.",
+  "default_seeds": [
+    0,
+    1,
+    2
+  ],
+  "preset_probe_text": "这条路我走过很多次，从来没有迷过路。你若信得过我，就跟紧些，天黑之前我们能赶到渡口。",
+  "chinese_presets": [
+    "serena",
+    "vivian",
+    "uncle_fu",
+    "dylan",
+    "eric"
+  ],
+  "voices": [
+    {
+      "id": "b1_shop",
+      "role": "中年女，四十岁左右，爽朗干练（小店老板）",
+      "description": "一位四十岁左右的中年女性，在城市里经营一家小店，性格爽朗干练，说话干脆利落、语速稍快，嗓音明亮清脆，音色干净。",
+      "ref_text": "行了行了，这事交给我。明天一早我先去把合同签了，下午再带人把货清点一遍，保证误不了你们的事。",
+      "chosen_seed": 2,
+      "listening_notes": "s2 best (2026-09-28); s0 and s1 sound like a man's voice"
+    },
+    {
+      "id": "b2_manager",
+      "role": "中年女，四十出头，雷厉风行（部门经理）",
+      "description": "一位四十出头的中年女性，公司部门经理，做事雷厉风行，说话简洁有力、节奏明快，声音清亮、中气足，带一点精明和幽默。",
+      "ref_text": "行了行了，这事交给我。明天一早我先去把合同签了，下午再带人把货清点一遍，保证误不了你们的事。"
+    },
+    {
+      "id": "b3_neighbour",
+      "role": "中年女，四十岁上下，泼辣爽快（社区热心人）",
+      "description": "一位四十岁上下的中年女性，社区里的热心人，性格泼辣爽快，很有精神，声音清脆利落，说话带着笑意。",
+      "ref_text": "行了行了，这事交给我。明天一早我先去把合同签了，下午再带人把货清点一遍，保证误不了你们的事。"
+    }
+  ]
+}

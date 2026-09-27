@@ -25,6 +25,7 @@ environment or a git-ignored `.env`, and stop before a cost cap (`--max-cost`).
 | `pace_check.py` | 2026-09-25 | Narration pace: how steady it is and what steadies it (temperature, unit length) | §5.11 |
 | `pace_normalize.py` | 2026-09-25 | Prototype: steady the pace after synthesis (not adopted) | §5.11 |
 | `title_tone_check.py` | 2026-09-26 | Tone of number-only chapter titles (「1」 read yì) | §5.13 |
+| `m6_mid_woman_brisk.json` | 2026-09-28 | The redesigned `mid_woman_brisk`: candidates by `exp1_candidates.py`, check by `exp1_stability.py --spec` | §5.6 |
 | `ending_padding_check.py` | 2026-09-27 | Does padding a unit's end stop the TTS from cutting its last syllable? (no) | §5.10 |
 
 ## EXP-1 rounds 3a and 3b

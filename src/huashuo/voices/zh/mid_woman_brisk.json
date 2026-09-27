@@ -1,22 +1,22 @@
 {
   "id": "mid_woman_brisk",
-  "role": "中年女，四十多岁，响亮泼辣",
-  "label": "middle-aged woman, 40s, loud and sharp-tongued",
+  "role": "中年女，四十岁左右，爽朗干练",
+  "label": "middle-aged woman, about 40, bright and brisk",
   "gender": "female",
   "age": "middle_aged",
   "traits": [
-    "响亮",
-    "泼辣",
-    "精明"
+    "明亮",
+    "干练",
+    "爽朗"
   ],
-  "description": "一位四十多岁的中年妇女，客栈老板娘，嗓门响亮，音色略微粗厚，说话干脆利落，带点泼辣和精明。",
-  "ref_text": "哎哟，客官里边请！今儿个刚到的新酒，您要是不尝一口，可就白来我们这镇子一趟了。",
-  "seed": 0,
+  "description": "一位四十岁左右的中年女性，在城市里经营一家小店，性格爽朗干练，说话干脆利落、语速稍快，嗓音明亮清脆，音色干净。",
+  "ref_text": "行了行了，这事交给我。明天一早我先去把合同签了，下午再带人把货清点一遍，保证误不了你们的事。",
+  "seed": 2,
   "made_with": {
     "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
     "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
     "mlx_audio": "0.5.5"
   },
-  "listening_notes": "s0 情绪好（稍夸张），略显老，泼辣劲儿好 > s2 显年轻稳重，不够泼辣 > s1 表演痕迹重"
+  "listening_notes": "2026-09-28: redesigned (experiments/m6_mid_woman_brisk.json). The first version, an inn landlady with a thick voice, sounded older than forty and much like 刘兰芳, the 评书 performer. This one: s2 best, s0 and s1 sounded like a man; the 20-clip check sounds consistent"
 }

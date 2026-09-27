@@ -21,8 +21,11 @@ import tempfile
 from pathlib import Path
 
 import huashuo.workdir
-from huashuo.attribution import llm_config
+from huashuo.attribution import Caller, attribute_script, llm_config
+from huashuo.ingest import read_book
+from huashuo.library import castable, default_narrator
 from huashuo.pipeline import LLMOptions, import_book, load_project
+from huashuo.structure import build
 from huashuo.workdir import Workdir
 
 EXAMPLES = Path(__file__).resolve().parent
@@ -62,8 +65,16 @@ def main() -> None:
             wd = Workdir.for_input(book)
             if target.is_dir():
                 shutil.copytree(target, wd.state / "llm-cache")
-            result = import_book(book, wd, llm=LLMOptions(config_override=config, assume_yes=True))
-            usage = result.llm.usage
+            # Attribute with calls allowed and the stored answers as cache, so every missing
+            # answer is paid for, voice suggestions included (an import would reuse the
+            # previous voices instead), and nothing else. The prompts are the import's own:
+            # the same script, voices and default narrator.
+            built = build(read_book(book))
+            language = built.script.header["language"]
+            caller = Caller(config, wd.state / "llm-cache")
+            attribute_script(built.script, language, caller, None, castable(language), default_narrator(language))
+            usage = caller.usage
+            import_book(book, wd, llm=LLMOptions(config_override=config, assume_yes=True))   # answered from the cache
             got = [b.get("speaker") for b in load_project(wd).script.blocks if b["type"] == "dialogue"]
             differ = [(n + 1, g, s) for n, (g, s) in enumerate(zip(got, gold)) if g != s]
             print(f"{source.suffix[1:]}: {usage.requests} requests, ${usage.cost:.3f}"
