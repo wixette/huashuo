@@ -13,24 +13,27 @@ them. Deterministic: the same cast always gets the same voices.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 
 from huashuo.library import AGES, Voice, castable
 
 DEFAULT_MAIN = 8
 FIRST_PERSON = {"我", "I", "me"}
-_NARRATOR_WORDS = ("第一人称叙述者", "第一人称的叙述者", "叙述者「我」", "first-person narrator", "the narrator")
+# A description that begins by saying who the character is. Only the beginning counts:
+# 「第一人称叙述者林默的表哥」 and "the narrator's sister" describe someone else.
+_NARRATOR_DESCRIPTION = re.compile(r"^(?:(?:the|a)\s+)?(?:(?:第一人称的?叙述者|叙述者[「“]我[」”])(?=$|[，,。.：:；;、\s（(—])"
+                                   r"|first-person narrator(?![’']s))", re.IGNORECASE)
+_AGE_INDEX = {age: i for i, age in enumerate(AGES)}
 
 
 def is_first_person(name: str, character: dict) -> bool:
     """The character who narrates: named 「我」 / "I", or so described. Models often use
     the narrator's real name once another character says it (林默, aliases ['我', '默儿'],
-    「第一人称叙述者……」), so aliases and the description count too (SCR-9)."""
+    「第一人称叙述者，……」), so aliases and the description count too (SCR-9)."""
     if name in FIRST_PERSON or FIRST_PERSON & set(character.get("aliases") or []):
         return True
-    description = (character.get("description") or "").lower()
-    return any(word.lower() in description for word in _NARRATOR_WORDS)
-_AGE_INDEX = {age: i for i, age in enumerate(AGES)}
+    return bool(_NARRATOR_DESCRIPTION.match((character.get("description") or "").strip()))
 
 
 # The most-speaking character is the protagonist when ahead of the next by this factor
@@ -123,9 +126,8 @@ def _mismatch(character: dict, voice: Voice) -> int:
     return score
 
 
-# A young adult is the likelier reading of an unstated age (一条被洗澡水拍死的鱼: 栖芒, a
-# former chorus singer and the narrator's lover, was given a brisk woman in her forties
-# when middle age cost nothing and the tie went alphabetically).
+# An unstated age is most often a young adult; middle age is plausible, a child's, a
+# teenager's or an old voice much less so.
 _UNKNOWN_AGE_COST = {"child": 80, "teen": 50, "young_adult": 0, "middle_aged": 10, "elderly": 35}
 # Spreading bit parts over voices is nice, but never at the price of a wrong age: the
 # penalty for a crowded voice stops growing below the cost of a wrong-age voice.

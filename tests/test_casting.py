@@ -136,3 +136,16 @@ def test_the_narrator_follows_a_first_person_narrator_or_a_clear_protagonist():
     assert choose_narrator(hero, "en") == ("preset:ryan", "default")    # no English narrator voices
     unknown = {"林默": {"aliases": ["我"], "gender": "unknown", "lines": 6}, "周强": {"gender": "male", "lines": 30}}
     assert choose_narrator(unknown, "zh") == (female, "first-person narrator 林默, gender unknown: default")
+
+
+def test_only_a_description_that_begins_with_it_makes_the_narrator():
+    """「第一人称叙述者林默的表哥」 describes someone else; so does "the narrator's sister"."""
+    from huashuo.casting import is_first_person
+
+    assert is_first_person("林默", {"description": "第一人称叙述者，周强的表亲。"})
+    assert is_first_person("叙事者", {"description": "The first-person narrator."})
+    assert is_first_person("某人", {"description": "叙述者「我」，一名摄影师。"})
+    assert not is_first_person("周强", {"description": "第一人称叙述者林默的表哥，深夜来接他。"})
+    assert not is_first_person("周强", {"description": "表哥，第一人称叙述者的亲戚。"})
+    assert not is_first_person("Anne", {"description": "The narrator's sister, sharp-tongued."})
+    assert not is_first_person("Tom", {"description": "The first-person narrator's best friend."})

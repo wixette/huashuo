@@ -168,3 +168,13 @@ def test_a_rushed_take_is_tried_again(tmp_path):
     units = [unit("雪" * 50 + f"{n}。") for n in range(8)] + [unit("赶" * 50 + "。")]
     stats = synthesize(units, engine, wd, "zh", show_progress=False)
     assert stats.retried == 1 and not stats.warnings and engine.calls == 10
+
+
+def test_the_real_time_factor_counts_only_what_was_synthesized(capsys, monkeypatch):
+    """Resuming a book: cached units add audio but took no time; they must not inflate the rtf."""
+    from huashuo.synth import Progress
+
+    p = Progress(2, 20, enabled=True, chapters=[(0, 10), (0, 10)])
+    p.advance(10, 600.0, None)                   # from the cache: ten minutes of audio, no time
+    p.advance(10, 30.0, 10.0)                    # synthesized: 30 s of audio in 10 s
+    assert "rtf 3.00x" in capsys.readouterr().out

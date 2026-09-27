@@ -213,8 +213,9 @@ def read_epub(path: Path) -> Book:
             raise IngestError("EPUB has an empty spine: no readable documents")
 
         # Table of contents: EPUB 3 nav first, then the EPUB 2 NCX.
+        names = set(archive.namelist())
         toc: list[_TocEntry] = []
-        for href in nav_hrefs:
+        for href in nav_hrefs & names:
             toc = _toc_from_nav(archive.read(href), posixpath.dirname(href))
             if toc:
                 break
@@ -225,7 +226,7 @@ def read_epub(path: Path) -> Book:
             if ncx:
                 toc = _toc_from_ncx(_xml(archive, ncx["href"]), posixpath.dirname(ncx["href"]))
 
-        docs = {href: _parse_xhtml(archive.read(href)) for href in spine if href in archive.namelist()}
+        docs = {href: _parse_xhtml(archive.read(href)) for href in spine if href in names}
 
         # Where each TOC entry starts: (spine position, paragraph index).
         starts: dict[tuple[int, int], _TocEntry] = {}

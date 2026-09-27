@@ -141,7 +141,10 @@ def _parse_chapters(spec: str | None) -> set[int] | None:
     numbers: set[int] = set()
     for part in spec.split(","):
         a, _, b = part.strip().partition("-")
-        numbers.update(range(int(a), int(b or a) + 1))
+        try:
+            numbers.update(range(int(a), int(b or a) + 1))
+        except ValueError:
+            raise SystemExit(f"--chapters {spec}: expected chapter numbers such as 1,3-5") from None
     return numbers
 
 
@@ -567,8 +570,11 @@ def cmd_package(args) -> int:
 def parse_time(value: str) -> float:
     """「1:28」, 「1:02:03」, 「88」 or 「88.5」 -> seconds."""
     seconds = 0.0
-    for part in value.strip().split(":"):
-        seconds = seconds * 60 + float(part)
+    try:
+        for part in value.strip().split(":"):
+            seconds = seconds * 60 + float(part)
+    except ValueError:
+        raise SystemExit(f"--at {value}: expected a time such as 1:28, 1:02:03 or 88.5") from None
     return seconds
 
 

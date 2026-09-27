@@ -15,6 +15,14 @@ def run(*args):
 
 def test_parse_time():
     assert parse_time("1:28") == 88 and parse_time("1:02:03") == 3723 and parse_time("88.5") == 88.5
+    with pytest.raises(SystemExit, match="expected a time"):
+        parse_time("1m28")
+
+
+def test_bad_chapter_numbers_are_an_error_not_a_crash(sample_txt):
+    assert run("import", sample_txt) == 0
+    with pytest.raises(SystemExit, match="expected chapter numbers"):
+        run("synth", sample_txt, "--chapters", "one")
 
 
 def test_missing_book(tmp_path, capsys):

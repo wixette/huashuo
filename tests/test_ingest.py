@@ -68,3 +68,20 @@ def test_not_an_epub(tmp_path):
     path.write_text("nope")
     with pytest.raises(IngestError, match="not a valid EPUB"):
         read_book(path)
+
+
+def test_an_epub_whose_nav_document_is_missing_still_reads(tmp_path):
+    """The manifest names a nav file the archive lacks: fall back to the spine, no crash."""
+    import zipfile
+
+    from helpers import make_epub
+    from huashuo.ingest.epub import read_epub
+
+    whole = make_epub(tmp_path / "whole.epub")
+    broken = tmp_path / "broken.epub"
+    with zipfile.ZipFile(whole) as src, zipfile.ZipFile(broken, "w") as dst:
+        for item in src.infolist():
+            if not item.filename.endswith("nav.xhtml"):
+                dst.writestr(item, src.read(item.filename))
+    book = read_epub(broken)
+    assert book.title == "测试之书" and any(p.text for s in book.sections for p in s.paragraphs)

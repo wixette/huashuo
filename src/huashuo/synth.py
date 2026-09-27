@@ -136,7 +136,7 @@ class Progress:
         # Without a terminal (piped to a log), print a plain line every 10% instead.
         self.logged, self.next_mark = logged and not enabled, 10
         self.done_units = self.done_chars = self.synth_chars = 0
-        self.synth_seconds = self.audio_seconds = 0.0
+        self.synth_seconds = self.audio_seconds = self.synth_audio = 0.0
         self.start = time.time()
         # (chapter index, characters) of each unit, in order; chapters are numbered 1..N
         # in the order they occur, so a --chapters run counts only the chosen ones.
@@ -160,9 +160,10 @@ class Progress:
         self.done_units += 1
         self.done_chars += chars
         self.audio_seconds += audio_seconds
-        if elapsed is not None:
+        if elapsed is not None:                              # synthesized now, not from the cache
             self.synth_chars += chars
             self.synth_seconds += elapsed
+            self.synth_audio += audio_seconds
         self.render()
 
     def chapter_status(self) -> str:
@@ -189,7 +190,7 @@ class Progress:
             return
         if self.synth_chars:
             eta = _hms((self.total_chars - self.done_chars) * self.synth_seconds / self.synth_chars)
-            rtf = f"{self.audio_seconds / max(self.synth_seconds, 1e-9):.2f}x"
+            rtf = f"{self.synth_audio / max(self.synth_seconds, 1e-9):.2f}x"
         else:
             eta, rtf = "--:--:--", "--"
         sys.stdout.write(f"\r\033[K[{self.done_units}/{self.total_units}] {pct:5.1f}%  {self.chapter_status()}audio "
