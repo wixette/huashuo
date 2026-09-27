@@ -4,8 +4,8 @@
     huashuo import BOOK          build the work directory; list chapters and skipped text
     huashuo check BOOK           verify the script against text.txt (docs/script-ir.md §5)
     huashuo synth BOOK           synthesize (resumable); --sample / --chapters for auditions
-    huashuo package BOOK         write the M4B from what has been synthesized
-    huashuo redo BOOK --at 1:28  re-synthesize what plays at a time in the M4B, then repackage
+    huashuo package BOOK         write the M4B (or MP3s) from what has been synthesized
+    huashuo redo BOOK --at 1:28  re-synthesize what plays at a time in the book, then repackage
     huashuo audition BOOK        one line per character in its cast voice, as <book>.audition.m4b
     huashuo clean BOOK           delete the synthesized audio (the book can be rebuilt from the rest)
     huashuo voices               list the voices: narrators, character voices and presets
@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 from huashuo import __version__
-from huashuo.m4b import DEFAULT_BITRATE
+from huashuo.m4b import DEFAULT_BITRATE, FORMATS
 
 COMMANDS = ("make", "import", "check", "synth", "package", "redo", "audition", "clean", "voices")
 log = logging.getLogger("huashuo")
@@ -88,14 +88,19 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument("--credit", action=argparse.BooleanOptionalAction, default=None,
                        help="add a line saying the audiobook was made with Huashuo (default: no)")
         p.add_argument("--sample", type=int, nargs="?", const=600, metavar="CHARS",
-                       help="only the first CHARS characters (default 600); packaged as <book>.sample.m4b")
+                       help="only the first CHARS characters (default 600); packaged as <book>.sample.m4b (or .mp3)")
         p.add_argument("--chapters", help="only these chapters, e.g. 1,3-5 (numbers from `import`); "
-                                          "packaged as <book>.chapters-1_3-5.m4b")
+                                          "packaged as <book>.chapters-1_3-5.m4b (or .mp3)")
         p.add_argument("--engine", default="qwen3", help=argparse.SUPPRESS)
 
     def package_options(p):
-        p.add_argument("-o", "--output", type=Path, help="output M4B (default: next to the book)")
-        p.add_argument("--bitrate", default=DEFAULT_BITRATE, help=f"AAC bitrate (default {DEFAULT_BITRATE})")
+        p.add_argument("--format", choices=FORMATS,
+                       help="m4b: one audiobook with chapters (the default); mp3: one MP3 file; mp3-chapters: "
+                            "a folder with an MP3 per chapter, for players without M4B support (remembered for "
+                            "this book)")
+        p.add_argument("-o", "--output", type=Path,
+                       help="output file, or folder for mp3-chapters (default: next to the book)")
+        p.add_argument("--bitrate", default=DEFAULT_BITRATE, help=f"audio bitrate (default {DEFAULT_BITRATE})")
         p.add_argument("--loudness", type=float, metavar="LUFS",
                        help="loudness target (default -18; remembered for this book)")
         p.add_argument("--pause", action="append", metavar="KIND=SECONDS",
@@ -111,11 +116,12 @@ def _parser() -> argparse.ArgumentParser:
     book_command("check", "check the script's invariants")
     p = book_command("synth", "synthesize units into the cache")
     synth_options(p)
-    p = book_command("package", "encode the M4B from cached units")
+    p = book_command("package", "encode the M4B (or MP3s) from cached units")
     synth_options(p, asr=False), package_options(p)
-    p = book_command("redo", "re-synthesize the unit playing at a time in the M4B, with new seeds")
+    p = book_command("redo", "re-synthesize the unit playing at a time in the book, with new seeds")
     p.add_argument("--at", action="append", required=True, metavar="TIME",
-                   help="time in the M4B, e.g. 1:28, 1:02:03 or 88.5; repeatable")
+                   help="time in the M4B or single MP3, e.g. 1:28, 1:02:03 or 88.5, or in a chapter's MP3 "
+                        "as CHAPTER/TIME, e.g. 3/1:28; repeatable")
     synth_options(p), package_options(p)
     p = book_command("audition", "hear each character's voice before synthesizing the book")
     p.add_argument("--character", action="append", metavar="NAME", help="only these characters; repeatable")
@@ -524,6 +530,17 @@ def cmd_synth(args) -> int:
     return 0
 
 
+def _output_format(args, wd) -> str:
+    """--format, remembered in state/run.json like the loudness (M4B-7)."""
+    from huashuo.workdir import read_json, write_json_atomic
+
+    stored = read_json(wd.run_options, {}) or {}
+    given = getattr(args, "format", None)
+    if given is not None and given != stored.get("format", "m4b"):
+        write_json_atomic(wd.run_options, {**stored, "format": given})
+    return given or stored.get("format", "m4b")
+
+
 def _partial_suffix(args) -> str:
     """Auditions never overwrite the finished book: .sample / .chapters-3-8 in the name."""
     if args.sample is not None:
@@ -534,7 +551,7 @@ def _partial_suffix(args) -> str:
 
 
 def cmd_package(args) -> int:
-    from huashuo.m4b import BookInfo, probe, write_m4b
+    from huashuo.m4b import BookInfo, probe, write_m4b, write_mp3, write_mp3_chapters
     from huashuo.pipeline import book_cover
     from huashuo.post import layout, stream
     from huashuo.synth import cached_ok, unit_keys
@@ -549,7 +566,8 @@ def cmd_package(args) -> int:
         raise SystemExit(f"{missing} of {len(keys)} units are not synthesized yet; run `huashuo synth` "
                          f"with the same options first")
     header = project.script.header
-    default_name = args.book.stem + _partial_suffix(args) + ".m4b"
+    fmt = _output_format(args, wd)
+    default_name = args.book.stem + _partial_suffix(args) + {"m4b": ".m4b", "mp3": ".mp3"}.get(fmt, "")
     output = args.output or args.book.with_name(default_name)
 
     cover = book_cover(wd, header.get("title") or args.book.stem)
@@ -558,13 +576,21 @@ def cmd_package(args) -> int:
                     date=header.get("meta", {}).get("date", ""))
     loudness, pauses = _post_options(args, wd)
     timeline = layout(plan, keys, wd, loudness, pauses)
-    print(f"encoding {output.name}: {_hms(timeline.seconds)}, {_count(len(timeline.chapters), 'chapter')} …")
-    write_m4b(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover,
-              args.bitrate)
-    result = probe(output)
-    seconds = float(result["format"]["duration"])
-    print(f"wrote {output} ({_mb(output.stat().st_size)}, {_hms(seconds)}, "
-          f"{_count(len(result.get('chapters', [])), 'chapter')})")
+    print(f"encoding {output.name}{'/' if fmt == 'mp3-chapters' else ''}: {_hms(timeline.seconds)}, "
+          f"{_count(len(timeline.chapters), 'chapter')} …")
+    if fmt == "mp3-chapters":
+        files = write_mp3_chapters(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters,
+                                   cover, args.bitrate)
+        seconds = sum(float(probe(f)["format"]["duration"]) for f in files)
+        print(f"wrote {output}/ ({_count(len(files), 'MP3 file')}, {_mb(sum(f.stat().st_size for f in files))}, "
+              f"{_hms(seconds)})")
+    else:
+        write = write_m4b if fmt == "m4b" else write_mp3
+        write(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover, args.bitrate)
+        result = probe(output)
+        seconds = float(result["format"]["duration"])
+        print(f"wrote {output} ({_mb(output.stat().st_size)}, {_hms(seconds)}, "
+              f"{_count(len(result.get('chapters', [])), 'chapter')})")
     _run(args)["packaged"] = time.time() - started
     return 0
 
@@ -580,8 +606,22 @@ def parse_time(value: str) -> float:
     return seconds
 
 
+def at_seconds(value: str, timeline) -> float:
+    """--at: a time in the whole book, or 「3/1:28」, a time in chapter 3's own MP3."""
+    chapter, slash, time_part = value.partition("/")
+    if not slash:
+        return parse_time(value)
+    if not chapter.strip().isdigit() or not 1 <= int(chapter) <= len(timeline.chapters):
+        raise SystemExit(f"--at {value}: no chapter {chapter.strip()}; the book has {len(timeline.chapters)}")
+    title, start, end = timeline.chapters[int(chapter) - 1]
+    seconds = parse_time(time_part)
+    if seconds >= (end - start) / timeline.sample_rate:
+        raise SystemExit(f"--at {value}: chapter {chapter.strip()} is only {_hms((end - start) / timeline.sample_rate)}")
+    return start / timeline.sample_rate + seconds
+
+
 def cmd_redo(args) -> int:
-    """Map each time in the M4B to its unit, re-roll those units, synthesize, repackage."""
+    """Map each time in the book to its unit, re-roll those units, synthesize, repackage."""
     from huashuo.post import layout, unit_at
     from huashuo.synth import cached_ok, reroll, unit_keys
 
@@ -591,12 +631,12 @@ def cmd_redo(args) -> int:
     keys = unit_keys(plan.units, engine, project.language)
     if any(cached_ok(wd, k) is None for k in keys):
         raise SystemExit("some units are not synthesized yet; run `huashuo synth` (or make) with the "
-                         "same options first, so times refer to a finished M4B")
+                         "same options first, so times refer to a finished book")
     loudness, pauses = _post_options(args, wd)
     timeline = layout(plan, keys, wd, loudness, pauses)
     chosen: dict[int, str] = {}
     for value in args.at:
-        index = unit_at(timeline, parse_time(value))
+        index = unit_at(timeline, at_seconds(value, timeline))
         if index is None:
             raise SystemExit(f"{value} is outside the book ({_hms(timeline.seconds)})")
         chosen.setdefault(index, value)
@@ -623,7 +663,7 @@ def cmd_make(args) -> int:
     print(f"\nplan: {len(plan.units)} units, {plan.chars:,} characters, {_count(len(plan.chapters), 'chapter')}")
     print(f"  audio        about {_hms(est.audio_seconds)}")
     print(f"  synthesis    roughly {_hms(est.synth_seconds)} on an M1 (1.7B model)")
-    print(f"  disk         cache {_mb(est.cache_bytes)}, M4B {_mb(est.m4b_bytes)}")
+    print(f"  disk         cache {_mb(est.cache_bytes)}, {_output_format(args, wd).split('-')[0].upper()} {_mb(est.m4b_bytes)}")
     if args.dry_run:
         return 0
     status = cmd_synth(args) or cmd_package(args)

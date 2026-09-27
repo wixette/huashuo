@@ -1226,6 +1226,18 @@ M5 之后，项目负责人用示例小说与本地真实小说试听、试用�
 
 **手选的音色只保留一次（2026-09-28 修正）**：`cast.json` 里的音色是否算用户选的，是和上次机器的选角表（`state/cast.auto.json`）比较；但选角把用户的音色当作既定，机器的选角表里也就是用户的音色，于是第二次重新导入时两者相同、不再算用户的选择，被 LLM 的推荐换掉（《广告》演示里对调过的两个音色又对调了回来）。手选的旁白同样。现在机器的选角表里，这些角色记的是机器自己先前的选择（没有就不记），旁白同理，所以手选的音色每次重新导入都保留。同时修正 `--narrator auto`：原先手改过的旁白仍然优先，现在按说明交还给规则。
 
+**MP3 导出**（requirements M4B-7、Q29，2026-09-28）：`--format mp3 | mp3-chapters`，与 M4B 共用同一条时间线与 PCM 流，只换 ffmpeg 的编码参数（LAME，码率与 M4B 相同，默认 64 kbps 单声道 24 kHz）。单个 MP3 写 ID3v2.3 标签、封面（front cover）与 ID3 章节帧，但多数播放器不显示章节，所以另有按章文件：按时间线的章节边界切开 PCM，每章一个文件，标题为章节名，专辑为书名，曲目号「n/N」，文件名以补零的序号开头，确保任何播放器按顺序排列。输出文件夹整个替换（先写到临时文件夹），章节变少时不留旧文件；文件夹里有 MP3 以外的文件时拒绝覆盖。`redo --at 3/1:28` 把章节文件里的时间换算成全书时间。
+
+**演示文件**（v0.1.0a1 的附件）：两篇示例小说各一个 M4B 与 MP3（鱼另有按章 MP3 的 zip），由仓库里的文本与 `llm-cache/`、《广告》的 `cast.json` 离线生成。README 的在线试听用 MP4（封面静图 + 音频；《广告》全文 5:57，鱼节选书店一场 9:54–12:00），通过 GitHub 编辑器上传：
+
+    ffmpeg -loop 1 -framerate 5 -t LEN -i cover.jpg -ss START -t LEN -i BOOK.m4b -map 0:v -map 1:a \
+      -map_chapters -1 -map_metadata -1 -vf "scale=1080:1080,format=yuv420p" \
+      -c:v libx264 -tune stillimage -crf 20 -r 5 -g 50 \
+      -af "afade=t=in:d=0.3,areverse,afade=t=in:d=1.5,areverse" -c:a aac_at -b:a 96k -ac 1 \
+      -movflags +faststart demo.mp4
+
+循环的静图要用 `-t` 限定长度（`-shortest` 会多出十几秒），`-map_chapters -1` 去掉 M4B 带来的章节文字轨。
+
 **删除 `--no-llm`**（requirements Q24、Q25）：它原本是「不调用 LLM、对白由旁白读」的办法，但对标注过的书无效（缓存的回答仍会分配角色音色），也不被记住。「一种音色」改由 `--single-voice` 表达后，「不发起调用」这层意思已由首次同意、续跑前询问与非交互不付费保证，于是删掉。
 
 ### 10.5 后续阶段

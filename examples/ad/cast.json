@@ -36,7 +36,7 @@
       "age": "elderly",
       "description": "地球旅游广告中坐在沙滩上介绍虚拟现实美景的老人。",
       "lines": 1,
-      "voice": "library:zh/old_man_kind"
+      "voice": "library:zh/old_man_hoarse"
     },
     "老太太": {
       "aliases": [],
@@ -52,7 +52,7 @@
       "age": "middle_aged",
       "description": "地球旅游广告中驾驶战斗机、声称保障旅客安全的四十多岁飞行员。",
       "lines": 1,
-      "voice": "library:zh/young_man_deep"
+      "voice": "library:zh/young_man_warm"
     },
     "导游": {
       "aliases": [],
@@ -85,7 +85,7 @@
       "description": "地球旅游广告中站在汽车前、为地球机动车感到骄傲的年轻人。",
       "gender_inferred": true,
       "lines": 1,
-      "voice": "library:zh/young_man_warm"
+      "voice": "library:zh/young_man_deep"
     },
     "女科学家": {
       "aliases": [],

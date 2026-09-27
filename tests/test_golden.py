@@ -190,7 +190,7 @@ def test_ad_the_demo_cast_is_kept(tmp_path):
     project = load_project(wd)
     voices = {name: c["voice"] for name, c in project.cast["characters"].items()}
     assert voices["小胡子"] == "library:zh/mid_man_jovial" and voices["厨师"] == "library:zh/mid_man_steady"
-    assert voices["空军飞行员"] == "library:zh/young_man_deep" and voices["工程师"] == "library:zh/young_man_warm"
+    assert voices["空军飞行员"] == "library:zh/young_man_warm" and voices["工程师"] == "library:zh/young_man_deep"
     assert check_project(project) == []
     slogan = next(u for u in make_plan(project).units if "远道而来是朋友" in u.text)
     assert slogan.voice == "library:zh/mid_man_jovial"

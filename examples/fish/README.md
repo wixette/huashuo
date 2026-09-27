@@ -18,6 +18,13 @@ the file without its extension.
     huashuo examples/fish/txt/一条被洗澡水拍死的鱼.txt
     huashuo examples/fish/epub/一条被洗澡水拍死的鱼.epub
 
+To make the demo audiobook (attached to huashuo's releases) without paying for the LLM again, put the stored answers in the work
+directory before the first import:
+
+    mkdir -p examples/fish/epub/一条被洗澡水拍死的鱼.huashuo/state
+    cp -R examples/fish/llm-cache examples/fish/epub/一条被洗澡水拍死的鱼.huashuo/state/
+    huashuo examples/fish/epub/一条被洗澡水拍死的鱼.epub
+
 Rebuild the EPUB after editing the text:
 
     .venv/bin/python examples/make_epub.py examples/fish/txt/一条被洗澡水拍死的鱼.txt \

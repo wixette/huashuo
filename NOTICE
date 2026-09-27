@@ -26,6 +26,9 @@ contains the following, under their own terms:
   一条被洗澡水拍死的鱼 by 半轻人, CC BY-NC-ND 4.0, with the author's permission to make
   and share audio with huashuo for testing and demonstration (examples/fish/LICENSE).
 
+- examples/ad/
+  广告 by 半轻人, CC BY-NC-ND 4.0, with the same permission (examples/ad/LICENSE).
+
 Huashuo calls ffmpeg as a separate program; it does not include or link it. Its design
 learned from prakharsr/audiobook-creator and landandan's Chinese fork of it (GPL-3.0);
 no code or prompts were copied from them.

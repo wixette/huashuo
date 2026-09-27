@@ -1,8 +1,10 @@
-"""Encode the programme into an M4B with chapters, metadata and cover (M4B-1 … M4B-4).
+"""Encode the programme into an M4B with chapters, metadata and cover (M4B-1 … M4B-4),
+or into MP3: one file, or one file per chapter (M4B-7).
 
 ffmpeg does the encoding, called as a subprocess with list arguments (NFR-7, NFR-8). On
 macOS the AudioToolbox AAC encoder (`aac_at`) is used when present; it is noticeably
-better than ffmpeg's built-in AAC at the 64 kbps an audiobook needs.
+better than ffmpeg's built-in AAC at the 64 kbps an audiobook needs. MP3 uses LAME, which
+every ffmpeg build we rely on (Homebrew, Ubuntu) includes.
 """
 
 from __future__ import annotations
@@ -11,12 +13,14 @@ import json
 import os
 import shutil
 import subprocess
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 DEFAULT_BITRATE = "64k"
+FORMATS = ("m4b", "mp3", "mp3-chapters")
 LANGUAGE_CODES = {"zh": "chi", "en": "eng"}   # ISO 639-2 for the audio stream
 
 
@@ -54,12 +58,13 @@ def _escape(value: str) -> str:
     return value
 
 
-def ffmetadata(info: BookInfo, chapters: list[tuple[str, int, int]], sample_rate: int) -> str:
-    tags = {"title": info.title, "album": info.title, "artist": info.author,
+def ffmetadata(info: BookInfo, chapters: list[tuple[str, int, int]], sample_rate: int,
+               title: str | None = None, track: str = "") -> str:
+    tags = {"title": title or info.title, "album": info.title, "artist": info.author,
             "album_artist": info.author,
             # No standard narrator atom exists; players and Audiobookshelf read it from composer.
             "composer": info.narrator, "genre": "Audiobook", "date": info.date,
-            "comment": info.description, "description": info.description}
+            "comment": info.description, "description": info.description, "track": track}
     lines = [";FFMETADATA1"] + [f"{k}={_escape(v)}" for k, v in tags.items() if v]
     for title, start, end in chapters:
         lines += ["", "[CHAPTER]", f"TIMEBASE=1/{sample_rate}", f"START={start}", f"END={end}",
@@ -70,23 +75,100 @@ def ffmetadata(info: BookInfo, chapters: list[tuple[str, int, int]], sample_rate
 def write_m4b(output: Path, pcm: Iterable[bytes], sample_rate: int, info: BookInfo,
               chapters: list[tuple[str, int, int]], cover: Path | None,
               bitrate: str = DEFAULT_BITRATE) -> None:
+    def tail(tmp_output: Path) -> list[str]:
+        command = ["-c:a", aac_encoder(), "-b:a", bitrate,
+                   "-metadata:s:a:0", f"language={LANGUAGE_CODES.get(info.language, 'und')}"]
+        if cover is not None:
+            command += ["-map", "2:v", "-c:v", "copy", "-disposition:v:0", "attached_pic"]
+        # Major brand "M4B " marks the file as an audiobook for players that look (M4B-5).
+        return command + ["-movflags", "+faststart", "-brand", "M4B ", "-f", "ipod", str(tmp_output)]
+    _encode(output, pcm, sample_rate, ffmetadata(info, chapters, sample_rate), cover, tail)
+
+
+def write_mp3(output: Path, pcm: Iterable[bytes], sample_rate: int, info: BookInfo,
+              chapters: list[tuple[str, int, int]], cover: Path | None,
+              bitrate: str = DEFAULT_BITRATE, title: str | None = None, track: str = "") -> None:
+    """One MP3 with ID3v2.3 tags (the version most players read), the cover as the front
+    picture, and ID3 chapter frames, which few players show."""
+    def tail(tmp_output: Path) -> list[str]:
+        command = ["-c:a", "libmp3lame", "-b:a", bitrate]
+        if cover is not None:
+            command += ["-map", "2:v", "-c:v", "copy", "-disposition:v:0", "attached_pic",
+                        "-metadata:s:v", "title=Cover", "-metadata:s:v", "comment=Cover (front)"]
+        return command + ["-id3v2_version", "3", "-write_xing", "1", "-f", "mp3", str(tmp_output)]
+    _encode(output, pcm, sample_rate, ffmetadata(info, chapters, sample_rate, title, track), cover, tail)
+
+
+def chapter_file_names(chapters: list[tuple[str, int, int]]) -> list[str]:
+    """「01 第一章 雪夜.mp3」…: numbered so that every player sorts them in order; the
+    characters file systems reject are replaced."""
+    width = max(2, len(str(len(chapters))))
+    names = []
+    for number, (title, _, _) in enumerate(chapters, 1):
+        clean = " ".join(re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", title).split()).strip(".")[:80].strip()
+        names.append(f"{number:0{width}d} {clean}.mp3" if clean else f"{number:0{width}d}.mp3")
+    return names
+
+
+def write_mp3_chapters(folder: Path, pcm: Iterable[bytes], sample_rate: int, info: BookInfo,
+                       chapters: list[tuple[str, int, int]], cover: Path | None,
+                       bitrate: str = DEFAULT_BITRATE) -> list[Path]:
+    """A folder with one MP3 per chapter, tagged as tracks of one album. The folder is
+    replaced as a whole, so a book with fewer chapters than before leaves no stale files;
+    a folder holding anything but MP3s is not touched."""
+    if folder.exists() and (not folder.is_dir() or any(p.suffix.lower() != ".mp3" for p in folder.iterdir())):
+        raise PackageError(f"{folder} exists and is not a folder of MP3s; choose another with -o")
+    tmp_folder = folder.with_name(f"{folder.name}.{os.getpid()}.tmp")
+    shutil.rmtree(tmp_folder, ignore_errors=True)
+    tmp_folder.mkdir(parents=True)
+    try:
+        names = chapter_file_names(chapters)
+        pieces = split_pcm(pcm, [end - start for _, start, end in chapters])
+        for number, ((title, start, end), name, piece) in enumerate(zip(chapters, names, pieces), 1):
+            write_mp3(tmp_folder / name, piece, sample_rate, info, [], cover, bitrate,
+                      title=title, track=f"{number}/{len(chapters)}")
+        if folder.exists():
+            shutil.rmtree(folder)
+        os.replace(tmp_folder, folder)
+    except BaseException:
+        shutil.rmtree(tmp_folder, ignore_errors=True)
+        raise
+    return [folder / name for name in names]
+
+
+def split_pcm(pcm: Iterable[bytes], lengths: list[int]) -> Iterator[Iterator[bytes]]:
+    """Cut a 16-bit PCM stream into consecutive pieces of `lengths` samples, lazily: each
+    piece must be read to its end before the next one is taken."""
+    source = iter(pcm)
+    left = b""
+    for length in lengths:
+        def piece(wanted: int = 2 * length) -> Iterator[bytes]:
+            nonlocal left
+            while wanted > 0:
+                chunk = left or next(source, b"")
+                if not chunk:
+                    return
+                left = chunk[wanted:]
+                yield chunk[:wanted]
+                wanted -= min(wanted, len(chunk))
+        yield piece()
+
+
+def _encode(output: Path, pcm: Iterable[bytes], sample_rate: int, metadata: str,
+            cover: Path | None, tail) -> None:
+    """Pipe the PCM into ffmpeg with the metadata (input 1) and cover (input 2); `tail`
+    gives the codec and container arguments for a temporary output path."""
     output.parent.mkdir(parents=True, exist_ok=True)
-    tmp_output = output.with_name(f"{output.name}.{os.getpid()}.tmp.m4b")
+    tmp_output = output.with_name(f"{output.name}.{os.getpid()}.tmp{output.suffix}")
     with tempfile.TemporaryDirectory() as tmp:
         meta_path = Path(tmp) / "metadata.txt"
-        meta_path.write_text(ffmetadata(info, chapters, sample_rate), encoding="utf-8")
+        meta_path.write_text(metadata, encoding="utf-8")
         command = [_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-y",
                    "-f", "s16le", "-ar", str(sample_rate), "-ac", "1", "-i", "pipe:0",
                    "-i", str(meta_path)]
         if cover is not None:
             command += ["-i", str(cover)]
-        command += ["-map", "0:a", "-map_metadata", "1", "-map_chapters", "1",
-                    "-c:a", aac_encoder(), "-b:a", bitrate,
-                    "-metadata:s:a:0", f"language={LANGUAGE_CODES.get(info.language, 'und')}"]
-        if cover is not None:
-            command += ["-map", "2:v", "-c:v", "copy", "-disposition:v:0", "attached_pic"]
-        # Major brand "M4B " marks the file as an audiobook for players that look (M4B-5).
-        command += ["-movflags", "+faststart", "-brand", "M4B ", "-f", "ipod", str(tmp_output)]
+        command += ["-map", "0:a", "-map_metadata", "1", "-map_chapters", "1"] + tail(tmp_output)
 
         # ffmpeg's messages go to a file: an unread pipe could fill up and stall both sides.
         with open(Path(tmp) / "ffmpeg.log", "w+b") as log_file:

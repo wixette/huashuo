@@ -129,3 +129,59 @@ def test_redo_resynthesizes_the_unit_at_a_time(sample_txt, capsys):
     import pytest
     with pytest.raises(SystemExit, match="outside the book"):
         run("redo", sample_txt, "--no-asr", "--at", "99:00")
+
+
+@pytest.mark.ffmpeg
+def test_mp3_formats_one_file_or_a_file_per_chapter(sample_txt, capsys):
+    assert run("make", sample_txt, "--no-asr", "--format", "mp3") == 0
+    info = probe(sample_txt.with_suffix(".mp3"))
+    audio = next(s for s in info["streams"] if s["codec_type"] == "audio")
+    assert audio["codec_name"] == "mp3" and audio["channels"] == 1
+    tags = {k.lower(): v for k, v in info["format"]["tags"].items()}
+    assert (tags["title"], tags["artist"], tags["album"]) == ("红楼梦", "曹雪芹", "红楼梦")
+    assert any(s["codec_type"] == "video" for s in info["streams"])      # cover as the front picture
+    whole = float(info["format"]["duration"])
+    assert [c["tags"]["title"] for c in info["chapters"]][0] == "第一回 甄士隐梦幻识通灵"
+
+    # Remembered: package alone writes chapter files once asked, and nothing is synthesized.
+    capsys.readouterr()
+    assert run("package", sample_txt, "--format", "mp3-chapters") == 0
+    assert run("package", sample_txt) == 0
+    assert "mp3-chapters" not in capsys.readouterr().out
+    folder = sample_txt.with_suffix("")
+    files = sorted(folder.iterdir())
+    assert [f.name for f in files] == ["01 第一回 甄士隐梦幻识通灵.mp3", "02 第二回 贾夫人仙逝扬州城.mp3"]
+    parts = [probe(f) for f in files]
+    tracks = [{k.lower(): v for k, v in p["format"]["tags"].items()} for p in parts]
+    assert [t["track"] for t in tracks] == ["1/2", "2/2"]
+    assert {t["album"] for t in tracks} == {"红楼梦"} and tracks[1]["title"] == "第二回 贾夫人仙逝扬州城"
+    assert abs(sum(float(p["format"]["duration"]) for p in parts) - whole) < 0.5
+
+    # A time in a chapter's file finds the same unit as the time in the whole book.
+    capsys.readouterr()
+    first = float(parts[0]["format"]["duration"])
+    assert run("redo", sample_txt, "--no-asr", "--at", "2/0:01") == 0
+    assert "redo #1" in capsys.readouterr().out
+    with pytest.raises(SystemExit, match="no chapter 3"):
+        run("redo", sample_txt, "--no-asr", "--at", "3/0:01")
+    with pytest.raises(SystemExit, match="is only"):
+        run("redo", sample_txt, "--no-asr", "--at", f"1/{first + 5:.0f}")
+
+    # A folder with other files in it is not replaced.
+    (folder / "notes.txt").write_text("mine")
+    capsys.readouterr()
+    assert run("package", sample_txt) != 0
+    assert "not a folder of MP3s" in capsys.readouterr().err
+    assert (folder / "notes.txt").exists()
+
+
+def test_split_pcm_cuts_at_sample_boundaries():
+    from huashuo.m4b import split_pcm
+    pieces = [b"".join(p) for p in split_pcm([bytes(range(10)), bytes(range(10, 16))], [3, 1, 4])]
+    assert pieces == [bytes(range(6)), bytes(range(6, 8)), bytes(range(8, 16))]
+
+
+def test_chapter_file_names_sort_and_are_safe():
+    from huashuo.m4b import chapter_file_names
+    names = chapter_file_names([("第一章 雪/夜: 上", 0, 1), ("", 1, 2)] + [("x", 2, 3)] * 98)
+    assert names[0] == "001 第一章 雪 夜 上.mp3" and names[1] == "002.mp3" and names[-1] == "100 x.mp3"
