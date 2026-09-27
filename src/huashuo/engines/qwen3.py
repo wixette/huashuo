@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from huashuo.engines import EngineError, parse_voice
+from huashuo.engines import EngineError, library_voice, library_voice_identity, parse_voice
 
 DEFAULT_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit"
 DEFAULT_TEMPERATURE = 0.9
 
 # The talker stops at max_tokens codec frames (12.5 per second): about 5.5 minutes, far
-# above any 400-character unit, so hitting it means the model ran away.
+# beyond any unit (at most 150 characters), so hitting it means the model ran away.
 MAX_TOKENS = 4096
 CODEC_FRAME_RATE = 12.5
 MAX_UNIT_SECONDS = MAX_TOKENS / CODEC_FRAME_RATE
 
-# Dialect presets are excluded unless named explicitly (CAST-9).
-DIALECT_PRESETS = {"dylan": "Beijing dialect", "eric": "Sichuan dialect"}
 LANGUAGES = {"zh": "chinese", "en": "english"}
 
 # Free GPU buffers every so often so a multi-hour run does not accumulate memory.
@@ -67,23 +65,12 @@ class Qwen3Engine:
         return [s.lower() for s in self._load().get_supported_speakers()]
 
     def voice_identity(self, voice: str) -> str:
-        """The voice as it goes into cache keys: a library voice includes its fingerprint,
-        so regenerating a library voice never reuses audio made with the old one."""
-        kind, _ = parse_voice(voice)
-        if kind == "library":
-            from huashuo.library import get
-            return f"{voice}@{get(voice).fingerprint()}"
-        return voice
+        return library_voice_identity(voice)
 
     def check_voice(self, voice: str) -> None:
         kind, name = parse_voice(voice)
         if kind == "library":
-            from huashuo.library import LibraryError, get
-            try:
-                entry = get(voice)
-            except LibraryError as exc:
-                raise EngineError(str(exc)) from exc
-            self._speaker(voice, entry)              # registers it, checking the vector fits
+            self._speaker(voice, library_voice(voice))   # registers it, checking the vector fits
             return
         if name.lower() not in self.presets():
             raise EngineError(f"{voice}: no such preset; available: {', '.join(self.presets())}")

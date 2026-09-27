@@ -49,7 +49,7 @@
     ingest.json                  导入参数（编码、语言、是否读注释、--title / --author、--narrator、单一或多音色）、程序版本、封面来源、
                                  上次用的 LLM 模型，以及已同意发送原文的 LLM 地址
     llm-cache/<key>.json         LLM 的每次回答，按提示词、模型与提示词版本缓存：重新导入不再付费
-    run.json                     合成与封装的选项（音色、模型、章节标题、情绪、开场结尾、响度、停顿），
+    run.json                     合成与封装的选项（模型、章节标题、情绪、开场结尾、繁简转换、响度、停顿），
                                  package / redo 沿用
     rerolls.json                 `huashuo redo` 重做过的单元及次数
     cover.json                   生成封面所用的书名与模板指纹
@@ -275,7 +275,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 |---|---|
 | `narrator.voice` | 旁白音色；章节标题、开场结尾报幕同样使用（CAST-4）。导入时按书选择：第一人称按叙述者性别、否则按明显的主角性别，中文为 `library:zh/narrator_female` 或 `library:zh/narrator_male`，英文 `preset:ryan`；`--narrator` 或手改覆盖，手改的在重新导入后保留 |
 | `characters` | 以规范名为键。`aliases`、`gender`、`age`、`description`、`lines` 由剧本化阶段写入（SCR-3） |
-| `voice` | 音色引用：`preset:<名称>`（CustomVoice 预置）、`library:<语言>/<音色 id>`（内置音色库，CAST-1）；以后可加 `custom:<路径>`（CAST-12、CAST-13）。`huashuo voices --library` 列出可选的音色及其描述，`huashuo audition` 用每个角色的一句真实台词试听 |
+| `voice` | 音色引用：`preset:<名称>`（CustomVoice 预置）、`library:<语言>/<音色 id>`（内置音色库，CAST-1）；以后可加 `custom:<路径>`（CAST-12、CAST-13）。`huashuo voices` 列出可选的音色及其描述，`huashuo audition` 用每个角色的一句真实台词试听 |
 
 `age` 取值：`child` / `teen` / `young_adult` / `middle_aged` / `elderly`（剧本化阶段也可能写 `unknown`）。`gender`：`male` / `female` / `unknown`。
 

@@ -10,7 +10,7 @@ import zlib
 
 import numpy as np
 
-from huashuo.engines import EngineError, parse_voice
+from huashuo.engines import EngineError, library_voice, library_voice_identity, parse_voice
 
 PRESETS = ["serena", "vivian", "uncle_fu", "ryan", "aiden", "dylan", "eric"]
 
@@ -29,20 +29,12 @@ class FakeEngine:
         return {"engine": self.name, "cps": self.chars_per_second}
 
     def voice_identity(self, voice: str) -> str:
-        kind, _ = parse_voice(voice)
-        if kind == "library":
-            from huashuo.library import get
-            return f"{voice}@{get(voice).fingerprint()}"
-        return voice
+        return library_voice_identity(voice)
 
     def check_voice(self, voice: str) -> None:
         kind, name = parse_voice(voice)
         if kind == "library":
-            from huashuo.library import LibraryError, get
-            try:
-                get(voice)
-            except LibraryError as exc:
-                raise EngineError(str(exc)) from exc
+            library_voice(voice)
         elif name not in PRESETS:
             raise EngineError(f"{voice}: not a fake-engine preset")
 

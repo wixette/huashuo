@@ -1,4 +1,4 @@
-"""`huashuo` command line (CLI-1 … CLI-7).
+"""`huashuo` command line (requirements §3.10).
 
     huashuo BOOK                 import, check, synthesize and package in one go
     huashuo import BOOK          build the work directory; list chapters and skipped text
@@ -8,7 +8,7 @@
     huashuo redo BOOK --at 1:28  re-synthesize what plays at a time in the M4B, then repackage
     huashuo audition BOOK        one line per character in its cast voice, as <book>.audition.m4b
     huashuo clean BOOK           delete the synthesized audio (the book can be rebuilt from the rest)
-    huashuo voices               list the engine's preset voices (--library: every castable voice)
+    huashuo voices               list the voices: narrators, character voices and presets
 
 BOOK is the source file (.txt / .epub); its work directory defaults to <BOOK>.huashuo/.
 """
@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 from huashuo import __version__
+from huashuo.m4b import DEFAULT_BITRATE
 
 COMMANDS = ("make", "import", "check", "synth", "package", "redo", "audition", "clean", "voices")
 log = logging.getLogger("huashuo")
@@ -69,8 +70,6 @@ def _parser() -> argparse.ArgumentParser:
                        help="agree to send the book's text to the LLM endpoint without asking")
 
     def synth_options(p, asr: bool = True):
-        p.add_argument("--voice", help="narrator voice for this run, e.g. preset:vivian "
-                                       "(to keep it, edit cast.json)")
         p.add_argument("--model", help="Qwen3-TTS CustomVoice model (default: 1.7B 8-bit)")
         if asr:
             p.add_argument("--no-asr", action="store_true",
@@ -96,7 +95,7 @@ def _parser() -> argparse.ArgumentParser:
 
     def package_options(p):
         p.add_argument("-o", "--output", type=Path, help="output M4B (default: next to the book)")
-        p.add_argument("--bitrate", default="64k", help="AAC bitrate (default 64k)")
+        p.add_argument("--bitrate", default=DEFAULT_BITRATE, help=f"AAC bitrate (default {DEFAULT_BITRATE})")
         p.add_argument("--loudness", type=float, metavar="LUFS",
                        help="loudness target (default -18; remembered for this book)")
         p.add_argument("--pause", action="append", metavar="KIND=SECONDS",
@@ -118,20 +117,17 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--at", action="append", required=True, metavar="TIME",
                    help="time in the M4B, e.g. 1:28, 1:02:03 or 88.5; repeatable")
     synth_options(p), package_options(p)
-    p = book_command("audition", "hear each character's voice before synthesizing the book (CAST-11)")
+    p = book_command("audition", "hear each character's voice before synthesizing the book")
     p.add_argument("--character", action="append", metavar="NAME", help="only these characters; repeatable")
     p.add_argument("--library", action="store_true",
-                   help="instead, one probe sentence in every voice casting can choose from")
+                   help="instead, one probe sentence in every library voice, narrators included")
     p.add_argument("--model", help="Qwen3-TTS CustomVoice model (default: 1.7B 8-bit)")
     p.add_argument("-o", "--output", type=Path, help="output M4B (default: <book>.audition.m4b)")
     p.add_argument("--engine", default="qwen3", help=argparse.SUPPRESS)
-    p = book_command("clean", "delete the synthesized audio in the work directory (CLI-6)")
+    p = book_command("clean", "delete the synthesized audio in the work directory")
     p.add_argument("--yes", action="store_true", help="do not ask")
-    p = sub.add_parser("voices", help="list preset voices")
-    p.add_argument("--model", help="CustomVoice model")
-    p.add_argument("--library", action="store_true",
-                   help="list every voice casting can choose from (library and presets), without loading a model")
-    p.add_argument("--language", choices=["zh", "en"], default="zh", help="with --library (default zh)")
+    p = sub.add_parser("voices", help="list the voices: narrators, character voices and presets")
+    p.add_argument("--language", choices=["zh", "en"], default="zh", help="voices for books in this language (default zh)")
     return parser
 
 
@@ -420,7 +416,7 @@ def _engine(args):
 
 # Options that change which units exist. synth records them in state/run.json and package
 # and redo reuse them, so a flag need not be repeated to find the same units again.
-_RUN_OPTIONS = {"voice": None, "model": None, "titles": True, "emotions": True, "opening": True, "closing": True,
+_RUN_OPTIONS = {"model": None, "titles": True, "emotions": True, "opening": True, "closing": True,
                 "credit": False, "simplify": None}
 
 
@@ -483,7 +479,7 @@ def _prepare(args, save_options: bool = False):
         for problem in problems[:20]:
             print(problem, file=sys.stderr)
         raise SystemExit("the script has problems (above); fix them or re-run `huashuo import`")
-    plan = make_plan(project, read_titles=args.titles, voice=args.voice, emotions=args.emotions,
+    plan = make_plan(project, read_titles=args.titles, emotions=args.emotions,
                      opening=args.opening, closing=args.closing, credit=args.credit, simplify=args.simplify,
                      sample_chars=args.sample, chapters=_parse_chapters(args.chapters))
     if not plan.units:
@@ -741,24 +737,16 @@ def cmd_clean(args) -> int:
 
 
 def cmd_voices(args) -> int:
-    if args.library:
-        from huashuo.library import castable, default_narrator, narrators, presets
+    """The voices to choose from in cast.json or with --narrator; no model is loaded."""
+    from huashuo.library import castable, default_narrator, narrators, presets
 
-        default = default_narrator(args.language)
-        for voice in narrators(args.language):
-            mark = "narrator (default)" if voice.ref == default else "narrator"
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}  [{mark}]")
-        for voice in castable(args.language):
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}")
-        for voice in presets(args.language):
-            mark = "narrator (default)" if voice.ref == default else "only when named in cast.json"
-            print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}  [{mark}]")
-        return 0
-    from huashuo.engines.qwen3 import DIALECT_PRESETS, Qwen3Engine
-
-    engine = Qwen3Engine(**({"model": args.model} if args.model else {}))
-    for name in engine.presets():
-        note = f"  ({DIALECT_PRESETS[name]}; not used unless named)" if name in DIALECT_PRESETS else ""
-        print(f"preset:{name}{note}")
-    engine.close()
+    default = default_narrator(args.language)
+    for voice in narrators(args.language):
+        mark = "narrator (default)" if voice.ref == default else "narrator"
+        print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}  [{mark}]")
+    for voice in castable(args.language):
+        print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}")
+    for voice in presets(args.language):
+        mark = "narrator (default)" if voice.ref == default else "only when named in cast.json"
+        print(f"{voice.ref:<34} {voice.gender:<7} {voice.age:<12} {voice.label}  [{mark}]")
     return 0

@@ -126,8 +126,7 @@ def voice_of(block: dict, cast: dict, emotions: bool = True,
 
 
 def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX_CHARS,
-         read_titles: bool = True, voice_override: str | None = None, emotions: bool = True,
-         single_voice: bool = False) -> Plan:
+         read_titles: bool = True, emotions: bool = True, single_voice: bool = False) -> Plan:
     result = Plan()
     units = result.units
     joiner = "" if language == "zh" else " "
@@ -166,21 +165,19 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             name = f"{volume} · {title}" if block.get("level") == 2 and volume else title
             result.chapters.append(Chapter(name, block["id"], len(units), block.get("level", 1)))
             if read_titles:
-                voice = voice_override or cast["narrator"]["voice"]
+                voice = cast["narrator"]["voice"]
                 units.append(Unit("title", title, voice, None, [block["id"]],
                                   len(result.chapters) - 1, after=TITLE))
         elif kind == "heading":
             flush()
             close(HEADING)
-            units.append(Unit("heading", spoken_text(block).strip(), voice_override or cast["narrator"]["voice"],
+            units.append(Unit("heading", spoken_text(block).strip(), cast["narrator"]["voice"],
                               None, [block["id"]], len(result.chapters) - 1, after=HEADING))
         elif kind == "break":
             flush()
             close(BREAK)
         elif kind in ("narration", "dialogue"):
             voice = voice_of(block, cast, emotions, single_voice)
-            if voice_override and voice[0] == cast["narrator"]["voice"]:
-                voice = (voice_override, voice[1])
             text = spoken_text(block).strip()
             if not text:
                 continue

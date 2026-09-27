@@ -707,11 +707,12 @@ Pick the best voice for each main character:
 
 
 def suggest_voices(characters: dict[str, dict], voices: list, narrator: str, language: str, caller: Caller,
-                   main: int = 8) -> dict[str, str]:
+                   main: int | None = None) -> dict[str, str]:
     """One call: the model reads the main characters' profiles against the library's voice
     descriptions. Its picks are suggestions; casting.cast_voices enforces the rules."""
-    from huashuo.casting import is_first_person
+    from huashuo.casting import DEFAULT_MAIN, is_first_person
 
+    main = DEFAULT_MAIN if main is None else main
     names = [n for n in sorted(characters, key=lambda n: (-int(characters[n].get("lines") or 0), n))
              if not is_first_person(n, characters[n])][:main]
     refs = [v.ref for v in voices if v.ref != narrator]

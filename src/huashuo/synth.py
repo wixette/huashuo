@@ -54,8 +54,7 @@ REROLL_STRIDE = 100
 
 def unit_keys(units: list[Unit], engine, language: str) -> list[str]:
     identity = engine.identity()
-    voice_id = getattr(engine, "voice_identity", lambda v: v)
-    return [unit_key(u, identity, language, voice_id(u.voice)) for u in units]
+    return [unit_key(u, identity, language, engine.voice_identity(u.voice)) for u in units]
 
 
 def seed_for(key: str, attempt: int, rerolls: int = 0) -> int:

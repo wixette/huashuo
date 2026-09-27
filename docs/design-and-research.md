@@ -1144,7 +1144,7 @@ Script
 
 **元数据参数（IN-4）**：`import` / `make` 增加 `--title`、`--author`，与 `--cover` 一样记在 `state/ingest.json`，之后每次导入都写进话本头记录，所以重新导入不需要重复参数；用户在头记录里手改的值仍按三方合并保留。
 
-**响度与停顿（POST-1、POST-3）**（实测 `--loudness -17` 得到 -17.4 LUFS）：`--loudness LUFS` 与可重复的 `--pause KIND=SECONDS`（KIND 为 script-ir §6 的边界类型：sentence、turn、paragraph、heading、title、break、chapter_end、end）。它们只影响后期（增益与停顿不进入缓存键），所以改了只需重新封装。与 `--voice`、`--titles` 一样记在 `state/run.json`，`package`、`redo` 沿用。
+**响度与停顿（POST-1、POST-3）**（实测 `--loudness -17` 得到 -17.4 LUFS）：`--loudness LUFS` 与可重复的 `--pause KIND=SECONDS`（KIND 为 script-ir §6 的边界类型：sentence、turn、paragraph、heading、title、break、chapter_end、end）。它们只影响后期（增益与停顿不进入缓存键），所以改了只需重新封装。与 `--titles`、`--no-emotions` 一样记在 `state/run.json`，`package`、`redo` 沿用。
 
 **按章节的进度（SYN-7）**：进度行在整体进度之外显示「第 i / N 章」与本章完成比例；按章节合成（`--chapters`）时 N 是所选章节数。
 

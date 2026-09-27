@@ -75,12 +75,12 @@ def test_chapter_with_nothing_to_read_is_dropped():
     assert all(u.chapter == 0 for u in p.units)
 
 
-def test_say_voice_override_titles_off_and_pause_after():
+def test_say_titles_off_and_pause_after():
     s = script(("chapter", "第一章", {"level": 1}), ("narration", "单于来了。", {"say": "禅于来了。", "pause_after": 3}),
                ("narration", "下一段。"))
-    p = plan(s, CAST, "zh", read_titles=False, voice_override="preset:vivian")
+    p = plan(s, CAST, "zh", read_titles=False)
     assert [u.text for u in p.units] == ["禅于来了。", "下一段。"]
-    assert p.units[0].pause_override == 3.0 and {u.voice for u in p.units} == {"preset:vivian"}
+    assert p.units[0].pause_override == 3.0 and {u.voice for u in p.units} == {CAST["narrator"]["voice"]}
     assert p.chapters[0].first_unit == 0
 
 

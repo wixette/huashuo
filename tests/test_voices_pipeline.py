@@ -216,10 +216,10 @@ def test_audition_the_whole_library(book, tiny_library):
     assert len(titles) == 2 and not any("preset" in t for t in titles)          # the voices casting uses
 
 
-def test_voices_library_lists_without_a_model(tiny_library, capsys):
+def test_voices_lists_without_a_model(tiny_library, capsys):
     from huashuo.cli import main
 
-    assert main(["voices", "--library"]) == 0
+    assert main(["voices"]) == 0
     out = capsys.readouterr().out
     assert "library:zh/old_man" in out and "preset:dylan" in out and "only when named in cast.json" in out
 

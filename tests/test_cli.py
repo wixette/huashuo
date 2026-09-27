@@ -79,10 +79,9 @@ def test_user_cover_survives_reimport(tmp_path):
 @pytest.mark.ffmpeg
 def test_package_and_redo_reuse_the_synthesis_options(sample_txt):
     assert run("import", sample_txt) == 0
-    assert run("synth", sample_txt, "--no-asr", "--voice", "preset:vivian", "--no-titles",
-               "--no-emotions") == 0
+    assert run("synth", sample_txt, "--no-asr", "--no-titles", "--no-emotions") == 0
     wd = Workdir.for_input(sample_txt)
-    assert json.loads(wd.run_options.read_text()) == {"voice": "preset:vivian", "model": None, "titles": False,
+    assert json.loads(wd.run_options.read_text()) == {"model": None, "titles": False,
                                                          "emotions": False, "opening": True, "closing": True,
                                                          "credit": False, "simplify": None}
     assert run("package", sample_txt) == 0                 # finds the same units without repeating flags
@@ -257,7 +256,7 @@ def test_the_cli_speaks_english(tmp_path, capsys):
                       *(b.get("text", "") for b in script.blocks)])
     foreign = [run_ for run_ in re.findall(r"[　-〿一-鿿＀-￯]+", out) if run_ not in text]
     assert not foreign, f"Chinese that is not from the book: {foreign}"
-    assert run("voices", "--library") == 0
+    assert run("voices") == 0
     assert not re.search(r"[一-鿿]", capsys.readouterr().out)
     template = Workdir.for_input(book).pron.read_text(encoding="utf-8").splitlines()
     assert all(line.isascii() for line in template if "=" not in line)  # the examples are Chinese words

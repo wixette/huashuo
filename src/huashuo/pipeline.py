@@ -322,7 +322,7 @@ def resolve_narrator(choice: str | None, language: str) -> str | None:
         voices = [v.ref for v in narrators(language) if v.gender == choice]
         if not voices:
             raise PipelineError(f"--narrator {choice}: no {choice} narrator voice for {language} books; "
-                                f"name a voice instead (huashuo voices --library)")
+                                f"name a voice instead (huashuo voices)")
         return voices[0]
     try:
         return get(choice).ref
@@ -521,15 +521,14 @@ def check_project(project: Project) -> list:
     return check(project.script, project.text, project.cast)
 
 
-def make_plan(project: Project, *, read_titles: bool = True, voice: str | None = None,
-              max_chars: int = DEFAULT_MAX_CHARS, sample_chars: int | None = None,
+def make_plan(project: Project, *, read_titles: bool = True, max_chars: int = DEFAULT_MAX_CHARS, sample_chars: int | None = None,
               chapters: set[int] | None = None, emotions: bool = True, opening: bool = True,
               closing: bool = True, credit: bool = False, simplify: bool | None = None) -> Plan:
     """The units to synthesize; optionally only the first `sample_chars` characters of
     reading, or only some chapters (1-based, as listed by `huashuo import`)."""
-    full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice, emotions,
+    full = plan(project.script, project.cast, project.language, max_chars, read_titles, emotions,
                 project.single_voice)
-    _announce(full, project, voice or project.cast["narrator"]["voice"], opening, closing, credit)
+    _announce(full, project, project.cast["narrator"]["voice"], opening, closing, credit)
     readings = pron.load(project.workdir.pron)
     convert = speaks_simplified(project) if simplify is None else (simplify and project.language == "zh")
     if convert:
