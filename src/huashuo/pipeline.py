@@ -62,7 +62,7 @@ def _sha256_file(path: Path) -> str:
 @dataclass
 class LLMOptions:
     """How the import may use an LLM for speaker attribution."""
-    enabled: bool = True             # False (--no-llm): cached answers only, no calls
+    enabled: bool = True             # False (--single-voice, tests): cached answers only, no calls
     model: str | None = None
     base_url: str | None = None
     max_cost: float | None = None
@@ -107,7 +107,7 @@ def _readable_chars(script: Script) -> int:
 def _check_cap(estimate: float, config) -> None:
     if estimate > config.max_cost:
         raise PipelineError(f"speaker attribution is estimated at ${estimate:.2f} with {config.model}, above the "
-                            f"${config.max_cost:.2f} cap; raise it with --max-llm-cost, or use --no-llm")
+                            f"${config.max_cost:.2f} cap; raise it with --max-llm-cost, or use --single-voice")
 
 
 def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
@@ -127,7 +127,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
     if config is None:
         notice = None if not options.enabled else (
             "no LLM configured (HUASHUO_LLM_API_KEY / OPENAI_API_KEY); dialogue is read by the narrator. "
-            "Use --no-llm to silence this.")
+            "Use --single-voice to silence this.")
         if not cache.is_dir() or not any(cache.iterdir()):
             return None, LLMReport("none", notice=notice)
         caller = Caller(offline_config(options.model or record.get("llm_model")), cache, offline=True)
@@ -172,7 +172,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                        f"for speaker attribution, estimated ${estimate:.2f} (cap ${config.max_cost:.2f}). Continue?")
             if not (options.assume_yes or (options.confirm is not None and options.confirm(message))):
                 raise PipelineError(f"not sending the book to {config.endpoint} without your agreement: run again "
-                                    f"with --yes, or use --no-llm to skip speaker attribution")
+                                    f"with --yes, or use --single-voice to have the narrator read everything")
         # Remembered at once: an import stopped halfway (Ctrl-C) must not ask again.
         record["llm_consent"] = consented + [config.endpoint]
         stored = read_json(wd.ingest_record) or {}

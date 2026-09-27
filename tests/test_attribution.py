@@ -170,7 +170,7 @@ def test_reimport_without_llm_keeps_speakers_and_user_edits(book):
     target = next(b for b in script_.blocks if b["text"] == "“从哪儿来不重要。”")
     target["speaker"] = "老者"                                   # the user disagrees
     write_script(wd.script, script_)
-    result = import_book(book, wd, llm=LLMOptions(enabled=False, model="test-model"))   # --no-llm
+    result = import_book(book, wd, llm=LLMOptions(enabled=False, model="test-model"))   # no calls
     assert result.llm.mode == "cache"
     got = speakers(read_script(wd.script).blocks)
     assert got["“从哪儿来不重要。”"] == "老者" and got["“店家，来一壶热酒。”"] == "林渊"
@@ -192,7 +192,7 @@ def test_without_a_key_the_book_is_read_by_the_narrator(book, capsys):
     assert main(["import", str(book)]) == 0
     assert "no LLM configured" in capsys.readouterr().out
     assert set(speakers(read_script(Workdir.for_input(book).script).blocks).values()) == {"unknown"}
-    assert main(["import", str(book), "--no-llm"]) == 0
+    assert main(["import", str(book), "--single-voice"]) == 0                # one voice needs no LLM
     assert "no LLM configured" not in capsys.readouterr().out
 
 
@@ -366,7 +366,7 @@ def test_without_calls_a_changed_text_keeps_the_previous_answers(book):
     wd = Workdir.for_input(book)
     import_book(book, wd, llm=LLMOptions(config_override=LOCAL, model_override=ScriptedLLM().model()))
     _changed(book)
-    result = import_book(book, wd, llm=LLMOptions(enabled=False, model="test-model"))      # --no-llm
+    result = import_book(book, wd, llm=LLMOptions(enabled=False, model="test-model"))      # no calls
     assert speakers(read_script(wd.script).blocks) == {"“店家，来一壶热酒。”": "林渊",
                                                        "“客官面生得很，是从北边来的？”": "老者",
                                                        "“从哪儿来不重要。”": "林渊"}

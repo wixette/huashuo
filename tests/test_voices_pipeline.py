@@ -398,7 +398,7 @@ def test_make_takes_the_same_switch(tmp_path, capsys):
 
     path = tmp_path / "客栈.txt"
     path.write_text(DIALOGUE_TXT, encoding="utf-8")
-    assert main(["make", str(path), "--single-voice", "--no-llm", "--engine", "fake"]) == 0
+    assert main(["make", str(path), "--single-voice", "--engine", "fake"]) == 0
     out = capsys.readouterr().out
     assert "single voice: the narrator reads everything" in out and "single voice, no LLM needed" in out
     with pytest.raises(SystemExit, match="single voice"):                      # nobody to audition

@@ -66,10 +66,11 @@ per run); the first time a book is sent to an endpoint you are asked to agree (`
 scripts). Answers are cached as they arrive, so re-imports are free, and a run the cap
 stopped resumes where it stopped: import again with a higher `--max-llm-cost` and only the
 rest is paid for. If the text changed since (for example after an upgrade), the previous
-answers are kept and you are asked before anything is paid again. Without a key, or
-with `--no-llm`, no calls are made: answers already in the cache are still used, and quotes
-without one are read by the narrator (for a book read entirely by the narrator, use
-`--single-voice`). Quotes that need a look are listed in `book.huashuo/review.txt`.
+answers are kept and you are asked before anything is paid again; declining (or running
+without a terminal and without `--yes`) keeps what is there and pays nothing. Without a key
+no calls are made: answers already in the cache are still used, and quotes without one are
+read by the narrator (for a book read entirely by the narrator, use `--single-voice`).
+Quotes that need a look are listed in `book.huashuo/review.txt`.
 
 - [docs/requirements.md](docs/requirements.md): first-stage requirements (novel → M4B),
   milestones, acceptance criteria and the decision log. Start here.

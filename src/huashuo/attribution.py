@@ -229,7 +229,7 @@ class Caller:
 
     With `offline=True` only cached answers are used: nothing is sent anywhere, and a
     miss stops the stage (what was answered stays; the rest remains "unknown"). This is
-    how a book is re-imported without a key or with --no-llm without losing its
+    how a book is re-imported without a key, or read in a single voice, without losing its
     attribution.
     """
 

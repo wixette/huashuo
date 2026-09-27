@@ -6,6 +6,7 @@ speaker tests are then skipped with a note to re-record them (examples/refresh_g
 a capped manual run of about $0.20).
 """
 
+import re
 import shutil
 from pathlib import Path
 
@@ -84,3 +85,42 @@ def test_the_first_person_narrator_reads_the_narration(tmp_path):
     assert len(set(voices.values())) == len(voices)                           # 栖芒 and 李忱 each their own
     plan = make_plan(load_project(wd))
     assert plan.units[0].text == "《一条被洗澡水拍死的鱼》，作者半轻人。"
+
+
+_SENTENCE_END = re.compile(r'[。！？…!?][”’」』》）】"]*$')
+
+
+def _unit_problems(plan) -> list[str]:
+    """What the TTS should never get: a unit over the limit, a paragraph cut mid-sentence,
+    or cut into a scrap. The splitting is rule-based, so it holds with one voice as well."""
+    from huashuo.units import DEFAULT_MAX_CHARS, SENTENCE
+
+    body = [u for u in plan.units if u.kind == "body"]
+    problems = [f"{len(u.text)} characters: {u.text[:20]}" for u in body if len(u.text) > DEFAULT_MAX_CHARS]
+    for a, b in zip(body, body[1:]):
+        if a.after != SENTENCE or (a.voice, a.instruct) != (b.voice, b.instruct):
+            continue                                     # a turn between voices, or a new paragraph
+        if not _SENTENCE_END.search(a.text) and re.search(r"[。！？]", a.text):
+            problems.append(f"cut mid-sentence: …{a.text[-15:]}")
+        if min(len(a.text), len(b.text)) < 20:
+            problems.append(f"scrap: {a.text[-12:]!r} | {b.text[:12]!r}")
+    return problems
+
+
+@pytest.mark.parametrize("voices", ["multi", "single"])
+def test_units_are_whole_sentences_of_a_sensible_length(tmp_path, voices):
+    """This story had both faults before: a sentence cut where a quoted term began
+    (「……接受基因干预的“优质人”」) and an 8-character scrap (「他们也没有答案。」)."""
+    book = tmp_path / TXT.name
+    shutil.copy(TXT, book)
+    wd = Workdir.for_input(book)
+    shutil.copytree(FISH / "llm-cache", wd.state / "llm-cache")
+    result = import_book(book, wd, voices=voices, llm=LLMOptions(enabled=False, model="gpt-6-sol"))
+    project = load_project(wd)
+    plan = make_plan(project)
+    assert _unit_problems(plan) == []
+    voices_used = {u.voice for u in plan.units}
+    if voices == "single":
+        assert voices_used == {result.narrator} and not any(u.instruct for u in plan.units)
+    else:
+        assert len(voices_used) == 3                                # the narrator (and 我), 栖芒, 李忱

@@ -89,16 +89,30 @@ def split_long(text: str, max_chars: int, language: str) -> list[str]:
                 pieces.append(clause[:max_chars])
                 clause = clause[max_chars:]
             pieces.append(clause)
-    out, current = [], ""
+    return [p.strip() for p in _balanced(pieces, max_chars) if p.strip()]
+
+
+def _balanced(pieces: list[str], max_chars: int) -> list[str]:
+    """Join consecutive pieces into as few parts as fit `max_chars`, as even in length as
+    possible: 160 characters become 80 + 80 rather than 150 + a 10-character scrap, which
+    the TTS reads badly."""
+    n = len(pieces)
+    prefix = [0]
     for piece in pieces:
-        if current and len(current) + len(piece) > max_chars:
-            out.append(current)
-            current = piece
-        else:
-            current += piece
-    if current:
-        out.append(current)
-    return [p.strip() for p in out if p.strip()]
+        prefix.append(prefix[-1] + len(piece))
+    # best[i] = (parts, longest part, cuts) for pieces[i:]; fewest parts, then the shortest longest
+    best: list[tuple[int, int, list[int]] | None] = [None] * n + [(0, 0, [])]
+    for i in range(n - 1, -1, -1):
+        for j in range(i + 1, n + 1):
+            size = prefix[j] - prefix[i]
+            if size > max_chars and j > i + 1:
+                break
+            rest = best[j]
+            candidate = (rest[0] + 1, max(size, rest[1]), [j] + rest[2])
+            if best[i] is None or candidate[:2] < best[i][:2]:
+                best[i] = candidate
+    cuts = [0] + best[0][2]
+    return ["".join(pieces[a:b]) for a, b in zip(cuts, cuts[1:])]
 
 
 def voice_of(block: dict, cast: dict, emotions: bool = True,
@@ -170,9 +184,11 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             text = spoken_text(block).strip()
             if not text:
                 continue
-            size = sum(len(t) for _, t in group) + len(text)
             new_paragraph = bool(group) and paragraph_of(group[-1][0]["id"]) != paragraph_of(block["id"])
-            if group and (voice != group_voice or size > max_chars or new_paragraph):
+            # A paragraph in one voice stays one group, however long: flush() cuts it at
+            # sentence ends. Cutting here, where the next block starts, would split
+            # sentences at an opening quote (「……笑道，」 | 「“……”」).
+            if group and (voice != group_voice or new_paragraph):
                 same_paragraph = paragraph_of(group[-1][0]["id"]) == paragraph_of(block["id"])
                 changed_voice = voice[0] != group_voice[0]     # not just the emotion
                 flush()

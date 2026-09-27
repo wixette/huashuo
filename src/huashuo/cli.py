@@ -60,8 +60,6 @@ def _parser() -> argparse.ArgumentParser:
                        help="read editorial annotations (注釋 sections); skipped by default, "
                             "and the choice is remembered for this book")
         g = p.add_argument_group("speaker attribution (LLM)")
-        g.add_argument("--no-llm", action="store_true",
-                       help="make no LLM calls; earlier answers are still reused from the cache")
         g.add_argument("--llm-model", help="default: $HUASHUO_LLM_MODEL or gpt-6-sol")
         g.add_argument("--llm-base-url", help="OpenAI-compatible endpoint (default: $HUASHUO_LLM_BASE_URL or OpenAI)")
         g.add_argument("--max-llm-cost", type=float, help="stop before this run spends more than this many USD (default 5); answers "
@@ -227,7 +225,7 @@ def cmd_import(args, quiet: bool = False, summary: bool = True):
 
     wd = _workdir(args)
     _setup_logging(wd)
-    llm = LLMOptions(enabled=not args.no_llm, model=args.llm_model, base_url=args.llm_base_url,
+    llm = LLMOptions(model=args.llm_model, base_url=args.llm_base_url,
                      max_cost=args.max_llm_cost, assume_yes=args.yes, concurrency=args.llm_concurrency,
                      confirm=_ask if sys.stdin.isatty() else None, progress=LLMProgress())
     result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes, llm,

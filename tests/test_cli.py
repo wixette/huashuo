@@ -124,7 +124,7 @@ def test_gbk_web_novel_with_volumes_and_mixed_punctuation(tmp_path, capsys):
 
     book = tmp_path / "剑来长安.txt"
     book.write_bytes(WEBNOVEL_TXT.encode("gbk"))
-    assert run("import", book, "--no-llm") == 0
+    assert run("import", book) == 0
     out = capsys.readouterr().out
     assert "gb18030" in out and "剑来长安 by 青衫客" in out
     wd = Workdir.for_input(book)
@@ -185,7 +185,7 @@ def test_the_title_is_not_read_twice_when_the_opening_announces_it(tmp_path):
 
     book = tmp_path / "在桥上.txt"
     book.write_text("在桥上\n\n他说着把脸转过来，阳光在黑色的眼镜架上跳跃着闪亮。\n", encoding="utf-8")
-    assert run("import", book, "--no-llm") == 0
+    assert run("import", book) == 0
     project = load_project(Workdir.for_input(book))
     texts = [u.text for u in make_plan(project).units]
     assert texts[0] == "《在桥上》。" and "在桥上" not in texts[1:]
@@ -206,7 +206,7 @@ def test_a_traditional_book_is_read_from_a_simplified_conversion(tmp_path, capsy
     assert is_traditional(TRADITIONAL) and not is_traditional("我才想到，往很古远里说，那时的报纸和杂志都没有。")
     book = tmp_path / "熱包子.txt"
     book.write_text(TRADITIONAL, encoding="utf-8")
-    assert run("import", book, "--no-llm") == 0
+    assert run("import", book) == 0
     assert "Traditional Chinese: read from a Simplified conversion" in capsys.readouterr().out
     wd = Workdir.for_input(book)
     project = load_project(wd)
@@ -230,7 +230,7 @@ def test_the_cli_speaks_english(tmp_path, capsys):
 
     book = tmp_path / "剑来长安.txt"
     book.write_bytes(WEBNOVEL_TXT.encode("gbk"))
-    assert run("import", book, "--no-llm") == 0
+    assert run("import", book) == 0
     out = capsys.readouterr().out
     script = read_script(Workdir.for_input(book).script)                   # the text after cleanup (TXT-7)
     text = "\n".join([book.stem, *map(str, script.header.values()),
@@ -245,10 +245,10 @@ def test_the_cli_speaks_english(tmp_path, capsys):
 
 def test_import_and_make_end_with_a_summary(sample_txt, capsys):
     """How long it took and what the LLM cost this run, after the chapter and skip lists."""
-    assert run("import", sample_txt, "--no-llm") == 0
+    assert run("import", sample_txt) == 0
     last = capsys.readouterr().out.strip().splitlines()[-1]
     assert last.startswith("imported in ") and "LLM" in last
-    assert run("make", sample_txt, "--no-llm") == 0
+    assert run("make", sample_txt) == 0
     tail = capsys.readouterr().out.strip().splitlines()[-3:]
     assert tail[0].startswith("done in ") and "synthesis" in tail[0] and "encoding" in tail[0]
     assert tail[1].split()[0] == "units" and "synthesized" in tail[1]

@@ -36,6 +36,29 @@ def test_long_paragraph_splits_at_sentences_then_clauses():
     assert [u.after for u in p.units[1:]][-2:] == ["sentence", "end"]
 
 
+
+def test_split_pieces_are_balanced_not_a_scrap_at_the_end():
+    text = "这是一句二十个字左右的普通叙述文字啊。" * 8 + "好。"          # 162 characters
+    pieces = split_long(text, 150, "zh")
+    assert len(pieces) == 2 and min(map(len, pieces)) >= 60 and "".join(pieces) == text
+
+
+def test_a_paragraph_in_one_voice_is_cut_at_sentence_ends_not_where_a_quote_starts():
+    """With one voice (--single-voice, or a narrator quoting themselves) the narration and
+    quotes of a paragraph are one group; the cut must not fall at 「……笑道，」|「“……”」."""
+    c = "c001.p0001"
+    s = script(("chapter", "章", {"level": 1}),
+               ("narration", "他在门口站了很久，雨一直没停。" * 9 + "他回头看了一眼，笑道，", {"id": f"{c}.01"}),
+               ("dialogue", "“你们先走，我随后就到。”", {"id": f"{c}.02", "speaker": "林渊"}),
+               ("narration", "说完他转身进了屋。", {"id": f"{c}.03"}))
+    cast = {**CAST, "characters": {"林渊": {"voice": "library:zh/young_man"}}}
+    body = [u for u in plan(s, cast, "zh", single_voice=True).units if u.kind == "body"]
+    assert len({u.voice for u in body}) == 1 and all(len(u.text) <= 150 for u in body)
+    assert all(u.text.endswith(("。", "”")) for u in body)                    # whole sentences
+    assert not any(u.text.endswith("笑道，") for u in body)
+    multi = [u for u in plan(s, cast, "zh").units if u.kind == "body"]
+    assert [u.after for u in multi][-3:] == ["turn", "turn", "end"]           # voices still take turns
+
 def test_volume_title_folds_into_its_first_chapter():
     s = script(("chapter", "第一卷 起", {"level": 1}), ("chapter", "第一章 甲", {"level": 2}),
                ("narration", "正文。"), ("chapter", "第二章 乙", {"level": 2}), ("narration", "正文。"))
