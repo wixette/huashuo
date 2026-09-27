@@ -134,6 +134,10 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
             return None, LLMReport("none", notice=notice)
         caller = Caller(offline_config(options.model or record.get("llm_model")), cache, offline=True)
         attribution = attribute_script(script, language, caller, options.progress, voices, narrator)
+        if not attribution.stopped:
+            notice = None                    # the cache answered everything: no narrator fallback
+        elif notice:
+            notice = notice.replace("dialogue is", "dialogue the answer cache does not cover is")
         return attribution, LLMReport("cache", caller.config.model, caller.usage, None,
                                       attribution.stopped and "some quotes are not in the answer cache and stay "
                                                               "\"unknown\"", attribution.review, notice,

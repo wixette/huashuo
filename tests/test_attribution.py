@@ -196,6 +196,14 @@ def test_without_a_key_the_book_is_read_by_the_narrator(book, capsys):
     assert "no LLM configured" not in capsys.readouterr().out
 
 
+def test_without_a_key_cached_answers_need_no_notice(book, capsys):
+    from huashuo.cli import main
+    import_book(book, Workdir.for_input(book), llm=LLMOptions(config_override=LOCAL, model_override=ScriptedLLM().model()))
+    assert main(["import", str(book)]) == 0
+    assert "no LLM configured" not in capsys.readouterr().out
+    assert "unknown" not in speakers(read_script(Workdir.for_input(book).script).blocks).values()
+
+
 def test_one_event_loop_serves_every_call(tmp_path):
     """The model's HTTP client binds to the loop it first runs on; every call must share it
     (a real run failed with "Event loop is closed" on the second call before this)."""
