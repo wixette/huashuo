@@ -241,3 +241,15 @@ def test_the_cli_speaks_english(tmp_path, capsys):
     assert not re.search(r"[一-鿿]", capsys.readouterr().out)
     template = Workdir.for_input(book).pron.read_text(encoding="utf-8").splitlines()
     assert all(line.isascii() for line in template if "=" not in line)  # the examples are Chinese words
+
+
+def test_import_and_make_end_with_a_summary(sample_txt, capsys):
+    """How long it took and what the LLM cost this run, after the chapter and skip lists."""
+    assert run("import", sample_txt, "--no-llm") == 0
+    last = capsys.readouterr().out.strip().splitlines()[-1]
+    assert last.startswith("imported in ") and "LLM" in last
+    assert run("make", sample_txt, "--no-llm") == 0
+    tail = capsys.readouterr().out.strip().splitlines()[-3:]
+    assert tail[0].startswith("done in ") and "synthesis" in tail[0] and "encoding" in tail[0]
+    assert tail[1].split()[0] == "units" and "synthesized" in tail[1]
+    assert tail[2].split()[0] == "speakers"

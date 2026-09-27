@@ -208,8 +208,10 @@ def _workdir(args):
     return Workdir.for_input(args.book, args.workdir)
 
 
-def cmd_import(args, quiet: bool = False):
+def cmd_import(args, quiet: bool = False, summary: bool = True):
     from huashuo.pipeline import import_book
+
+    started = time.time()
 
     if not args.book.is_file():
         print(f"error: {args.book} not found", file=sys.stderr)
@@ -240,7 +242,34 @@ def cmd_import(args, quiet: bool = False):
     if not quiet:
         from huashuo.pipeline import load_project
         _print_structure(load_project(wd))
+    run = _run(args)
+    run.update(imported=time.time() - started, llm=result.llm, review=len(result.llm.review) if result.llm else 0)
+    if summary:
+        print(f"\nimported in {_hms(run['imported'])}; {_llm_summary(result.llm)}"
+              + (f"; {run['review']} quotes need a look" if run["review"] else ""))
     return 0
+
+
+def _count(n: int, word: str) -> str:
+    return f"{n} {word}" + ("" if n == 1 else "s")
+
+
+def _run(args) -> dict:
+    """What the steps of this command did, for the summary `make` prints at the end."""
+    if not hasattr(args, "run_summary"):
+        args.run_summary = {}
+    return args.run_summary
+
+
+def _llm_summary(report) -> str:
+    if report is None or report.mode == "none":
+        return "no LLM used"
+    u = report.usage
+    if report.mode == "calls":
+        return (f"LLM ${u.cost:.3f} this run ({u.requests} requests, {u.cached} answers from the cache)"
+                + (", stopped early (see the warning above)" if report.stopped else ""))
+    return (f"no LLM calls ({u.cached} answers from the cache"
+            + (", some quotes have none)" if report.stopped else ")"))
 
 
 def _print_pron(wd, script) -> None:
@@ -341,7 +370,7 @@ def _print_structure(project) -> None:
     for unit in p.units:
         if unit.kind == "body":
             sizes[unit.chapter] += len(unit.text)
-    print(f"\n{len(p.chapters)} chapters:")
+    print(f"\n{_count(len(p.chapters), 'chapter')}:")
     for number, (chapter, chars) in enumerate(zip(p.chapters, sizes), 1):
         print(f"  {number:4d}  {chapter.title[:44]:<44} {chars:>8,} chars")
     skipped = [b for b in project.script.blocks if b.get("type") == "skip"]
@@ -466,6 +495,7 @@ def cmd_synth(args) -> int:
         stats = synthesize(plan.units, engine, wd, project.language, asr=asr)
     finally:
         engine.close()
+    _run(args).update(synthesized=time.time() - started, stats=stats)
     print(f"synthesized {stats.generated}, reused {stats.cached}, retried {stats.retried} "
           f"in {_hms(time.time() - started)}; {_hms(stats.audio_seconds)} of audio")
     log.info("synth: %d generated, %d cached, %d retried", stats.generated, stats.cached, stats.retried)
@@ -492,6 +522,7 @@ def cmd_package(args) -> int:
     from huashuo.post import layout, stream
     from huashuo.synth import cached_ok, unit_keys
 
+    started = time.time()
     wd, project, plan = _prepare(args)
     _setup_logging(wd)
     engine = _engine(args)
@@ -510,13 +541,14 @@ def cmd_package(args) -> int:
                     date=header.get("meta", {}).get("date", ""))
     loudness, pauses = _post_options(args, wd)
     timeline = layout(plan, keys, wd, loudness, pauses)
-    print(f"encoding {output.name}: {_hms(timeline.seconds)}, {len(timeline.chapters)} chapters …")
+    print(f"encoding {output.name}: {_hms(timeline.seconds)}, {_count(len(timeline.chapters), 'chapter')} …")
     write_m4b(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover,
               args.bitrate)
     result = probe(output)
     seconds = float(result["format"]["duration"])
     print(f"wrote {output} ({_mb(output.stat().st_size)}, {_hms(seconds)}, "
-          f"{len(result.get('chapters', []))} chapters)")
+          f"{_count(len(result.get('chapters', [])), 'chapter')})")
+    _run(args)["packaged"] = time.time() - started
     return 0
 
 
@@ -553,7 +585,7 @@ def cmd_redo(args) -> int:
         start = item.start / timeline.sample_rate
         end = start + (item.trim[1] - item.trim[0]) / timeline.sample_rate
         times = reroll(wd, keys[index])
-        print(f"redo {value}: {_hms(start)}-{_hms(end)} 「{unit.text[:30]}…」 (redo #{times})")
+        print(f"redo {value}: {_hms(start)}-{_hms(end)} '{unit.text[:30]}…' (redo #{times})")
         log.info("redo %s -> unit %s (redo #%d)", value, keys[index], times)
     status = cmd_synth(args)
     return status or cmd_package(args)
@@ -562,19 +594,31 @@ def cmd_redo(args) -> int:
 def cmd_make(args) -> int:
     from huashuo.pipeline import estimate
 
-    status = cmd_import(args, quiet=not args.dry_run)
+    started = time.time()
+    status = cmd_import(args, quiet=not args.dry_run, summary=args.dry_run)
     if status:
         return status
     wd, project, plan = _prepare(args)
     est = estimate(plan, project.language)
-    print(f"\nplan: {len(plan.units)} units, {plan.chars:,} characters, {len(plan.chapters)} chapters")
+    print(f"\nplan: {len(plan.units)} units, {plan.chars:,} characters, {_count(len(plan.chapters), 'chapter')}")
     print(f"  audio        about {_hms(est.audio_seconds)}")
     print(f"  synthesis    roughly {_hms(est.synth_seconds)} on an M1 (1.7B model)")
     print(f"  disk         cache {_mb(est.cache_bytes)}, M4B {_mb(est.m4b_bytes)}")
     if args.dry_run:
         return 0
-    status = cmd_synth(args)
-    return status or cmd_package(args)
+    status = cmd_synth(args) or cmd_package(args)
+    if status:
+        return status
+    run = _run(args)
+    stats = run["stats"]
+    print(f"\ndone in {_hms(time.time() - started)} (import {_hms(run['imported'])}, synthesis "
+          f"{_hms(run['synthesized'])}, encoding {_hms(run['packaged'])})")
+    print(f"  units        {len(plan.units)}: {stats.generated} synthesized, {stats.cached} reused, "
+          f"{stats.retried} retried" + (f", {len(stats.warnings)} kept despite failing checks (listed above)"
+                                         if stats.warnings else ""))
+    print(f"  speakers     {_llm_summary(run.get('llm'))}"
+          + (f"; {run['review']} quotes need a look: {wd.root / 'review.txt'}" if run.get("review") else ""))
+    return 0
 
 
 PROBE = {"zh": "这条路我走过很多次，从来没有迷过路。你若信得过我，就跟紧些，天黑之前我们能赶到渡口。",
@@ -647,7 +691,7 @@ def cmd_audition(args) -> int:
     write_m4b(output, stream(timeline, wd), timeline.sample_rate, info, timeline.chapters, cover)
     for title, text, _ in items:
         print(f"  {title}: {text[:40]}")
-    print(f"wrote {output} ({len(probe(output).get('chapters', []))} chapters, {_hms(timeline.seconds)})")
+    print(f"wrote {output} ({_count(len(probe(output).get('chapters', [])), 'chapter')}, {_hms(timeline.seconds)})")
     return 0
 
 
