@@ -85,6 +85,11 @@ _SPOKEN_SYMBOLS = [
 ]
 
 
+def _times(number: str, big: str) -> str:
+    value = float(number) * _CN_BIG[big]
+    return str(int(value)) if value.is_integer() else str(value)
+
+
 def normalize(text: str, language: str) -> str:
     """The text as compared: Chinese by sound (toneless pinyin, simplified, variants
     folded), English as lowercase words; punctuation and spaces dropped.
@@ -111,6 +116,8 @@ def _zh_chars(text: str) -> str:
     # (一条被洗澡水拍死的鱼: 「我叫栖芒，栖息的栖」 heard as 「七芒，七夕的七」), and a lone
     # digit becomes its numeral (第3名 = 第三名). Longer numbers become Arabic numerals.
     text = _CN_NUMBER.sub(lambda m: m.group(0) if len(m.group(0)) == 1 else _arabic(m), text)
+    # 15亿 and 十五亿 (heard as a cardinal, 1500000000) are the same number; so are 1.5万 and 15000.
+    text = re.sub(r"(\d+(?:\.\d+)?)([万亿])", lambda m: _times(m.group(1), m.group(2)), text)
     text = re.sub(r"(?<![\d.:])\d(?![\d.:])", lambda m: "零一二三四五六七八九"[int(m.group(0))], text)
     return re.sub(r"[^\w]|_", "", text)
 
