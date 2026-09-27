@@ -9,6 +9,8 @@ woman, 栖芒, as the other main voice. It is huashuo's example and golden-test 
 |---|---|
 | `txt/一条被洗澡水拍死的鱼.txt` | Plain text: title line, `作者：半轻人`, then the story |
 | `epub/一条被洗澡水拍死的鱼.epub` | The same text as EPUB 3 (one chapter per section, cover from huashuo's templates), built by `examples/make_epub.py` |
+| `speakers.tsv` | The speaker of every quote, checked by the author: the golden labels for speaker attribution |
+| `llm-cache/` | The LLM's answers for this story, replayed offline by `tests/test_golden.py`; re-record them with `examples/refresh_golden.py` (a capped, paid run) when the prompts change |
 
 The two formats sit in separate folders because a book's work directory is named after
 the file without its extension.

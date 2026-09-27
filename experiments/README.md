@@ -1,22 +1,30 @@
 # Experiments
 
-Prototypes and experiments for [话说 Huashuo](../README.md). Run everything from the
-repository root with the project venv, set up as in the main README
-(`uv pip install --python .venv/bin/python -e ".[dev]"`, which brings mlx-audio 0.5.5 from
-PyPI; the experiments were run against an editable checkout at `cd605ec`, the same
-release).
+**A dated record, not maintained tools.** These scripts produced the measurements behind
+design decisions in [话说 Huashuo](../README.md); each is referenced from the design doc
+([docs/design-and-research.md](../docs/design-and-research.md)). They are kept as run at the
+time and may not work with later versions of the package. Run them from the repository
+root with the project venv (`uv pip install --python .venv/bin/python -e ".[dev]"`).
 
-| Script | What it is |
-|---|---|
-| `novel_tts.py` | Single-voice text-to-MP3 prototype (below) |
-| `exp1_voice_routes.py` | EXP-1 round 2: routes for reusing a VoiceDesign voice (design doc §5.6) |
-| `exp1_candidates.py` | EXP-1 round 3a: reference candidates for the voices in `exp1_voices.json`, with a similarity report |
-| `exp1_stability.py` | EXP-1 round 3b: route C stability of the chosen voices, with ASR, identification and pause checks |
-| `exp2_batch_tagging.py` | EXP-2: batched speaker attribution, scored on `exp2_data/` (needs an LLM key) |
-| `exp3_tone_check.py` | EXP-3 attempt 1: tone-consistency accent detector (negative result, design doc §5.8) |
-| `m2_eval.py` | M2 check: the package's speaker attribution on the EXP-2 benchmarks with a real LLM (requires `--max-cost`) |
+Scripts that call an LLM read `HUASHUO_LLM_API_KEY` (or `OPENAI_API_KEY`) from the
+environment or a git-ignored `.env`, and stop before a cost cap (`--max-cost`).
 
-Extra packages for these experiments: `uv pip install --python .venv/bin/python "pydantic-ai-slim[openai]" pypinyin`.
+| Script | Date | What it is | Design doc |
+|---|---|---|---|
+| `novel_tts.py` | before 2026-09-23 | Single-voice text-to-MP3 prototype (below) | §9 |
+| `exp1_voice_routes.py` | 2026-09-23 | EXP-1 round 2: routes for reusing a VoiceDesign voice | §5.6 |
+| `exp1_candidates.py` | 2026-09-24 | EXP-1 round 3a: reference candidates for the voices in `exp1_voices.json`, with a similarity report | §5.6 |
+| `exp1_stability.py` | 2026-09-24 | EXP-1 round 3b: route C stability of the chosen voices, with ASR, identification and pause checks | §5.6 |
+| `exp2_batch_tagging.py` | 2026-09-24 | EXP-2: batched speaker attribution, scored on `exp2_data/` (LLM, `--max-cost`) | §7.2.1 |
+| `exp3_tone_check.py` | 2026-09-24 | EXP-3 attempt 1: tone-consistency accent detector (negative result) | §5.8 |
+| `m2_eval.py` | 2026-09-24 | M2: the package's speaker attribution on the EXP-2 benchmarks (LLM, `--max-cost`) | §7.2.1 |
+| `m3_build_library.py` | 2026-09-25 | M3: writes the chosen voices (`m3_voices.json`) into `src/huashuo/voices/zh/` | §5.6 |
+| `m3_emotion_check.py` | 2026-09-25 | M3: voice stability under each emotion instruct | §5.9 |
+| `m5_reading_check.py` | 2026-09-25 | M5: how Qwen3-TTS reads numbers and pinyin, via ASR | §10.3 |
+| `narrator_check.py` | 2026-09-25 | Narrator candidates (`narrator_voices*.json`): pace, pitch, consistency | §5.11 |
+| `pace_check.py` | 2026-09-25 | Narration pace: how steady it is and what steadies it (temperature, unit length) | §5.11 |
+| `pace_normalize.py` | 2026-09-25 | Prototype: steady the pace after synthesis (not adopted) | §5.11 |
+| `title_tone_check.py` | 2026-09-26 | Tone of number-only chapter titles (「1」 read yì) | §5.13 |
 
 ## EXP-1 rounds 3a and 3b
 
@@ -83,7 +91,7 @@ The first experiment of [话说 Huashuo](../README.md): convert a long Chinese U
 file into a single MP3 with Qwen3-TTS running locally on MLX (Apple Silicon).
 
 It is kept as a reference, not as the project's CLI. Its chunking, per-chunk cache, resume
-and validation logic have since been carried into the `huashuo` package (§9.1 of the
+and validation logic have since been carried into the `huashuo` package (§9 of the
 [design doc](../docs/design-and-research.md)), which also changed seeding from chunk index
 to cache key.
 
