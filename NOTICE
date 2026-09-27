@@ -13,6 +13,10 @@ contains the following, under their own terms:
   permission to embed generated covers in the audiobooks huashuo makes
   (src/huashuo/covers/LICENSE-templates.txt).
 
+- docs/assets/huashuo-logo-black.png, huashuo-logo-white.png
+  The Huashuo logos, made by the project's designers. CC BY-NC-ND 4.0
+  (docs/assets/LICENSE.txt).
+
 - src/huashuo/voices/
   The voice library: speaker vectors extracted from voices designed from text
   descriptions with Qwen3-TTS (Apache-2.0). No real person's voice was recorded or
