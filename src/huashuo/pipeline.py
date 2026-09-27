@@ -48,6 +48,7 @@ class ImportResult:
     llm: "LLMReport | None" = None
     narrator: str | None = None
     narrator_reason: str = ""
+    voices: str = "multi"             # --single-voice / --multi-voice
 
 
 def _sha256_file(path: Path) -> str:
@@ -394,7 +395,7 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                 language: str | None = None, cover: Path | None = None,
                 read_notes: bool | None = None, llm: LLMOptions | None = None,
                 title: str | None = None, author: str | None = None,
-                narrator: str | None = None) -> ImportResult:
+                narrator: str | None = None, voices: str | None = None) -> ImportResult:
     """Read the source and (re)build text.txt, the script and the cast, keeping user edits.
 
     Options left as None reuse what the previous import of this book recorded.
@@ -406,6 +407,13 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     read_notes = read_notes if read_notes is not None else previous.get("read_notes", False)
     title = title if title is not None else previous.get("title")
     author = author if author is not None else previous.get("author")
+    voices = voices or previous.get("voices") or "multi"
+    if voices not in ("single", "multi"):
+        raise PipelineError(f"voices must be single or multi, not {voices!r}")
+    if voices == "single" and llm is not None:
+        # One voice needs no speakers: no calls, no question; answers already in the cache
+        # are still applied, so switching back to --multi-voice costs nothing for them.
+        llm = LLMOptions(enabled=False, model=llm.model)
     narrator_now = narrator                            # given on this run: wins over cast.json too
     narrator = narrator if narrator is not None else previous.get("narrator")
     book = read_book(source, encoding)
@@ -459,7 +467,9 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     write_json_atomic(wd.cast, cast)
     write_json_atomic(wd.cast_base, machine.cast)
 
-    if machine.llm is not None and machine.llm.mode != "none":
+    if voices == "single":
+        write_review(wd, [])                            # speakers do not matter with one voice
+    elif machine.llm is not None and machine.llm.mode != "none":
         write_review(wd, machine.llm.review)
     write_json_atomic(wd.ingest_record, {"huashuo": __version__, "imported": time.strftime("%Y-%m-%d %H:%M:%S"),
                                          "source": str(source.resolve()), "encoding": book.encoding,
@@ -468,7 +478,7 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
                                          "llm_consent": record.get("llm_consent", []),
                                          "options": {"encoding": encoding, "language": language,
                                                      "read_notes": read_notes, "title": title,
-                                                     "author": author,
+                                                     "author": author, "voices": voices,
                                                      "narrator": None if narrator == "auto" else narrator}})
     if narrator_now not in (None, "auto"):
         reason = "--narrator"
@@ -479,7 +489,7 @@ def import_book(source: Path, wd: Workdir, encoding: str | None = None,
     else:
         reason = machine.narrator_reason
     return ImportResult(wd, merged, machine.text, machine.chapters, machine.skipped, book.encoding,
-                        result.report + cast_report, machine.llm, cast["narrator"]["voice"], reason)
+                        result.report + cast_report, machine.llm, cast["narrator"]["voice"], reason, voices)
 
 
 @dataclass
@@ -492,6 +502,11 @@ class Project:
     @property
     def language(self) -> str:
         return self.script.header.get("language", "zh")
+
+    @property
+    def single_voice(self) -> bool:
+        """--single-voice, remembered by the import: the narrator reads everything."""
+        return (read_json(self.workdir.ingest_record) or {}).get("options", {}).get("voices") == "single"
 
 
 def load_project(wd: Workdir) -> Project:
@@ -512,7 +527,8 @@ def make_plan(project: Project, *, read_titles: bool = True, voice: str | None =
               closing: bool = True, credit: bool = False, simplify: bool | None = None) -> Plan:
     """The units to synthesize; optionally only the first `sample_chars` characters of
     reading, or only some chapters (1-based, as listed by `huashuo import`)."""
-    full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice, emotions)
+    full = plan(project.script, project.cast, project.language, max_chars, read_titles, voice, emotions,
+                project.single_voice)
     _announce(full, project, voice or project.cast["narrator"]["voice"], opening, closing, credit)
     readings = pron.load(project.workdir.pron)
     convert = speaks_simplified(project) if simplify is None else (simplify and project.language == "zh")

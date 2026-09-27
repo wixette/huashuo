@@ -196,7 +196,7 @@ def test_audition_one_chapter_per_character(book, tiny_library, capsys):
     _import(book)
     assert main(["audition", str(book), "--engine", "fake"]) == 0
     chapters = [c["tags"]["title"] for c in probe(book.with_name("客栈.audition.m4b"))["chapters"]]
-    assert chapters == ["林渊（library:zh/young_man）", "老者（library:zh/old_man）"]
+    assert chapters == ["林渊 (library:zh/young_man)", "老者 (library:zh/old_man)"]
     out = capsys.readouterr().out
     assert "“店家，来一壶热酒。”" in out or "“从哪儿来不重要。”" in out   # a real line of theirs
     assert main(["audition", str(book), "--engine", "fake", "--character", "老者"]) == 0
@@ -349,3 +349,57 @@ def test_a_narrator_left_as_it_was_moves_to_the_new_default(tmp_path):
         cast["narrator"]["voice"] = "preset:serena"                         # as an older version wrote it
         f.write_text(json.dumps(cast, ensure_ascii=False), encoding="utf-8")
     assert _import_fp(path).narrator == "library:zh/narrator_male"
+
+
+# ---- --single-voice / --multi-voice -------------------------------------------------------
+
+REMOTE = LLMConfig("test-model", "https://llm.example.invalid/v1", "x", 1.0, 1.0, max_cost=1.0)
+
+
+def _plan_voices(book):
+    from huashuo.pipeline import load_project, make_plan
+    return {u.voice for u in make_plan(load_project(Workdir.for_input(book))).units}
+
+
+def test_single_voice_needs_no_llm_and_the_narrator_reads_everything(book, tiny_library):
+    llm, asked = ScriptedLLM(), []
+    result = import_book(book, Workdir.for_input(book), voices="single",
+                         llm=LLMOptions(config_override=REMOTE, model_override=llm.model(),
+                                        confirm=lambda m: asked.append(m) or True))
+    assert result.voices == "single" and not asked and llm.calls == {"cast": 0, "speakers": 0, "voices": 0}
+    narrator, _ = _voices(book)
+    assert _plan_voices(book) == {narrator}
+    assert not (Workdir.for_input(book).root / "review.txt").exists()
+
+
+def test_the_choice_is_remembered_and_switching_back_reuses_the_answers(book, tiny_library):
+    _import(book)                                            # multi-voice: speakers found and cached
+    narrator, characters = _voices(book)
+    assert len(_plan_voices(book)) > 1
+    cast = json.loads(Workdir.for_input(book).cast.read_text(encoding="utf-8"))
+    cast["characters"]["老者"]["voice"] = "library:zh/old_man"        # a hand-picked voice
+    Workdir.for_input(book).cast.write_text(json.dumps(cast, ensure_ascii=False), encoding="utf-8")
+
+    llm = ScriptedLLM()
+    import_book(book, Workdir.for_input(book), voices="single",
+                llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
+    assert _plan_voices(book) == {narrator} and sum(llm.calls.values()) == 0   # even the hand-picked one
+    import_book(book, Workdir.for_input(book), llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
+    assert _plan_voices(book) == {narrator}                  # remembered: no flag keeps it single
+
+    import_book(book, Workdir.for_input(book), voices="multi",
+                llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
+    assert sum(llm.calls.values()) == 0                      # every answer came from the cache
+    assert _voices(book)[1]["老者"] == "library:zh/old_man" and len(_plan_voices(book)) > 1
+
+
+def test_make_takes_the_same_switch(tmp_path, capsys):
+    from huashuo.cli import main
+
+    path = tmp_path / "客栈.txt"
+    path.write_text(DIALOGUE_TXT, encoding="utf-8")
+    assert main(["make", str(path), "--single-voice", "--no-llm", "--engine", "fake"]) == 0
+    out = capsys.readouterr().out
+    assert "single voice: the narrator reads everything" in out and "single voice, no LLM needed" in out
+    with pytest.raises(SystemExit, match="single voice"):                      # nobody to audition
+        main(["audition", str(path), "--engine", "fake"])

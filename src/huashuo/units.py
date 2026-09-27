@@ -101,9 +101,10 @@ def split_long(text: str, max_chars: int, language: str) -> list[str]:
     return [p.strip() for p in out if p.strip()]
 
 
-def voice_of(block: dict, cast: dict, emotions: bool = True) -> tuple[str, str | None]:
+def voice_of(block: dict, cast: dict, emotions: bool = True,
+             single_voice: bool = False) -> tuple[str, str | None]:
     narrator = cast["narrator"]["voice"]
-    if block.get("type") != "dialogue":
+    if block.get("type") != "dialogue" or single_voice:     # --single-voice: the narrator reads it all
         return narrator, None
     character = cast.get("characters", {}).get(block.get("speaker"))
     voice = character.get("voice") if character else None
@@ -111,7 +112,8 @@ def voice_of(block: dict, cast: dict, emotions: bool = True) -> tuple[str, str |
 
 
 def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX_CHARS,
-         read_titles: bool = True, voice_override: str | None = None, emotions: bool = True) -> Plan:
+         read_titles: bool = True, voice_override: str | None = None, emotions: bool = True,
+         single_voice: bool = False) -> Plan:
     result = Plan()
     units = result.units
     joiner = "" if language == "zh" else " "
@@ -162,7 +164,7 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             flush()
             close(BREAK)
         elif kind in ("narration", "dialogue"):
-            voice = voice_of(block, cast, emotions)
+            voice = voice_of(block, cast, emotions, single_voice)
             if voice_override and voice[0] == cast["narrator"]["voice"]:
                 voice = (voice_override, voice[1])
             text = spoken_text(block).strip()

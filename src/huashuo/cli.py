@@ -49,6 +49,13 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument("--narrator", metavar="female|male|VOICE|auto",
                        help="narrator voice (default auto: matches a first-person narrator or a clear "
                             "protagonist, else female; remembered for this book)")
+        cast = p.add_mutually_exclusive_group()
+        cast.add_argument("--single-voice", dest="voices", action="store_const", const="single",
+                          help="the narrator reads everything, dialogue included: no speaker attribution, "
+                               "no LLM calls (remembered for this book)")
+        cast.add_argument("--multi-voice", dest="voices", action="store_const", const="multi",
+                          help="each character in their own voice, speakers found by the LLM (the default; "
+                               "remembered for this book)")
         p.add_argument("--read-notes", action=argparse.BooleanOptionalAction, default=None,
                        help="read editorial annotations (注釋 sections); skipped by default, "
                             "and the choice is remembered for this book")
@@ -224,28 +231,33 @@ def cmd_import(args, quiet: bool = False, summary: bool = True):
                      max_cost=args.max_llm_cost, assume_yes=args.yes, concurrency=args.llm_concurrency,
                      confirm=_ask if sys.stdin.isatty() else None, progress=LLMProgress())
     result = import_book(args.book, wd, args.encoding, args.language, args.cover, args.read_notes, llm,
-                         title=args.title, author=args.author, narrator=args.narrator)
+                         title=args.title, author=args.author, narrator=args.narrator, voices=args.voices)
     h = result.script.header
     chars = sum(len(b.get("text", "")) for b in result.script.blocks if b.get("type") != "skip")
     print(f"{h['title']} by {h.get('author') or '(author unknown)'}  [{h['language']}"
           f"{', ' + result.encoding if result.encoding else ''}]  {chars:,} characters")
     print(f"work directory: {wd.root}")
     print(f"narrator: {result.narrator} ({result.narrator_reason})")
+    if result.voices == "single":
+        print("single voice: the narrator reads everything, dialogue included (--multi-voice to give "
+              "characters their own voices)")
     from huashuo.pipeline import load_project, speaks_simplified
     if speaks_simplified(load_project(wd)):
         print("Traditional Chinese: read from a Simplified conversion, which the TTS pronounces better "
               "(the book's text is unchanged; --no-simplify to turn off)")
     for line in result.merge_report:
         print(f"  merge: {line}")
-    _print_llm(result.llm, wd)
+    _print_llm(None if result.voices == "single" else result.llm, wd)
     _print_pron(wd, result.script)
     if not quiet:
         from huashuo.pipeline import load_project
         _print_structure(load_project(wd))
     run = _run(args)
-    run.update(imported=time.time() - started, llm=result.llm, review=len(result.llm.review) if result.llm else 0)
+    single = result.voices == "single"
+    run.update(imported=time.time() - started, llm="single" if single else result.llm,
+               review=len(result.llm.review) if result.llm and not single else 0)
     if summary:
-        print(f"\nimported in {_hms(run['imported'])}; {_llm_summary(result.llm)}"
+        print(f"\nimported in {_hms(run['imported'])}; {_llm_summary(run['llm'])}"
               + (f"; {run['review']} quotes need a look" if run["review"] else ""))
     return 0
 
@@ -262,6 +274,8 @@ def _run(args) -> dict:
 
 
 def _llm_summary(report) -> str:
+    if report == "single":
+        return "single voice, no LLM needed"
     if report is None or report.mode == "none":
         return "no LLM used"
     u = report.usage
@@ -658,7 +672,10 @@ def cmd_audition(args) -> int:
     items: list[tuple[str, str, str]] = []            # (chapter title, text, voice)
     if args.library:
         for voice in narrators(language) + castable(language):
-            items.append((f"{voice.ref} {voice.role}".strip(), PROBE.get(language, PROBE["zh"]), voice.ref))
+            items.append((f"{voice.ref} {voice.label}".strip(), PROBE.get(language, PROBE["zh"]), voice.ref))
+    elif project.single_voice:
+        raise SystemExit("this book is read in a single voice (the narrator's); hear the voices with "
+                         "`huashuo audition --library`, or import with --multi-voice to cast the characters")
     else:
         characters = cast.get("characters", {})
         names = args.character or sorted(characters, key=lambda n: (-int(characters[n].get("lines") or 0), n))
@@ -669,7 +686,7 @@ def cmd_audition(args) -> int:
             raise SystemExit("cast.json has no characters yet; run `huashuo import` with an LLM configured")
         for name in names:
             voice = characters[name].get("voice") or narrator
-            items.append((f"{name}（{voice}）", _audition_line(project, name), voice))
+            items.append((f"{name} ({voice})", _audition_line(project, name), voice))
 
     units = [Unit("body", text, voice, None, [f"audition{i}"], i, after=PARAGRAPH)
              for i, (_, text, voice) in enumerate(items)]

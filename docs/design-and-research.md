@@ -1151,6 +1151,8 @@ Script
 - 上下文规则：两侧（跳过空白）至少一侧是汉字的半角 `, . ? ! : ; ( )` 改为全角；数字内部的 `.` `:` `,`（3.5、3:2、1,000）不动；`...`、`。。。` 规整为 `……`，`--` 规整为 `——`；引号的归一化沿用 TXT-6 的现有规则
 - 规整在清洗阶段完成，`text.txt` 与话本同时变化，逐字对账（I1）不受影响。代价：升级后第一次重新导入时文字有变化的段落按文字对齐可能对不上，用户在这些段落上的修改会进入 `state/orphaned-edits.jsonl`（script-ir §7），需要在发布说明里提示
 
+**单一音色（CLI-12，2026-09-27）**：`--single-voice` 记在 `state/ingest.json` 里，在规划单元时生效：所有单元都用旁白的音色、不带情绪提示，话本与 `cast.json` 不动。导入时不调用 LLM、不询问，但缓存里已有的回答照样写进话本，所以切回 `--multi-voice` 时不再付费，手选的角色音色也还在。没有把它做成「导入时清空说话人」，是因为那样切换一次就丢掉标注，手改的说话人与音色还会在合并时漏进来。
+
 **元数据参数（IN-4）**：`import` / `make` 增加 `--title`、`--author`，与 `--cover` 一样记在 `state/ingest.json`，之后每次导入都写进话本头记录，所以重新导入不需要重复参数；用户在头记录里手改的值仍按三方合并保留。
 
 **响度与停顿（POST-1、POST-3）**：`--loudness LUFS` 与可重复的 `--pause KIND=SECONDS`（KIND 为 script-ir §6 的边界类型：sentence、turn、paragraph、heading、title、break、chapter_end、end）。它们只影响后期（增益与停顿不进入缓存键），所以改了只需重新封装。与 `--voice`、`--titles` 一样记在 `state/run.json`，`package`、`redo` 沿用。

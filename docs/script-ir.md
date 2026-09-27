@@ -46,7 +46,7 @@
   state/                         机器状态，用户无需查看
     script.auto.jsonl            上一次机器生成的话本（三方合并的基准，§7）
     cast.auto.json               上一次机器生成的选角表（§8）
-    ingest.json                  导入参数（编码、语言、是否读注释、--title / --author）、程序版本、封面来源、
+    ingest.json                  导入参数（编码、语言、是否读注释、--title / --author、--narrator、单一或多音色）、程序版本、封面来源、
                                  上次用的 LLM 模型，以及已同意发送原文的 LLM 地址
     llm-cache/<key>.json         LLM 的每次回答，按提示词、模型与提示词版本缓存：重新导入不再付费
     run.json                     合成与封装的选项（音色、模型、章节标题、情绪、开场结尾、响度、停顿），

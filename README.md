@@ -40,6 +40,9 @@ parts with that word are redone. `--title`/`--author` override the metadata, `--
 and `--pause paragraph=0.8` tune the sound, `--no-opening`/`--no-closing` drop the
 announcements. The narrator voice is chosen per book (a male or female narrator matching a
 first-person narrator or a clear protagonist); `--narrator female|male|<voice>` overrides it.
+Every character gets their own voice by default; `--single-voice` has the narrator read
+everything, dialogue included, with no LLM needed (`--multi-voice` switches back). Like
+`--narrator`, the choice is remembered for the book, so `import` and `make` agree.
 
 Development:
 
@@ -63,9 +66,10 @@ per run); the first time a book is sent to an endpoint you are asked to agree (`
 scripts). Answers are cached as they arrive, so re-imports are free, and a run the cap
 stopped resumes where it stopped: import again with a higher `--max-llm-cost` and only the
 rest is paid for. If the text changed since (for example after an upgrade), the previous
-answers are kept and you are asked before anything is paid again. Without a
-key, or with `--no-llm`, the book is still made, with dialogue read by the narrator. Quotes that need a look are listed in
-`book.huashuo/review.txt`.
+answers are kept and you are asked before anything is paid again. Without a key, or
+with `--no-llm`, no calls are made: answers already in the cache are still used, and quotes
+without one are read by the narrator (for a book read entirely by the narrator, use
+`--single-voice`). Quotes that need a look are listed in `book.huashuo/review.txt`.
 
 - [docs/requirements.md](docs/requirements.md): first-stage requirements (novel → M4B),
   milestones, acceptance criteria and the decision log. Start here.
