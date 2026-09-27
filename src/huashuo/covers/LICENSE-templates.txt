@@ -1,0 +1,13 @@
+Cover templates: template-1.png, template-2.png, template-3.png, template-4.png
+Copyright © 2026 the 话说 Huashuo project. Made for Huashuo by the project's designers.
+
+These four images are licensed under the Creative Commons Attribution-NonCommercial-
+NoDerivatives 4.0 International License (CC BY-NC-ND 4.0):
+https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+Additional permission: a cover that huashuo generates from one of these templates (a
+book's title set on the background) may be embedded in the audiobook huashuo makes and
+shared together with it, non-commercially.
+
+The font used for the title, Noto Serif SC Bold, is licensed separately under the SIL Open
+Font License 1.1 (OFL.txt). The rest of huashuo is licensed under Apache-2.0.
