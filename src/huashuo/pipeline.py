@@ -565,6 +565,30 @@ CLOSING = {"zh": "全书完。", "en": "The End."}
 CREDIT = {"zh": "本有声书由话说 Huashuo 生成。", "en": "This audiobook was made with Huashuo."}
 
 
+# A nationality or dynasty before an author's name: [日]东野圭吾, 〔美〕海明威, （清）曹雪芹.
+# Bracketed, the TTS stalls on it (白夜行: 「作者[日]东野圭吾」 was read at 1.5 characters a
+# second and retried); it is read out instead, as a narrator would say it.
+_AUTHOR_MARKER = re.compile(r"[\[［〔【（(]\s*([^\]］〕】）)\s]{1,6})\s*[\]］〕】）)]\s*")
+_COUNTRIES = {"日": "日本", "美": "美国", "英": "英国", "法": "法国", "德": "德国", "俄": "俄国", "苏": "苏联",
+              "意": "意大利", "西": "西班牙", "葡": "葡萄牙", "荷": "荷兰", "比": "比利时", "奥": "奥地利",
+              "加": "加拿大", "澳": "澳大利亚", "韩": "韩国", "朝": "朝鲜", "印": "印度", "挪": "挪威",
+              "丹": "丹麦", "芬": "芬兰", "波": "波兰", "捷": "捷克", "匈": "匈牙利", "希": "希腊",
+              "墨": "墨西哥", "哥": "哥伦比亚", "智": "智利", "土": "土耳其", "以": "以色列", "埃": "埃及"}
+_DYNASTIES = set("夏商周秦汉晋隋唐宋元明清")
+
+
+def spoken_author(author: str, language: str) -> str:
+    """[日]东野圭吾 -> 日本东野圭吾, [清]曹雪芹 -> 清代曹雪芹; other markers are read as
+    written without the brackets. Only for the spoken opening: the metadata keeps the book's."""
+    if language != "zh":
+        return author
+
+    def read(match: re.Match) -> str:
+        marker = match.group(1)
+        return _COUNTRIES.get(marker) or (marker + "代" if marker in _DYNASTIES else marker)
+    return _AUTHOR_MARKER.sub(read, author).strip()
+
+
 def _announce(p: Plan, project: Project, narrator: str, opening: bool, closing: bool, credit: bool) -> None:
     """The opening (title and author) and the closing (POST-6), read by the narrator. The
     opening belongs to the first chapter and the closing to the last; neither is a
@@ -584,7 +608,8 @@ def _announce(p: Plan, project: Project, narrator: str, opening: bool, closing: 
             p.units.pop(0)
             for chapter in p.chapters[1:]:
                 chapter.first_unit -= 1
-        text = (OPENING if author else OPENING_NO_AUTHOR)[lang].format(title=title, author=author)
+        text = (OPENING if author else OPENING_NO_AUTHOR)[lang].format(title=title,
+                                                                        author=spoken_author(author, lang))
         p.units.insert(0, Unit("title", text, narrator, None, ["opening"], 0, after=TITLE))
         for chapter in p.chapters[1:]:
             chapter.first_unit += 1

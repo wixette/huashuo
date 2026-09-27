@@ -247,7 +247,10 @@ class AsrChecker:
     def transcribe(self, audio: np.ndarray, sample_rate: int, language: str) -> str:
         if self._model is None:
             from mlx_audio.stt import load
-            self._model = load(self.model_id)
+
+            from huashuo.quiet import quiet_loading
+            with quiet_loading(self.model_id):
+                self._model = load(self.model_id)
         import mlx.core as mx
 
         if sample_rate != 16000:  # the model takes in-memory audio as 16 kHz

@@ -55,7 +55,9 @@ class Qwen3Engine:
                 transformers.logging.set_verbosity_error()
             except ImportError:
                 pass
-            self._model = load_model(self.model_id)
+            from huashuo.quiet import quiet_loading
+            with quiet_loading(self.model_id):
+                self._model = load_model(self.model_id)
             if getattr(self._model.config, "tts_model_type", None) != "custom_voice":
                 raise EngineError(f"{self.model_id} is not a CustomVoice model")
             self.sample_rate = self._model.sample_rate

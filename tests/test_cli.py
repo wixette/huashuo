@@ -180,6 +180,18 @@ def test_clean_deletes_only_the_audio(sample_txt, capsys):
     assert run("clean", sample_txt, "--yes") == 0 and "nothing to clean" in capsys.readouterr().out
 
 
+
+def test_a_nationality_or_dynasty_before_the_author_is_read_out():
+    """白夜行's 「作者[日]东野圭吾」 stalled the TTS (1.5 characters a second, retried)."""
+    from huashuo.pipeline import spoken_author
+
+    assert spoken_author("[日]东野圭吾", "zh") == "日本东野圭吾"
+    assert spoken_author("〔美〕海明威", "zh") == "美国海明威"
+    assert spoken_author("（清）曹雪芹", "zh") == "清代曹雪芹"
+    assert spoken_author("【古希腊】荷马", "zh") == "古希腊荷马"
+    assert spoken_author("[日]东野圭吾 / [日]宫部美雪", "zh") == "日本东野圭吾 / 日本宫部美雪"
+    assert spoken_author("半轻人", "zh") == "半轻人" and spoken_author("[US] Someone", "en") == "[US] Someone"
+
 def test_the_title_is_not_read_twice_when_the_opening_announces_it(tmp_path):
     from huashuo.pipeline import load_project, make_plan
 
