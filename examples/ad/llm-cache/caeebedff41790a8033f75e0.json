@@ -1,0 +1,79 @@
+{
+  "stage": "speakers",
+  "model": "gpt-6-sol",
+  "output": {
+    "answers": [
+      {
+        "index": 2,
+        "speaker": "小胡子",
+        "confidence": 0.99,
+        "emotion": ""
+      },
+      {
+        "index": 5,
+        "speaker": "厨师",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 8,
+        "speaker": "三色头发的女孩",
+        "confidence": 1.0,
+        "emotion": "高兴"
+      },
+      {
+        "index": 11,
+        "speaker": "老大爷",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 13,
+        "speaker": "老太太",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 16,
+        "speaker": "空军飞行员",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 19,
+        "speaker": "导游",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 22,
+        "speaker": "小男孩",
+        "confidence": 1.0,
+        "emotion": "高兴"
+      },
+      {
+        "index": 24,
+        "speaker": "小女孩",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 26,
+        "speaker": "工程师",
+        "confidence": 1.0,
+        "emotion": ""
+      },
+      {
+        "index": 28,
+        "speaker": "女科学家",
+        "confidence": 1.0,
+        "emotion": ""
+      }
+    ]
+  },
+  "usage": {
+    "input": 2459,
+    "output": 213,
+    "cost": 0.007048
+  }
+}

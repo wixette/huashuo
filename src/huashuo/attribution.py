@@ -43,7 +43,7 @@ DEFAULT_MAX_COST = 5.0               # USD per run (LLM-4); a long book costs ab
 CAST_CHUNK_CHARS = 2500
 ATTR_CHUNK_CHARS = 1500
 CONTEXT_SEGMENTS = 3
-MAX_OUTPUT_TOKENS = {"cast": 3000, "speakers": 2000, "voices": 1500}
+MAX_OUTPUT_TOKENS = {"cast": 3000, "speakers": 2000, "genders": 1500, "voices": 1500}
 DEFAULT_CONCURRENCY = 6              # pass-2 calls in flight at once
 MAX_REQUESTS = 4                     # per call: the first and up to 3 validation retries
 
@@ -64,6 +64,9 @@ CAST_LIST_CHARS = 80                         # per character, in each pass-2 pro
 CAST_SCHEMA_CHARS, SPEAKER_SCHEMA_CHARS = 1300, 650
 CAST_OUTPUT_TOKENS = 150                     # per pass-1 call
 QUOTE_OUTPUT_TOKENS = 25                     # per quote answered in pass 2
+GENDER_ROW_CHARS = 250                       # per character in the gender call (profile and lines),
+                                             # besides the cast list it carries once
+UNKNOWN_GENDER_SHARE = 0.15                  # of a cast, before pass 1 (白夜行: 24 of 159)
 
 
 class LLMError(Exception):
@@ -191,6 +194,9 @@ def estimate_cost(script: Script, language: str, config: LLMConfig, cache: Path 
         instructions_, output_type = _speaker_request(cast, language)
         todo = [(prompt, wanted) for prompt, wanted in _speaker_prompts(segments, _cast_summary(cast, language), language)
                 if not replay.cached("speakers", instructions_, prompt, output_type)]
+        unknown = sum(c.get("gender") not in ("male", "female") for c in cast.values())
+        if unknown:                                            # may be cached already: errs a few cents high
+            tokens_in += (unknown * GENDER_ROW_CHARS + len(cast) * CAST_LIST_CHARS) * rate
         return (tokens_in * config.price_in + tokens_out * config.price_out) / 1e6 \
             + _speaker_cost(todo, instructions_, output_type, language, config)
     instructions = len(SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])) \
@@ -198,6 +204,7 @@ def estimate_cost(script: Script, language: str, config: LLMConfig, cache: Path 
     for prompt, wanted in _speaker_prompts(segments, "x" * (expected * CAST_LIST_CHARS), language):
         tokens_in += (instructions + SPEAKER_SCHEMA_CHARS + len(prompt)) * rate
         tokens_out += len(wanted) * QUOTE_OUTPUT_TOKENS
+    tokens_in += (UNKNOWN_GENDER_SHARE * expected * GENDER_ROW_CHARS + expected * CAST_LIST_CHARS) * rate
     return (tokens_in * config.price_in + tokens_out * config.price_out) / 1e6
 
 
@@ -682,6 +689,60 @@ class Attribution:
     suggested_voices: dict[str, str] = field(default_factory=dict)
     suggestions_failed: str | None = None   # casting then falls back to its rules alone
     without_emotions: int = 0               # chunks answered from answers cached before emotion hints
+    genders_pending: bool = False           # no calls allowed, and the gender inference is not cached
+    genders_failed: str | None = None       # the gender call failed: those genders stay unknown
+
+
+# --------------------------------------------------------------------------------------
+# Genders the text does not state (SCR-3)
+# --------------------------------------------------------------------------------------
+
+# Pass 1 records a gender only from clues in the text, so a chef, a pilot or a 「我」 whose
+# gender is never stated comes back unknown, and casting would then pick a voice of
+# either gender. One more call asks for the likeliest gender of just those characters,
+# from everything known about them; the answer is kept as a guess (gender_inferred).
+GENDER_INSTRUCTIONS = {
+    "zh": """你在为一部小说的多角色有声书选角。「需要推断性别的角色」在原文中没有明确的性别线索（没有「他」「她」、先生、女士之类的词），
+但选声音时必须定一个。请结合角色表里各角色之间的关系（恋人、配偶、父母子女等），以及这个角色的身份、称呼、名字、描述和台词，
+给出最可能的性别：
+- male 或 female：只要一方更可能，哪怕只是略微更可能，就给出它；
+- group：这是一群人，或者男女都有；
+- unknown：只有完全无从判断、两种可能一样大时才写。""",
+    "en": """You are casting a multi-voice audiobook. The text gives no clear gender for the characters under "Characters
+whose gender is not stated" (no he or she, Mr or Mrs), but a voice must be chosen. From the relations in the cast
+(lovers, spouses, parents and children) and each character's role, title, name, description and lines, give the
+likeliest gender:
+- male or female: whichever is more likely, even slightly;
+- group: a group of people, or of mixed gender;
+- unknown: only when both are exactly as likely.""",
+}
+GENDER_LINES = 3                    # lines of each character given as evidence
+GENDER_LINE_CHARS = 60
+
+
+def infer_genders(characters: dict[str, dict], lines: dict[str, list[str]], language: str,
+                  caller: Caller) -> dict[str, str]:
+    """name -> "male" / "female" for the characters whose gender is unknown and could be inferred."""
+    names = [n for n, c in characters.items() if c.get("gender") not in ("male", "female")]
+    if not names:
+        return {}
+    zh = language == "zh"
+    item = create_model("Gender", name=(Literal[tuple(names)], ...),
+                        gender=(Literal["male", "female", "group", "unknown"], ...))
+    output_type = create_model("Genders", genders=(list[item], ...))
+    rows = []
+    for name in names:
+        c = characters[name]
+        said = "".join(f"「{t[:GENDER_LINE_CHARS]}」" if zh else f" \"{t[:GENDER_LINE_CHARS]}\""
+                       for t in lines.get(name, [])[:GENDER_LINES])
+        alias = (f"（又称：{'、'.join(c['aliases'])}）" if zh else f" (also: {', '.join(c['aliases'])})") \
+            if c.get("aliases") else ""
+        rows.append(f"- {name}{alias}：{c.get('age')}。{c.get('description', '')}" + (f" 台词：{said}" if zh and said else
+                                                                               f" Lines:{said}" if said else ""))
+    prompt = (("角色表：\n" if zh else "Cast:\n") + _cast_summary(characters, language) + "\n\n"
+              + ("需要推断性别的角色：\n" if zh else "Characters whose gender is not stated:\n") + "\n".join(rows))
+    result = caller.call("genders", GENDER_INSTRUCTIONS.get(language, GENDER_INSTRUCTIONS["zh"]), prompt, output_type)
+    return {g.name: g.gender for g in result.genders if g.gender in ("male", "female")}
 
 
 # --------------------------------------------------------------------------------------
@@ -771,12 +832,25 @@ def attribute_script(script: Script, language: str, caller: Caller,
     suggested: dict[str, str] = {}
     suggestions_failed = None
     fallbacks: list[int] = []
+    genders_pending, genders_failed = False, None
     if any(s.kind == "quote" for s in segments):
         try:
             cast = build_cast(paragraphs, language, caller, progress)
             attribute_segments(segments, cast, language, caller, progress, answers, emotions, fallbacks)
         except LLMError as exc:
             stopped = str(exc)
+        if voices and not stopped:
+            said: dict[str, list[str]] = {}
+            for index in sorted(answers):
+                said.setdefault(answers[index][0], []).append(segments[index].text)
+            try:
+                for name, gender in infer_genders(cast, said, language, caller).items():
+                    cast[name].update(gender=gender, gender_inferred=True)
+            except LLMError as exc:
+                if caller.offline:
+                    genders_pending = True               # answered once calls are allowed
+                else:
+                    genders_failed = str(exc)
         if voices and narrator and not stopped:
             counts = Counter(answer[0] for answer in answers.values())
             with_lines = {name: {**entry, "lines": counts.get(name, 0)} for name, entry in cast.items()}
@@ -810,4 +884,4 @@ def attribute_script(script: Script, language: str, caller: Caller,
             lines[block["speaker"]] = lines.get(block["speaker"], 0) + 1
     characters = {name: {**entry, "lines": lines.get(name, 0)} for name, entry in cast.items()}
     return Attribution(blocks, characters, caller.usage, stopped, review, suggested, suggestions_failed,
-                       len(fallbacks))
+                       len(fallbacks), genders_pending, genders_failed)

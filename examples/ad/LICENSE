@@ -1,0 +1,14 @@
+广告 (The Advertisement)
+Copyright © 2026 半轻人
+
+The text of this story, in this directory (txt/), and the files
+derived from it here (speakers.tsv, llm-cache/, which quote it), are licensed under
+the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License
+(CC BY-NC-ND 4.0): https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+Additional permission from the author: you may run huashuo, or other software, on this
+text to make audio for testing or demonstrating that software, and share such audio
+non-commercially, with attribution to the author and this license.
+
+This license covers the story only. The huashuo software is licensed under Apache-2.0
+(see the repository's LICENSE).

@@ -1,0 +1,45 @@
+{
+  "stage": "voices",
+  "model": "gpt-6-sol",
+  "output": {
+    "choices": [
+      {
+        "name": "三色头发的女孩",
+        "voice": "library:zh/young_woman_warm"
+      },
+      {
+        "name": "厨师",
+        "voice": "library:zh/mid_man_jovial"
+      },
+      {
+        "name": "女科学家",
+        "voice": "library:zh/mid_woman_calm"
+      },
+      {
+        "name": "导游",
+        "voice": "library:zh/mid_woman_brisk"
+      },
+      {
+        "name": "小女孩",
+        "voice": "library:zh/girl"
+      },
+      {
+        "name": "小男孩",
+        "voice": "library:zh/boy"
+      },
+      {
+        "name": "小胡子",
+        "voice": "library:zh/mid_man_steady"
+      },
+      {
+        "name": "工程师",
+        "voice": "library:zh/young_man_deep"
+      }
+    ]
+  },
+  "usage": {
+    "input": 2002,
+    "output": 144,
+    "cost": 0.005444
+  }
+}

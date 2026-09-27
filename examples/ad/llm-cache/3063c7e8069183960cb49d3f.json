@@ -1,0 +1,21 @@
+{
+  "stage": "genders",
+  "model": "gpt-6-sol",
+  "output": {
+    "genders": [
+      {
+        "name": "厨师",
+        "gender": "male"
+      },
+      {
+        "name": "工程师",
+        "gender": "male"
+      }
+    ]
+  },
+  "usage": {
+    "input": 796,
+    "output": 31,
+    "cost": 0.001902
+  }
+}

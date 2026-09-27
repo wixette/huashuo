@@ -403,3 +403,64 @@ def test_make_takes_the_same_switch(tmp_path, capsys):
     assert "single voice: the narrator reads everything" in out and "single voice, no LLM needed" in out
     with pytest.raises(SystemExit, match="single voice"):                      # nobody to audition
         main(["audition", str(path), "--engine", "fake"])
+
+
+# ---- genders the text does not state ------------------------------------------------------------
+
+
+def _unknown_gender_cast():
+    from helpers import FIRST_PERSON_CAST
+    return [{**op, "gender": "unknown"} if op["name"] == "林默" else op for op in FIRST_PERSON_CAST]
+
+
+def test_an_unstated_gender_is_inferred_and_marked_as_a_guess(tmp_path, capsys):
+    """林默, the first-person narrator, is never called 他: pass 1 says unknown. The gender
+    call guesses male, so the book gets the male narrator, and cast.json says it was a guess."""
+    from helpers import FIRST_PERSON_ANSWERS
+
+    path = _first_person_book(tmp_path)
+    llm = ScriptedLLM(cast_ops=_unknown_gender_cast(), answers=FIRST_PERSON_ANSWERS, genders={"林默": "male"})
+    result = import_book(path, Workdir.for_input(path), llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
+    assert llm.calls["genders"] == 1
+    prompt = next(p for p in llm.prompts if "需要推断性别的角色" in p)
+    cast_list, asked = prompt.split("需要推断性别的角色")
+    assert "- 周强" in cast_list                                              # the relations, as context
+    assert "- 林默" in asked and "- 周强" not in asked and "你怎么来了" in asked       # only the unknown, with a line
+    character = json.loads(Workdir.for_input(path).cast.read_text(encoding="utf-8"))["characters"]["林默"]
+    assert character["gender"] == "male" and character["gender_inferred"] is True
+    assert result.narrator == "library:zh/narrator_male" and "(inferred)" in result.narrator_reason
+
+
+def test_a_book_attributed_before_pays_only_for_the_gender_call(tmp_path):
+    from helpers import FIRST_PERSON_ANSWERS
+
+    path = _first_person_book(tmp_path)
+    wd = Workdir.for_input(path)
+    options = dict(cast_ops=_unknown_gender_cast(), answers=FIRST_PERSON_ANSWERS, genders={"林默": "male"})
+    remote = LLMConfig("test-model", "https://llm.example.invalid/v1", "x", 1.0, 1.0, max_cost=1.0)
+    first = ScriptedLLM(**options)
+    import_book(path, wd, llm=LLMOptions(config_override=remote, model_override=first.model(), assume_yes=True))
+    for cached in (wd.state / "llm-cache").glob("*.json"):                   # as if cached before this change
+        if json.loads(cached.read_text(encoding="utf-8"))["stage"] == "genders":
+            cached.unlink()
+    again, asked = ScriptedLLM(**options), []
+    result = import_book(path, wd, llm=LLMOptions(config_override=remote, model_override=again.model(),
+                                                  confirm=lambda m: asked.append(m) or True))
+    assert "genders the text does not state" in asked[0]
+    assert again.calls == {"cast": 0, "speakers": 0, "voices": 0, "genders": 1}
+    assert result.narrator == "library:zh/narrator_male"
+
+
+def test_a_failed_gender_call_keeps_the_rest(tmp_path, monkeypatch):
+    from helpers import FIRST_PERSON_ANSWERS
+    from huashuo.attribution import LLMError
+
+    def fails(*args, **kwargs):
+        raise LLMError("genders call to test-model failed: timeout")
+    monkeypatch.setattr("huashuo.attribution.infer_genders", fails)
+    path = _first_person_book(tmp_path)
+    llm = ScriptedLLM(cast_ops=_unknown_gender_cast(), answers=FIRST_PERSON_ANSWERS)
+    result = import_book(path, Workdir.for_input(path), llm=LLMOptions(config_override=LOCAL, model_override=llm.model()))
+    assert not result.llm.stopped and "timeout" in result.llm.genders_failed
+    cast = json.loads(Workdir.for_input(path).cast.read_text(encoding="utf-8"))["characters"]
+    assert cast["林默"]["gender"] == "unknown" and cast["周强"]["voice"]            # speakers and casting done

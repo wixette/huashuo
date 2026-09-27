@@ -1,0 +1,112 @@
+{
+  "stage": "cast",
+  "model": "gpt-6-sol",
+  "output": {
+    "operations": [
+      {
+        "op": "insert",
+        "name": "小胡子",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "male",
+        "age": "unknown",
+        "description": "地球旅游电视广告中身穿西装、在城市街头欢迎游客的男子。"
+      },
+      {
+        "op": "insert",
+        "name": "厨师",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "unknown",
+        "age": "middle_aged",
+        "description": "地球旅游广告中介绍各洲菜系和特色菜肴的专业厨师。"
+      },
+      {
+        "op": "insert",
+        "name": "三色头发的女孩",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "female",
+        "age": "young_adult",
+        "description": "地球旅游广告中手持手机、兴高采烈地介绍直播娱乐的年轻女孩。"
+      },
+      {
+        "op": "insert",
+        "name": "老大爷",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "male",
+        "age": "elderly",
+        "description": "地球旅游广告中坐在沙滩上介绍虚拟现实美景的老人。"
+      },
+      {
+        "op": "insert",
+        "name": "老太太",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "female",
+        "age": "elderly",
+        "description": "地球旅游广告中戴着虚拟现实眼镜、蹦跳着介绍游戏世界的老人。"
+      },
+      {
+        "op": "insert",
+        "name": "空军飞行员",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "male",
+        "age": "middle_aged",
+        "description": "地球旅游广告中驾驶战斗机、声称保障旅客安全的四十多岁飞行员。"
+      },
+      {
+        "op": "insert",
+        "name": "导游",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "female",
+        "age": "middle_aged",
+        "description": "地球旅游广告中介绍国际会议及“会场一日游”的三四十岁女子。"
+      },
+      {
+        "op": "insert",
+        "name": "小男孩",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "male",
+        "age": "child",
+        "description": "地球旅游广告中骑着机器鸵鸟、介绍机器动物的八九岁男孩。"
+      },
+      {
+        "op": "insert",
+        "name": "小女孩",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "female",
+        "age": "child",
+        "description": "地球旅游广告中抱着机器老虎、讲述租猛兽作玩伴的八九岁女孩。"
+      },
+      {
+        "op": "insert",
+        "name": "工程师",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "unknown",
+        "age": "young_adult",
+        "description": "地球旅游广告中站在汽车前、为地球机动车感到骄傲的年轻人。"
+      },
+      {
+        "op": "insert",
+        "name": "女科学家",
+        "merge_into": null,
+        "aliases": [],
+        "gender": "female",
+        "age": "middle_aged",
+        "description": "地球旅游广告中手拿原子核模型、介绍核弹头和人工智能服务器的五十多岁科学家。"
+      }
+    ]
+  },
+  "usage": {
+    "input": 1811,
+    "output": 507,
+    "cost": 0.008692
+  }
+}

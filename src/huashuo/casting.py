@@ -62,7 +62,8 @@ def choose_narrator(characters: dict[str, dict], language: str) -> tuple[str, st
         if is_first_person(name, character):
             # The narration is this character's voice; other characters do not decide it.
             if character.get("gender") in by_gender:
-                return by_gender[character["gender"]], f"first-person narrator {name} is {character['gender']}"
+                guess = " (inferred)" if character.get("gender_inferred") else ""
+                return by_gender[character["gender"]], f"first-person narrator {name} is {character['gender']}{guess}"
             return default, f"first-person narrator {name}, gender unknown: default"
     order = sorted(characters, key=lambda n: -int(characters[n].get("lines") or 0))
     if order:
@@ -70,8 +71,9 @@ def choose_narrator(characters: dict[str, dict], language: str) -> tuple[str, st
         lines = int(top.get("lines") or 0)
         runner_up = int(characters[order[1]].get("lines") or 0) if len(order) > 1 else 0
         if lines and lines >= PROTAGONIST_LEAD * runner_up and top.get("gender") in by_gender:
+            guess = ", inferred" if top.get("gender_inferred") else ""
             return by_gender[top["gender"]], (f"protagonist {order[0]} is {top['gender']} "
-                                              f"({lines} lines, next {runner_up})")
+                                              f"({lines} lines, next {runner_up}{guess})")
     return default, "default"
 
 

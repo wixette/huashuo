@@ -1,0 +1,22 @@
+# 广告
+
+A flash fiction by 半轻人 (2026): about 1,400 characters of modern Simplified Chinese. An
+alien couple, packed for a holiday on Earth, watch Earth's tourism advertisement, and
+think better of it.
+
+It is huashuo's second golden example, for the voice library: eleven speakers of every age
+but teenagers (two children, young, middle-aged and elderly men and women), one line each,
+so casting has to spread them over the library. The chef's and the engineer's genders are
+not stated, which exercises the gender inference; the two aliens never speak, so they must
+not be cast.
+
+| File | Purpose |
+|---|---|
+| `txt/广告.txt` | The story: title line, `作者：半轻人`, then the text |
+| `speakers.tsv` | The speaker of every quote: the golden labels for speaker attribution |
+| `llm-cache/` | The LLM's answers for this story, replayed offline by `tests/test_golden.py`; re-record them with `examples/refresh_golden.py ad` (a capped, paid run) when the prompts change |
+
+    huashuo examples/ad/txt/广告.txt
+
+License: the story is CC BY-NC-ND 4.0, with the author's permission to make and share
+audio with huashuo for testing and demonstration; see [LICENSE](LICENSE).
