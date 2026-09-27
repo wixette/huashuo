@@ -14,8 +14,17 @@ not be cast.
 |---|---|
 | `txt/广告.txt` | The story: title line, `作者：半轻人`, then the text |
 | `speakers.tsv` | The speaker of every quote: the golden labels for speaker attribution |
+| `cast.json` | The demo's cast: the machine's, with one choice changed by ear (the TV host 小胡子 in `mid_man_jovial`, the chef, who speaks right after him, in `mid_man_steady`) |
 | `llm-cache/` | The LLM's answers for this story, replayed offline by `tests/test_golden.py`; re-record them with `examples/refresh_golden.py ad` (a capped, paid run) when the prompts change |
 
+    huashuo examples/ad/txt/广告.txt
+
+To make the demo with its cast, and without paying for the LLM again, put the cast and the
+stored answers in the work directory before the first import:
+
+    mkdir -p examples/ad/txt/广告.huashuo/state
+    cp examples/ad/cast.json examples/ad/txt/广告.huashuo/
+    cp -R examples/ad/llm-cache examples/ad/txt/广告.huashuo/state/
     huashuo examples/ad/txt/广告.txt
 
 License: the story is CC BY-NC-ND 4.0, with the author's permission to make and share

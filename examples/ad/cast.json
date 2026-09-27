@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "narrator": {
+    "voice": "library:zh/narrator_female"
+  },
+  "characters": {
+    "小胡子": {
+      "aliases": [],
+      "gender": "male",
+      "age": "unknown",
+      "description": "地球旅游电视广告中身穿西装、在城市街头欢迎游客的男子。",
+      "lines": 1,
+      "voice": "library:zh/mid_man_jovial"
+    },
+    "厨师": {
+      "aliases": [],
+      "gender": "male",
+      "age": "middle_aged",
+      "description": "地球旅游广告中介绍各洲菜系和特色菜肴的专业厨师。",
+      "gender_inferred": true,
+      "lines": 1,
+      "voice": "library:zh/mid_man_steady"
+    },
+    "三色头发的女孩": {
+      "aliases": [],
+      "gender": "female",
+      "age": "young_adult",
+      "description": "地球旅游广告中手持手机、兴高采烈地介绍直播娱乐的年轻女孩。",
+      "lines": 1,
+      "voice": "library:zh/young_woman_warm"
+    },
+    "老大爷": {
+      "aliases": [],
+      "gender": "male",
+      "age": "elderly",
+      "description": "地球旅游广告中坐在沙滩上介绍虚拟现实美景的老人。",
+      "lines": 1,
+      "voice": "library:zh/old_man_kind"
+    },
+    "老太太": {
+      "aliases": [],
+      "gender": "female",
+      "age": "elderly",
+      "description": "地球旅游广告中戴着虚拟现实眼镜、蹦跳着介绍游戏世界的老人。",
+      "lines": 1,
+      "voice": "library:zh/old_woman_kind"
+    },
+    "空军飞行员": {
+      "aliases": [],
+      "gender": "male",
+      "age": "middle_aged",
+      "description": "地球旅游广告中驾驶战斗机、声称保障旅客安全的四十多岁飞行员。",
+      "lines": 1,
+      "voice": "library:zh/old_man_hoarse"
+    },
+    "导游": {
+      "aliases": [],
+      "gender": "female",
+      "age": "middle_aged",
+      "description": "地球旅游广告中介绍国际会议及“会场一日游”的三四十岁女子。",
+      "lines": 1,
+      "voice": "library:zh/mid_woman_brisk"
+    },
+    "小男孩": {
+      "aliases": [],
+      "gender": "male",
+      "age": "child",
+      "description": "地球旅游广告中骑着机器鸵鸟、介绍机器动物的八九岁男孩。",
+      "lines": 1,
+      "voice": "library:zh/boy"
+    },
+    "小女孩": {
+      "aliases": [],
+      "gender": "female",
+      "age": "child",
+      "description": "地球旅游广告中抱着机器老虎、讲述租猛兽作玩伴的八九岁女孩。",
+      "lines": 1,
+      "voice": "library:zh/girl"
+    },
+    "工程师": {
+      "aliases": [],
+      "gender": "male",
+      "age": "young_adult",
+      "description": "地球旅游广告中站在汽车前、为地球机动车感到骄傲的年轻人。",
+      "gender_inferred": true,
+      "lines": 1,
+      "voice": "library:zh/young_man_deep"
+    },
+    "女科学家": {
+      "aliases": [],
+      "gender": "female",
+      "age": "middle_aged",
+      "description": "地球旅游广告中手拿原子核模型、介绍核弹头和人工智能服务器的五十多岁科学家。",
+      "lines": 1,
+      "voice": "library:zh/mid_woman_calm"
+    }
+  }
+}

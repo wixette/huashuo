@@ -54,11 +54,13 @@ def _gold(example: Path = FISH) -> list[tuple[str, str]]:
     return [(quote, speaker) for _, speaker, quote, *_ in rows]
 
 
-def _attributed(tmp_path: Path, source: Path, example: Path = FISH, **options):
+def _attributed(tmp_path: Path, source: Path, example: Path = FISH, cast: Path | None = None, **options):
     book = tmp_path / source.name
     shutil.copy(source, book)
     wd = Workdir.for_input(book)
     shutil.copytree(example / "llm-cache", wd.state / "llm-cache")
+    if cast is not None:                                  # a cast chosen by hand before the first import
+        shutil.copy(cast, wd.cast)
     result = import_book(book, wd, llm=LLMOptions(enabled=False, model="gpt-6-sol"), **options)
     project = load_project(wd)
     genders_pending = any(c.get("gender") not in ("male", "female") and not c.get("gender_inferred")
@@ -172,3 +174,18 @@ def test_ad_units_are_whole_sentences(tmp_path, voices):
     assert _unit_problems(plan) == []
     if voices == "single":
         assert {u.voice for u in plan.units} == {result.narrator}
+
+
+def test_ad_the_demo_cast_is_kept(tmp_path):
+    """examples/ad/cast.json is the demo's cast, one choice changed by ear: the slogan-shouting
+    TV host (小胡子) in the jolly voice, not the dignified one the LLM suggested (design doc
+    §8.7), and the chef, who speaks right after him, in the dignified one instead."""
+    from huashuo.pipeline import check_project
+
+    wd, result = _attributed(tmp_path, AD_TXT, AD, cast=AD / "cast.json")
+    project = load_project(wd)
+    voices = {name: c["voice"] for name, c in project.cast["characters"].items()}
+    assert voices["小胡子"] == "library:zh/mid_man_jovial" and voices["厨师"] == "library:zh/mid_man_steady"
+    assert check_project(project) == []
+    slogan = next(u for u in make_plan(project).units if "远道而来是朋友" in u.text)
+    assert slogan.voice == "library:zh/mid_man_jovial"
