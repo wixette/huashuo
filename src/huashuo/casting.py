@@ -118,19 +118,29 @@ def _mismatch(character: dict, voice: Voice) -> int:
     if gender in ("male", "female") and voice.gender != gender:
         score += 100
     age = character.get("age")
-    target = _AGE_INDEX.get(age)
-    if target is None:
-        # Unknown age almost always means an adult (children are usually marked as such):
-        # a child's or teenager's voice for a 主任 or a 老师 is far worse than sharing.
-        score += _UNKNOWN_AGE_COST[voice.age]
-    else:
-        score += 20 * abs(_AGE_INDEX[voice.age] - target)
-    return score
+    if age not in _AGE_INDEX:
+        # An unstated age almost always means an adult, most often a young one.
+        return score + _UNKNOWN_AGE_COST[voice.age]
+    if voice.age in MARKED_AGES and voice.age != age:
+        return score + MARKED_AGE_COST
+    steps = _AGE_INDEX[voice.age] - _AGE_INDEX[age]
+    return score + (OLDER_STEP_COST * steps if steps > 0 else YOUNGER_STEP_COST * -steps)
 
 
-# An unstated age is most often a young adult; middle age is plausible, a child's, a
-# teenager's or an old voice much less so.
-_UNKNOWN_AGE_COST = {"child": 80, "teen": 50, "young_adult": 0, "middle_aged": 10, "elderly": 35}
+# Age comes right after gender. A child's, a teenager's or an old voice is heard as that
+# age at once (old_man_hoarse is hoarse and slow): for anyone else it costs more than
+# sharing a voice, even a main character's (at most 45 + 32), so a young man shares an
+# adult voice rather than get the boy's (白夜行: 中道正晴, 140 lines, had been given `boy`).
+# Between the adult ages a step is milder, and an older voice for a younger character is
+# a little worse than the reverse (广告: a pilot in his forties had got the old man's voice
+# on a tie with a young man's).
+MARKED_AGES = {"child", "teen", "elderly"}
+# Two people talking to each other in one voice is the worst confusion of all: as bad as
+# the wrong gender, and worse than any age (CAST-7).
+TALK_COST = 100
+MARKED_AGE_COST = 90
+OLDER_STEP_COST, YOUNGER_STEP_COST = 25, 20
+_UNKNOWN_AGE_COST = {"child": 90, "teen": 90, "young_adult": 0, "middle_aged": 10, "elderly": 90}
 # Spreading bit parts over voices is nice, but never at the price of a wrong age: the
 # penalty for a crowded voice stops growing below the cost of a wrong-age voice.
 _USE_COST, _MAX_USE_COST = 8, 32
@@ -145,8 +155,9 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
 
     `suggested` are picks for main characters that also weigh personality (from the LLM,
     see attribution.suggest_voices). A suggestion is taken when it is castable, fits the
-    character's gender, and is not already some other main character's voice; otherwise
-    the rules below decide.
+    character's gender, is not a child's, teenager's or old voice for someone of another
+    age, and is not already some other main character's voice; otherwise the rules below
+    decide.
     """
     talks = talks or Counter()
     fixed = dict(fixed or {})
@@ -169,9 +180,11 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
         pick = (suggested or {}).get(name)
         if name in chosen or pick not in by_ref or usage[pick]:
             continue
-        gender = characters[name].get("gender")
+        gender, age = characters[name].get("gender"), characters[name].get("age")
         if gender in ("male", "female") and by_ref[pick].gender != gender:
             continue
+        if age in _AGE_INDEX and by_ref[pick].age in MARKED_AGES and by_ref[pick].age != age:
+            continue                                     # a child's, teen's or old voice for another age
         chosen[name] = pick
         usage[pick] += 1
         main_voices.add(pick)
@@ -188,7 +201,7 @@ def cast_voices(characters: dict[str, dict], narrator: str, language: str,
 
         def cost(voice: Voice) -> tuple:
             score = _mismatch(character, voice)
-            score += 40 * sum(talks[frozenset((name, p))] > 0 for p in partners if chosen.get(p) == voice.ref)
+            score += TALK_COST * sum(talks[frozenset((name, p))] > 0 for p in partners if chosen.get(p) == voice.ref)
             if is_main:
                 score += 10_000 if usage[voice.ref] else 0        # a main character's voice is its own
             else:

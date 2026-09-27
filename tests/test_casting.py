@@ -35,7 +35,9 @@ def test_minor_characters_share_but_not_with_whom_they_talk():
     talks = conversations(blocks)
     assert talks == Counter({frozenset(("甲", "乙")): 2})
     voices = cast_voices(chars, NARRATOR, "zh", talks, pool=POOL, main=1)
-    assert voices["甲"] != voices["乙"] and voices["主角"] not in (voices["甲"], voices["乙"])
+    # Two young men's voices for three young men: the two who talk stay apart, and the one
+    # left over borrows the protagonist's voice rather than take the old man's.
+    assert voices["甲"] != voices["乙"] and "lib:old_man" not in voices.values()
 
 
 def test_first_person_narrator_keeps_the_narrator_voice():
@@ -149,3 +151,32 @@ def test_only_a_description_that_begins_with_it_makes_the_narrator():
     assert not is_first_person("周强", {"description": "表哥，第一人称叙述者的亲戚。"})
     assert not is_first_person("Anne", {"description": "The narrator's sister, sharp-tongued."})
     assert not is_first_person("Tom", {"description": "The first-person narrator's best friend."})
+
+
+def test_a_marked_age_voice_only_for_that_age():
+    """白夜行: 中道正晴 (young adult, 140 lines, not a main character) had been given the boy's
+    voice, cheaper than sharing an adult one. A child's, a teenager's or an old voice is
+    heard as that age at once, so everyone else shares an adult voice instead."""
+    pool = [Voice("lib:young_man", "zh", "male", "young_adult"), Voice("lib:boy", "zh", "male", "child"),
+            Voice("lib:teen_boy", "zh", "male", "teen"), Voice("lib:old_man", "zh", "male", "elderly")]
+    chars = {"主角": ch("male", "young_adult", 500), "中道正晴": ch("male", "young_adult", 140),
+             "少年": ch("male", "teen", 3), "老人": ch("male", "elderly", 3), "路人": ch("male", "unknown", 1)}
+    voices = cast_voices(chars, NARRATOR, "zh", pool=pool, main=1)
+    assert voices["中道正晴"] == "lib:young_man" and voices["路人"] == "lib:young_man"   # shared, not boy's
+    assert voices["少年"] == "lib:teen_boy" and voices["老人"] == "lib:old_man"
+
+
+def test_between_adult_ages_a_younger_voice_is_preferred():
+    """广告: the pilot in his forties, with both middle-aged voices taken by main characters,
+    tied between a young man's voice and the old man's, and got the old man's."""
+    pool = [Voice("lib:mid1", "zh", "male", "middle_aged"), Voice("lib:mid2", "zh", "male", "middle_aged"),
+            Voice("lib:old_man_hoarse", "zh", "male", "elderly"), Voice("lib:young_man_warm", "zh", "male", "young_adult")]
+    chars = {"主持人": ch("male", "middle_aged", 9), "厨师": ch("male", "middle_aged", 8), "飞行员": ch("male", "middle_aged", 1)}
+    assert cast_voices(chars, NARRATOR, "zh", pool=pool, main=2)["飞行员"] == "lib:young_man_warm"
+
+
+
+def test_a_suggestion_of_a_marked_age_voice_for_another_age_is_not_taken():
+    pool = [Voice("lib:young_man", "zh", "male", "young_adult"), Voice("lib:boy", "zh", "male", "child")]
+    chars = {"青年": ch("male", "young_adult", 50)}
+    assert cast_voices(chars, NARRATOR, "zh", pool=pool, suggested={"青年": "lib:boy"})["青年"] == "lib:young_man"

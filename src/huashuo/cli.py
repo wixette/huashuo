@@ -242,10 +242,12 @@ def cmd_import(args, quiet: bool = False, summary: bool = True):
         print(f"  merge: {line}")
     _print_llm(None if result.voices == "single" else result.llm, wd)
     if result.voices != "single":
-        guessed = [f"{name} {c['gender']}" for name, c in load_project(wd).cast.get("characters", {}).items()
-                   if c.get("gender_inferred")]
+        characters = load_project(wd).cast.get("characters", {})
+        guessed = [f"{name} " + " ".join(c[f] for f in ("gender", "age") if c.get(f"{f}_inferred"))
+                   for name, c in characters.items() if c.get("gender_inferred") or c.get("age_inferred")]
         if guessed:
-            print(f"genders inferred, not stated in the text: {', '.join(guessed)} (fix them in cast.json if wrong)")
+            shown = ", ".join(guessed[:12]) + (f" and {len(guessed) - 12} more" if len(guessed) > 12 else "")
+            print(f"inferred, not stated in the text: {shown} (fix them in cast.json if wrong)")
     _print_pron(wd, result.script)
     if not quiet:
         _print_structure(load_project(wd))
@@ -362,10 +364,10 @@ def _print_llm(report, wd) -> None:
     if report.stopped:
         print(f"warning: speaker attribution stopped early: {report.stopped}")
         log.warning("llm stopped: %s", report.stopped)
-    if report.genders_failed:
-        print(f"note: could not infer the genders the text does not state ({report.genders_failed}); "
+    if report.profiles_failed:
+        print(f"note: could not infer the genders and ages the text does not state ({report.profiles_failed}); "
               f"they stay unknown in cast.json")
-        log.warning("gender inference failed: %s", report.genders_failed)
+        log.warning("gender and age inference failed: %s", report.profiles_failed)
     if report.suggestions_failed:
         print(f"note: no voice suggestions from the LLM ({report.suggestions_failed}); voices were cast by "
               f"gender and age alone")

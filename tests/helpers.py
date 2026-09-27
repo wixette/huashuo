@@ -137,7 +137,7 @@ class ScriptedLLM:
 
     def __init__(self, cast_ops=None, answers=None, drop_first: int | None = None, confidence: float = 0.95,
                  tokens_per_call: int | None = None, voice_choices: dict | None = None,
-                 emotions: dict | None = None, genders: dict | None = None):
+                 emotions: dict | None = None, genders: dict | None = None, ages: dict | None = None):
         self.cast_ops = DIALOGUE_CAST if cast_ops is None else cast_ops
         self.answers = DIALOGUE_ANSWERS if answers is None else answers
         self.drop_first = drop_first      # leave out this many answers on the first speaker call
@@ -145,7 +145,8 @@ class ScriptedLLM:
         self.tokens_per_call = tokens_per_call   # report this usage, so budgets behave as with a real model
         self.voice_choices = voice_choices or {}   # name -> voice ref, for the casting call
         self.emotions = emotions or {}             # quote text -> emotion label
-        self.genders = genders or {}               # name -> gender, for the gender call
+        self.genders = genders or {}               # name -> gender, for the profile call
+        self.ages = ages or {}                     # name -> age, for the profile call
         self.calls = {"cast": 0, "speakers": 0, "voices": 0}
         self.prompts: list[str] = []
 
@@ -163,10 +164,12 @@ class ScriptedLLM:
                          if isinstance(getattr(part, "content", None), str))
         self.prompts.append(prompt)
         asked = re.search(r"(?:需要回答的编号：|Answer for indices: )([\d, ]+)", prompt)
-        if "需要推断性别的角色" in prompt or "Characters whose gender is not stated" in prompt:
-            self.calls["genders"] = self.calls.get("genders", 0) + 1
-            asked_names = prompt.split("需要推断性别的角色")[-1].split("Characters whose gender is not stated")[-1]
-            payload = {"genders": [{"name": n, "gender": g} for n, g in self.genders.items() if f"- {n}" in asked_names]}
+        if "需要推断的角色" in prompt or "Characters to infer" in prompt:
+            self.calls["profiles"] = self.calls.get("profiles", 0) + 1
+            asked_names = prompt.split("需要推断的角色")[-1].split("Characters to infer")[-1]
+            names = [n for n in {**self.genders, **self.ages} if f"- {n}" in asked_names]
+            payload = {"profiles": [{"name": n, "gender": self.genders.get(n, "unknown"), "age": self.ages.get(n, "unknown")}
+                                    for n in names]}
         elif "可用的音色" in prompt or "Available voices" in prompt:   # casting suggestions
             self.calls["voices"] += 1
             payload = {"choices": [{"name": n, "voice": v} for n, v in self.voice_choices.items()]}

@@ -1,0 +1,28 @@
+{
+  "stage": "profiles",
+  "model": "gpt-6-sol",
+  "output": {
+    "profiles": [
+      {
+        "name": "栖芒",
+        "gender": "female",
+        "age": "young_adult"
+      },
+      {
+        "name": "我",
+        "gender": "male",
+        "age": "young_adult"
+      },
+      {
+        "name": "李忱",
+        "gender": "male",
+        "age": "middle_aged"
+      }
+    ]
+  },
+  "usage": {
+    "input": 850,
+    "output": 58,
+    "cost": 0.00228
+  }
+}

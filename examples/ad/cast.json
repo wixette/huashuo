@@ -7,8 +7,9 @@
     "小胡子": {
       "aliases": [],
       "gender": "male",
-      "age": "unknown",
+      "age": "middle_aged",
       "description": "地球旅游电视广告中身穿西装、在城市街头欢迎游客的男子。",
+      "age_inferred": true,
       "lines": 1,
       "voice": "library:zh/mid_man_jovial"
     },

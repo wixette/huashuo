@@ -307,7 +307,7 @@ def test_the_estimate_counts_the_cast_every_call_carries():
     fish = build(read_book(Path(__file__).resolve().parents[1] / "examples/fish/txt/一条被洗澡水拍死的鱼.txt"))
     assert 0.09 <= estimate_cost(fish.script, "zh", config) <= 0.2
     short, long = estimate_cost(long_script(150).script, "zh", config), estimate_cost(long_script(300).script, "zh", config)
-    assert long > 2.1 * short                          # twice the book, more than twice the cost
+    assert long > 2 * short                            # twice the book, more than twice the cost
     assert estimate_cost(build(Book("书", "", "zh", [Section([Paragraph("没有对话。")])], "txt")).script,
                          "zh", config) == 0.0
 

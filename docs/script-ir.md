@@ -277,7 +277,7 @@ block 是**语义单位**，合成单元（unit）是**送进 TTS 的一次调�
 | `characters` | 以规范名为键。`aliases`、`gender`、`age`、`description`、`lines` 由剧本化阶段写入（SCR-3） |
 | `voice` | 音色引用：`preset:<名称>`（CustomVoice 预置）、`library:<语言>/<音色 id>`（内置音色库，CAST-1）；以后可加 `custom:<路径>`（CAST-12、CAST-13）。`huashuo voices` 列出可选的音色及其描述，`huashuo audition` 用每个角色的一句真实台词试听 |
 
-`age` 取值：`child` / `teen` / `young_adult` / `middle_aged` / `elderly`（剧本化阶段也可能写 `unknown`）。`gender`：`male` / `female` / `unknown`；原文没有性别线索、由 LLM 推断的，另有 `"gender_inferred": true`（requirements Q27），手改 `gender` 即可纠正。
+`age` 取值：`child` / `teen` / `young_adult` / `middle_aged` / `elderly`（剧本化阶段也可能写 `unknown`）。`gender`：`male` / `female` / `unknown`；原文没有性别线索、由 LLM 推断的，另有 `"gender_inferred": true`（requirements Q27），年龄段同理有 `"age_inferred": true`（Q28）；手改 `gender`、`age` 即可纠正。
 
 读取时会校验：JSON 格式、`narrator.voice` 必须存在、`characters` 必须是以名字为键的对象、`voice` 必须是非空字符串；出错时给出文件位置与修改建议，不抛出程序异常。缺少 `cast.json` 时按书的语言使用默认旁白。
 

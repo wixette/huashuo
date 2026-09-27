@@ -1,0 +1,28 @@
+{
+  "stage": "profiles",
+  "model": "gpt-6-sol",
+  "output": {
+    "profiles": [
+      {
+        "name": "小胡子",
+        "gender": "male",
+        "age": "middle_aged"
+      },
+      {
+        "name": "厨师",
+        "gender": "male",
+        "age": "middle_aged"
+      },
+      {
+        "name": "工程师",
+        "gender": "male",
+        "age": "young_adult"
+      }
+    ]
+  },
+  "usage": {
+    "input": 974,
+    "output": 57,
+    "cost": 0.002518
+  }
+}

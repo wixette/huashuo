@@ -63,9 +63,9 @@ def _attributed(tmp_path: Path, source: Path, example: Path = FISH, cast: Path |
         shutil.copy(cast, wd.cast)
     result = import_book(book, wd, llm=LLMOptions(enabled=False, model="gpt-6-sol"), **options)
     project = load_project(wd)
-    genders_pending = any(c.get("gender") not in ("male", "female") and not c.get("gender_inferred")
-                          for c in project.cast.get("characters", {}).values()) and example == AD
-    if result.llm is None or result.llm.stopped or genders_pending:
+    profiles_pending = any(c.get("age") == "unknown" and not c.get("age_inferred")
+                           for c in project.cast.get("characters", {}).values()) and example == AD and cast is None
+    if result.llm is None or result.llm.stopped or profiles_pending:
         pytest.skip(f"the stored LLM answers no longer match the prompts; re-record them with "
                     f"examples/refresh_golden.py {example.name} (a few cents)")
     return wd, result

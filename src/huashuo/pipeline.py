@@ -86,7 +86,7 @@ class LLMReport:
     notice: str | None = None
     suggestions_failed: str | None = None
     kept: int = 0                    # quotes that kept their previous answer
-    genders_failed: str | None = None
+    profiles_failed: str | None = None
 
 
 @dataclass
@@ -149,7 +149,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
         offline = Caller(offline_config(config.model), cache, offline=True)
         attribution = attribute_script(script, language, offline, options.progress, voices, narrator)
         missing = sum(1 for b in attribution.blocks if b.get("type") == "dialogue" and "conf" not in b)
-        if not missing and not attribution.without_emotions and not attribution.genders_pending:
+        if not missing and not attribution.without_emotions and not attribution.profiles_pending:
             return attribution, LLMReport("cache", config.model, offline.usage, None, None, attribution.review,
                                           suggestions_failed=attribution.suggestions_failed)
         quotes = sum(1 for b in script.blocks if b.get("type") == "dialogue")
@@ -159,7 +159,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
         elif attribution.without_emotions:
             gap = "the cached answers predate emotion hints"
         else:
-            gap = "the genders the text does not state have not been inferred yet"
+            gap = "the genders and ages the text does not state have not been inferred yet"
         estimate = estimate_cost(script, language, config, cache)       # answers in the cache are free
         _check_cap(estimate, config)
         message = (f"{gap}. Attributing them sends the text to {config.endpoint} ({config.model}), estimated "
@@ -189,7 +189,7 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
     record["llm_model"] = config.model
     return attribution, LLMReport("calls", config.model, caller.usage, estimate, attribution.stopped,
                                   attribution.review, suggestions_failed=attribution.suggestions_failed,
-                                  genders_failed=attribution.genders_failed)
+                                  profiles_failed=attribution.profiles_failed)
 
 
 def _carry_over(attribution, previous: Script, previous_cast: dict | None, language: str) -> int:
