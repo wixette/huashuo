@@ -145,7 +145,7 @@ HUASHUO_LLM_API_KEY=your-key
 
 Measured costs with `gpt-6-sol`: a short story costs cents; a novel of about 210,000 Chinese
 characters with about 100 roles (格非's 春尽江南) about $3; a novel of about 300,000 Chinese
-characters with many roles (东野圭吾's 白夜行, 159 of them) about $10. The cost grows mainly with
+characters with many roles (东野圭吾's 白夜行, about 160 of them) about $10. The cost grows mainly with
 the number of roles. `--llm-model gpt-6-luna` costs about a twentieth as much and is as accurate on
 ordinary dialogue, but more often wrong on back-and-forth lines with no "he said". The cost is
 estimated before any call, and a run stops before spending more than $5 by default
