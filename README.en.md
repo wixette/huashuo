@@ -27,12 +27,12 @@ the narrator alone.**
 Both demos are in Chinese. **广告** (The Advertisement, by 半轻人, the whole story, 6 min):
 11 speakers, 11 voices.
 
-<!-- video: huashuo-demo-ad.mp4 -->
+https://github.com/user-attachments/assets/dc5aa87d-1991-4598-ae9d-1d5fcd6bd7da
 
 **一条被洗澡水拍死的鱼** (The Fish Slapped Dead by Bathwater, by 半轻人, a 2-minute excerpt):
 the first-person narrator and 栖芒 in a bookshop.
 
-<!-- video: huashuo-demo-fish.mp4 -->
+https://github.com/user-attachments/assets/57e8dc6b-6961-46cf-aae2-d4eaf5153524
 
 Speakers and voices were chosen automatically; in 广告 two characters' voices were swapped by
 ear. The full audiobooks (M4B for Apple Books, MP3, MP3 per chapter) are attached to
