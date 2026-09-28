@@ -1,4 +1,4 @@
-"""Covers for books without one: the designer's templates (M4B-4)."""
+"""Covers for books without one: the cover templates (M4B-4)."""
 
 import json
 
@@ -9,7 +9,7 @@ from huashuo.pipeline import book_cover
 from huashuo.workdir import Workdir
 
 
-def test_titles_wrap_into_balanced_lines_like_the_designer_examples():
+def test_titles_wrap_into_balanced_lines_like_the_template_examples():
     lines = cover._balanced_lines
     assert lines("不成问题的问题", [360] * 7, 2843) == ["不成问题的问题"]
     assert lines("一个无政府主义者的意外死亡", [360] * 13, 2843) == ["一个无政府主义", "者的意外死亡"]   # 7 + 6

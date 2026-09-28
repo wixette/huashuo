@@ -1,5 +1,5 @@
 话说 Huashuo
-Copyright 2026 the 话说 Huashuo authors
+Copyright 2026 wixette
 
 The source code is licensed under the Apache License 2.0 (LICENSE). The repository also
 contains the following, under their own terms:
@@ -9,12 +9,12 @@ contains the following, under their own terms:
   (src/huashuo/covers/OFL.txt).
 
 - src/huashuo/covers/template-1.png ... template-4.png
-  Cover templates made for Huashuo by the project's designers. CC BY-NC-ND 4.0, with
+  The cover templates, Copyright 2026 wixette. CC BY-NC-ND 4.0, with
   permission to embed generated covers in the audiobooks huashuo makes
   (src/huashuo/covers/LICENSE-templates.txt).
 
 - docs/assets/huashuo-logo-black.png, huashuo-logo-white.png
-  The Huashuo logos, made by the project's designers. CC BY-NC-ND 4.0
+  The Huashuo logos, Copyright 2026 wixette. CC BY-NC-ND 4.0
   (docs/assets/LICENSE.txt).
 
 - src/huashuo/voices/

@@ -1,5 +1,5 @@
 Logos: huashuo-logo-black.png, huashuo-logo-white.png
-Copyright © 2026 the 话说 Huashuo project. Made for Huashuo by the project's designers.
+Copyright © 2026 wixette
 
 These images are licensed under the Creative Commons Attribution-NonCommercial-
 NoDerivatives 4.0 International License (CC BY-NC-ND 4.0):

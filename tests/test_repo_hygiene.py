@@ -68,3 +68,12 @@ def test_llm_requests_are_refused_and_keys_hidden(monkeypatch):
     agent = Agent(OpenAIChatModel("gpt-6-sol", provider=OpenAIProvider(api_key="sk-test-not-a-real-key")))
     with pytest.raises(RuntimeError, match="(?i)model requests|not allowed"):
         agent.run_sync("hello")
+
+
+def test_both_readmes_show_the_same_commands():
+    """README.en.md is a condensed README.md: the commands must not drift apart."""
+    def commands(name):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        return {line.split("#")[0].strip() for line in re.findall(r"^huashuo .*$", text, re.M)}
+    assert commands("README.md") == commands("README.en.md")
+    assert commands("README.md")

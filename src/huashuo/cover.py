@@ -1,11 +1,11 @@
 """Covers for books that have none (M4B-4).
 
 A cover the user gives (--cover) or the EPUB's own always wins. Otherwise the title is set
-on one of the designer's templates (covers/templates.json): four 3000x3000 backgrounds of
+on one of the cover templates (covers/templates.json): four 3000x3000 backgrounds of
 one style, the title in Noto Serif SC Bold, white, 360 px, centred at the top of a box.
 The template is picked from the title, so a book keeps its cover across runs.
 
-The title wraps into balanced lines (13 characters: 7 + 6, as in the designer's examples)
+The title wraps into balanced lines (13 characters: 7 + 6, as in the templates' examples)
 and never starts a line with closing punctuation; a title that needs more lines than the
 box holds at 360 px is set smaller. Line spacing is the font's own (ascent + descent, as
 Figma's "auto"). The author is not shown, as the design asks.

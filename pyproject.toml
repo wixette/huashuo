@@ -1,9 +1,10 @@
 [project]
 name = "huashuo"
 dynamic = ["version"]
-description = "话说 Huashuo: Chinese-first audiobook generator — novel in, M4B out, synthesized locally on Apple Silicon"
+description = "话说 Huashuo: multi-voice audiobooks from Chinese novels, synthesized locally on Apple Silicon"
 readme = "README.md"
 license = "Apache-2.0"
+authors = [{ name = "wixette" }]
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.26",
