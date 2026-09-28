@@ -25,11 +25,11 @@
 
 **《广告》**（半轻人，全文 6 分钟）：11 个说话人，11 种声音。
 
-<!-- 视频：huashuo-demo-ad.mp4 -->
+https://github.com/user-attachments/assets/dc5aa87d-1991-4598-ae9d-1d5fcd6bd7da
 
 **《一条被洗澡水拍死的鱼》**（半轻人，节选 2 分钟）：第一人称的「我」与栖芒在书店里。
 
-<!-- 视频：huashuo-demo-fish.mp4 -->
+https://github.com/user-attachments/assets/57e8dc6b-6961-46cf-aae2-d4eaf5153524
 
 选角、标注都是自动的，《广告》只按试听对调了两个角色的音色。完整的有声书见
 [v0.1.0a1 的附件](https://github.com/wixette/huashuo/releases/tag/v0.1.0a1)：
