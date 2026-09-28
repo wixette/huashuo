@@ -88,8 +88,9 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e .
 source .venv/bin/activate
 ```
 
-The first synthesis downloads two models (speech synthesis and speech recognition, about 5 GB
-together).
+The first synthesis downloads two models from Hugging Face (speech synthesis and speech
+recognition, about 5 GB together, kept in `~/.cache/huggingface/`). If Hugging Face is hard to
+reach, set the environment variable `HF_ENDPOINT` to use a mirror.
 
 Multiple voices also need an LLM; see [Choosing an LLM, and what it costs](#choosing-an-llm-and-what-it-costs).
 
@@ -142,8 +143,10 @@ HUASHUO_LLM_API_KEY=your-key
 # HUASHUO_LLM_BASE_URL=…   # optional: another provider's endpoint
 ```
 
-With `gpt-6-sol`, a short story costs cents and a 300,000-character novel with many characters
-about $10. `--llm-model gpt-6-luna` costs about a twentieth as much and is as accurate on
+Measured costs with `gpt-6-sol`: a short story costs cents; a novel of about 210,000 Chinese
+characters with about 100 roles (格非's 春尽江南) about $3; a novel of about 300,000 Chinese
+characters with many roles (东野圭吾's 白夜行, 159 of them) about $10. The cost grows mainly with
+the number of roles. `--llm-model gpt-6-luna` costs about a twentieth as much and is as accurate on
 ordinary dialogue, but more often wrong on back-and-forth lines with no "he said". The cost is
 estimated before any call, and a run stops before spending more than $5 by default
 (`--max-llm-cost`). The LLM's results are saved in the work directory as they arrive:
