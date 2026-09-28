@@ -23,6 +23,8 @@
 
 ## 试听
 
+播放器默认静音，播放时请打开声音。
+
 **《广告》**（半轻人，全文 6 分钟）：11 个说话人，11 种声音。
 
 https://github.com/user-attachments/assets/dc5aa87d-1991-4598-ae9d-1d5fcd6bd7da

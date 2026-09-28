@@ -24,7 +24,7 @@ the narrator alone.**
 
 ## Listen
 
-Both demos are in Chinese. **广告** (The Advertisement, by 半轻人, the whole story, 6 min):
+Both demos are in Chinese; the players start muted, so turn the sound on. **广告** (The Advertisement, by 半轻人, the whole story, 6 min):
 11 speakers, 11 voices.
 
 https://github.com/user-attachments/assets/dc5aa87d-1991-4598-ae9d-1d5fcd6bd7da
