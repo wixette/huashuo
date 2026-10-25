@@ -75,3 +75,15 @@ def test_the_packaged_library_has_its_narrators():
     assert default_narrator("zh") == "library:zh/narrator_female"
     assert {v.ref for v in narrators("zh")} == {"library:zh/narrator_female", "library:zh/narrator_male"}
     assert not {v.ref for v in narrators("zh")} & {v.ref for v in castable("zh")}
+
+
+def test_character_voices_keep_near_the_narrators_pace():
+    """A character voice much slower than the narrator makes the book seem to slow down
+    whenever it speaks (old_man_hoarse at 0.67x in 白夜行, docs/plan-v0.2.0.md §9.5). `pace`
+    is measured by experiments/v020_voice_pace.py; measure a new or redesigned voice."""
+    entries = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((library.ROOT / "zh").glob("*.json"))]
+    narrators = [e["pace"] for e in entries if "narrator" in e["traits"]]
+    base = sum(narrators) / len(narrators)
+    assert len(entries) == 18 and len(narrators) == 2
+    for e in entries:
+        assert 0.75 <= e["pace"] / base <= 1.3, f"{e['id']}: {e['pace'] / base:.2f}x the narrators"

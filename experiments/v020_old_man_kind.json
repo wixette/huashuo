@@ -1,0 +1,53 @@
+{
+  "language": "chinese",
+  "note": "2026-10-25: old_man_kind redesigned as slightly slow like old_man_hoarse (docs/plan-v0.2.0.md §9.5): the M3 voice, designed 语速缓慢, read at 0.68x the narrators (experiments/v020_voice_pace.py). b0 re-renders the M3 voice as the control.",
+  "default_seeds": [
+    0,
+    1,
+    2
+  ],
+  "preset_probe_text": "这条路我走过很多次，从来没有迷过路。你若信得过我，就跟紧些，天黑之前我们能赶到渡口。",
+  "chinese_presets": [
+    "serena",
+    "vivian",
+    "uncle_fu",
+    "dylan",
+    "eric"
+  ],
+  "voices": [
+    {
+      "id": "b0_old",
+      "role": "M3 的 old_man_kind（对照）",
+      "description": "一位七十岁左右的老爷爷，声音苍老但温和慈祥，语速缓慢，说话时带着笑意。",
+      "ref_text": "你小时候最爱吃我做的红烧肉，每回都吃得满嘴是油。现在长大了，还记不记得？",
+      "seeds": [
+        1
+      ]
+    },
+    {
+      "id": "b1_kind",
+      "role": "老年男，七十岁左右，慈祥温和，语速稍慢（原描述只改语速）",
+      "description": "一位七十岁左右的老爷爷，声音苍老但温和慈祥，语速稍慢，说话时带着笑意。",
+      "ref_text": "你小时候最爱吃我做的红烧肉，每回都吃得满嘴是油。现在长大了，还记不记得？",
+      "seeds": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "id": "b2_home",
+      "role": "老年男，七十岁左右，慈祥温和，语速稍慢（现代描述）",
+      "description": "一位七十岁左右的老爷爷，声音苍老但温和慈祥，说话语速稍慢但不拖沓，语气亲切，常带着笑意。",
+      "ref_text": "你们难得回来一趟，多住几天再走吧。饭菜都给你们热着呢，先吃饭，有什么话吃完了慢慢说。"
+    },
+    {
+      "id": "b3_steady",
+      "role": "老年男，七十岁左右，慈祥温和，不紧不慢（现代描述）",
+      "description": "一位七十岁左右的老爷爷，声音苍老、温和慈祥，说话不紧不慢、清清楚楚，语气亲切，常带着笑意。",
+      "ref_text": "你们难得回来一趟，多住几天再走吧。饭菜都给你们热着呢，先吃饭，有什么话吃完了慢慢说。",
+      "chosen_seed": 1,
+      "listening_notes": "s1 chosen (2026-10-25): 3.29 chars/s, 0.87x the narrators; 20-clip check 0.88 / 0.80 to its reference, 20/20 identified, CER 0.2%, 3.4 chars/s, instruct 0.86, nothing flagged (M3 voice: 0.86 / 0.67, 19/20, 2.8, 0.74). s0 (0.81x) kept the old voice's long pauses in L1 and was no faster over the 20 clips"
+    }
+  ]
+}

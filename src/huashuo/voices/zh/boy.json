@@ -12,6 +12,7 @@
   "description": "一个七八岁的小男孩，声音清亮稚气，说话急切，带着孩子特有的兴奋和好奇，语速偏快。",
   "ref_text": "妈妈，你快来看！楼下那只小猫又来了，它今天好像受伤了，我们能不能把它抱回家？",
   "seed": 2,
+  "pace": 4.52,
   "made_with": {
     "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",

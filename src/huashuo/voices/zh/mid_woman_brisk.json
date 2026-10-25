@@ -12,6 +12,7 @@
   "description": "一位四十岁左右的中年女性，在城市里经营一家小店，性格爽朗干练，说话干脆利落、语速稍快，嗓音明亮清脆，音色干净。",
   "ref_text": "行了行了，这事交给我。明天一早我先去把合同签了，下午再带人把货清点一遍，保证误不了你们的事。",
   "seed": 2,
+  "pace": 4.59,
   "made_with": {
     "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",

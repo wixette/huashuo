@@ -1,0 +1,48 @@
+{
+  "language": "chinese",
+  "note": "2026-10-25: old_man_hoarse redesigned as slightly slow (docs/plan-v0.2.0.md §4.3, the user's choice b). The M3 voice was designed 语速偏慢 with an old-style inn-keeper's line as reference; in 白夜行 chapter 11 it read at 0.65x the narrator, and every line of 笹垣 sounded like the book slowing down. a0 re-renders the M3 voice (its description, reference text and seed) as the control.",
+  "default_seeds": [
+    0,
+    1,
+    2
+  ],
+  "preset_probe_text": "这条路我走过很多次，从来没有迷过路。你若信得过我，就跟紧些，天黑之前我们能赶到渡口。",
+  "chinese_presets": [
+    "serena",
+    "vivian",
+    "uncle_fu",
+    "dylan",
+    "eric"
+  ],
+  "voices": [
+    {
+      "id": "a0_old",
+      "role": "M3 的 old_man_hoarse（对照）",
+      "description": "一位六十多岁的老年男性客栈掌柜，声音略带沙哑，语速偏慢，语气热情又带几分警惕。",
+      "ref_text": "老朽在这条官道上开了四十年客栈，南来北往的客人见得多了。今夜风雪太大，山路怕是走不得了，客官还是早些歇息吧。",
+      "seeds": [
+        0
+      ]
+    },
+    {
+      "id": "a1_inn",
+      "role": "老年男，六十多岁，略沙哑，语速稍慢（原描述只改语速）",
+      "description": "一位六十多岁的老年男性客栈掌柜，声音略带沙哑，语速稍慢，语气热情又带几分警惕。",
+      "ref_text": "老朽在这条官道上开了四十年客栈，南来北往的客人见得多了。今夜风雪太大，山路怕是走不得了，客官还是早些歇息吧。",
+      "chosen_seed": 0,
+      "listening_notes": "s0 chosen (2026-10-25): 3.25 chars/s, 0.86x the narrators, the narrowest spread; vector 0.98 to the M3 voice; 20-clip check 0.88 / 0.57, 19/20 identified, CER 0.4%, 3.2 chars/s, instruct 0.77 (I2, crying, nearest eric); the listener approved"
+    },
+    {
+      "id": "a2_street",
+      "role": "老年男，六十多岁，略沙哑，语速稍慢（现代描述）",
+      "description": "一位六十多岁的老年男性，声音略带沙哑，说话语速稍慢但不拖沓，语气热情，又带几分精明和警惕。",
+      "ref_text": "我在这条街上住了四十多年，街坊邻居没有不认识我的。今天雨下得这么大，你先别急着走，进来喝杯茶，等雨小了再说。"
+    },
+    {
+      "id": "a3_steady",
+      "role": "老年男，六十多岁，略沙哑，不紧不慢（现代描述）",
+      "description": "一位六十多岁的老年男性，嗓音略带沙哑、有些粗糙，说话不紧不慢、干脆清楚，语气热情，偶尔流露出警惕。",
+      "ref_text": "我在这条街上住了四十多年，街坊邻居没有不认识我的。今天雨下得这么大，你先别急着走，进来喝杯茶，等雨小了再说。"
+    }
+  ]
+}

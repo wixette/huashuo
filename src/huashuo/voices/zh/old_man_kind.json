@@ -1,22 +1,23 @@
 {
   "id": "old_man_kind",
-  "role": "老年男，七十岁左右，慈祥温和",
-  "label": "old man, about 70, kind and gentle",
+  "role": "老年男，七十岁左右，慈祥温和，不紧不慢",
+  "label": "old man, about 70, kind and gentle, unhurried",
   "gender": "male",
   "age": "elderly",
   "traits": [
     "慈祥",
     "温和",
-    "语速慢"
+    "语速稍慢"
   ],
-  "description": "一位七十岁左右的老爷爷，声音苍老但温和慈祥，语速缓慢，说话时带着笑意。",
-  "ref_text": "你小时候最爱吃我做的红烧肉，每回都吃得满嘴是油。现在长大了，还记不记得？",
+  "description": "一位七十岁左右的老爷爷，声音苍老、温和慈祥，说话不紧不慢、清清楚楚，语气亲切，常带着笑意。",
+  "ref_text": "你们难得回来一趟，多住几天再走吧。饭菜都给你们热着呢，先吃饭，有什么话吃完了慢慢说。",
   "seed": 1,
+  "pace": 3.29,
   "made_with": {
     "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
     "for_model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
     "mlx_audio": "0.5.5"
   },
-  "listening_notes": "稳定性：I1（愤怒 instruct）听起来更年轻，但是普通话，没有方言（测量上接近 eric）。"
+  "listening_notes": "2026-10-25 重做（v0.2.0）：原版「语速缓慢」只有旁白的 0.68 倍，改为「不紧不慢」的现代描述与参考文本，0.87 倍。20 句检验 0.88 / 0.80，20/20 被认出，字错率 0.2%，instruct 下 0.86，没有可疑片段。原版的记录：I1（愤怒 instruct）听起来更年轻，但是普通话。"
 }

@@ -12,6 +12,7 @@
   "description": "一位二十岁出头的年轻女子，声音清澈，略带清冷感，音色干净，语气沉静克制，吐字清楚，语速适中。",
   "ref_text": "这条路我走过很多次，从来没有迷过路。你若信得过我，就跟紧些，天黑之前我们能赶到渡口。",
   "seed": 2,
+  "pace": 3.52,
   "made_with": {
     "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",

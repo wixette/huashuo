@@ -34,6 +34,7 @@ environment or a git-ignored `.env`, and stop before a cost cap (`--max-cost`).
 | `v020_tts_probe.py` | 2026-10-25 | Quotes in narration, with and without (`v020_data/narration_quotes.json`, rates only) | docs/plan-v0.2.0.md §9.3 |
 | `v020_voice_pace.py` | 2026-10-25 | The pace of every library voice against the narrators; candidate vectors with `--file` (`v020_data/voice_pace.json`) | docs/plan-v0.2.0.md §9.5 |
 | `v020_old_man_hoarse.json` | 2026-10-25 | old_man_hoarse redesigned as slightly slow: spec for `exp1_candidates.py` / `exp1_stability.py` | docs/plan-v0.2.0.md §9.5 |
+| `v020_old_man_kind.json` | 2026-10-25 | old_man_kind redesigned the same way (不紧不慢, a present-day reference text) | docs/plan-v0.2.0.md §9.5 |
 
 ## EXP-1 rounds 3a and 3b
 

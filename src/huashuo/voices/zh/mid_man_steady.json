@@ -12,6 +12,7 @@
   "description": "一位四十五岁左右的中年男子，嗓音浑厚沉稳，略带沙哑，说话有分量，语气平静但有威严。",
   "ref_text": "这件事我考虑了很久。公司现在的情况，大家心里都有数，再拖下去对谁都没有好处。",
   "seed": 2,
+  "pace": 3.66,
   "made_with": {
     "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",

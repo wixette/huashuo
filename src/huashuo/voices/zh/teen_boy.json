@@ -12,6 +12,7 @@
   "description": "一个十五六岁的少年，嗓音清亮，略带青涩，说话爽朗有朝气，带着少年人的意气和一点倔强。",
   "ref_text": "师父，我已经能一口气练完整套剑法了！您再教我一招吧，我保证不会再偷懒。",
   "seed": 1,
+  "pace": 4.41,
   "made_with": {
     "voice_design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
     "speaker_encoder": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
