@@ -369,7 +369,7 @@ def test_emotion_hints_come_with_the_speakers(tmp_path):
 
 def test_short_lines_get_a_reading_the_tts_follows(tmp_path):
     """On a line of a few characters 惊讶 gets a stronger phrase and 疑惑 one of its own; on a
-    long line 疑惑 is not read at all (docs/plan-v0.2.0.md §3)."""
+    long line 疑惑 is not read at all (design doc §5.14)."""
     from huashuo.attribution import SHORT_LINE_EMOTIONS
 
     llm = ScriptedLLM(emotions={"“从哪儿来不重要。”": "惊讶", "“店家，来一壶热酒。”": "疑惑",

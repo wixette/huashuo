@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v0.2.0: the pace of every library voice against the narrators (docs/plan-v0.2.0.md §4.3).
+"""v0.2.0: the pace of every library voice against the narrators (docs/design-and-research.md §5.6, §5.14).
 
 A character voice much slower than the narrator sounds like the book suddenly slowing down
 whenever that character speaks (old_man_hoarse in 白夜行: 0.65x the narrator). Every voice

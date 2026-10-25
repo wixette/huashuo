@@ -1,6 +1,6 @@
 {
   "language": "chinese",
-  "note": "2026-10-25: old_man_kind redesigned as slightly slow like old_man_hoarse (docs/plan-v0.2.0.md §9.5): the M3 voice, designed 语速缓慢, read at 0.68x the narrators (experiments/v020_voice_pace.py). b0 re-renders the M3 voice as the control.",
+  "note": "2026-10-25: old_man_kind redesigned as slightly slow like old_man_hoarse (docs/design-and-research.md §5.6): the M3 voice, designed 语速缓慢, read at 0.68x the narrators (experiments/v020_voice_pace.py). b0 re-renders the M3 voice as the control.",
   "default_seeds": [
     0,
     1,

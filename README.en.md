@@ -40,8 +40,8 @@ the first-person narrator and 栖芒 talking in a bookshop.
 https://github.com/user-attachments/assets/b276f93a-4595-4c31-8619-d9aae55b9897
 
 Who says each line and which voice each character gets were decided automatically; in 广告,
-two characters' voices were swapped by hand after listening. The full audiobooks can be
-downloaded from the [v0.1.0a1 release](https://github.com/wixette/huashuo/releases/tag/v0.1.0a1):
+two characters' voices were swapped by hand after listening. The full audiobooks (made with
+0.1.0a1) can be downloaded from the [v0.1.0a1 release](https://github.com/wixette/huashuo/releases/tag/v0.1.0a1):
 an M4B audiobook (for Apple Books), a single MP3 file, and one MP3 file per chapter. Both stories
 are licensed CC BY-NC-ND 4.0 and used with the author's permission.
 
@@ -67,7 +67,7 @@ are licensed CC BY-NC-ND 4.0 and used with the author's permission.
 
 ## Status and limits
 
-A pre-release for pilot users and developers:
+Version 0.2.0, the first formal release, still installed from source:
 
 - Apple Silicon Macs only (M1 or later, 16 GB of memory or more recommended); install from
   source; a command-line interface only
@@ -163,7 +163,7 @@ HUASHUO_LLM_MODEL=…                             # the model loaded in the loca
 ```
 
 The model must support structured output (JSON Schema), and long books need a large context
-window. Note that this pre-release has not been tested with local models yet: models small
+window. Note that this release has not been tested with local models yet: models small
 enough for a Mac usually understand Chinese fiction less well than large cloud models, so more
 lines may be attributed wrongly. Try a short story or `--sample` first.
 

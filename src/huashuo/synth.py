@@ -62,7 +62,7 @@ def seed_for(key: str, attempt: int, rerolls: int = 0) -> int:
 
 
 # The longest a unit of under 8 characters may last, untrimmed: 0.8 s plus 0.5 s a
-# character. On 白夜行 chapter 11 it flags 3 of 197 such units (docs/plan-v0.2.0.md §4.3).
+# character. On 白夜行 chapter 11 it flags 3 of 197 such units (design doc §5.14).
 SHORT_BASE_SECONDS, SHORT_CHAR_SECONDS = 0.8, 0.5
 
 
@@ -96,7 +96,7 @@ def duration_problem(text: str, seconds: float, language: str, max_seconds: floa
 # more breath at its start and end, and most character voices have too few long units
 # for a median (old_man_hoarse: 3 in 白夜行 chapter 11, against 45 short ones). Short
 # units vary more, so their limits are wider; on chapter 11 they flag 15 of 376 short
-# units (docs/plan-v0.2.0.md §4.3).
+# units (design doc §5.14).
 PACE_MIN_CHARS = 8           # below this a rate means nothing (duration_problem caps the length)
 PACE_LONG_CHARS = 40         # long units from here
 PACE_LIMITS = {"long": (0.75, 1.2), "short": (0.65, 1.6)}   # (slowest, fastest) times the median

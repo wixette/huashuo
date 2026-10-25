@@ -537,7 +537,7 @@ EMOTIONS = {
     "en": {"happy": "Speak happily", "angry": "Speak angrily", "sad": "Speak sadly", "afraid": "Speak fearfully",
            "surprised": "Speak in a surprised tone", "hushed": "Speak in a lowered voice", "stern": "Speak sternly"},
 }
-# Short lines (v0.2.0, docs/plan-v0.2.0.md §3). A line of a few characters is synthesized
+# Short lines (v0.2.0, design doc §5.14). A line of a few characters is synthesized
 # with no context, and the same 「什么？」 by one voice was one clip for the whole book,
 # whether it asked the other to go on or could not believe its ears. On a short line the
 # TTS does follow an instruct that says what is meant: in a blind test (今枝's 「什么？」, 6

@@ -79,7 +79,7 @@ def test_the_packaged_library_has_its_narrators():
 
 def test_character_voices_keep_near_the_narrators_pace():
     """A character voice much slower than the narrator makes the book seem to slow down
-    whenever it speaks (old_man_hoarse at 0.67x in 白夜行, docs/plan-v0.2.0.md §9.5). `pace`
+    whenever it speaks (old_man_hoarse at 0.67x in 白夜行, design doc §5.6). `pace`
     is measured by experiments/v020_voice_pace.py; measure a new or redesigned voice."""
     entries = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((library.ROOT / "zh").glob("*.json"))]
     narrators = [e["pace"] for e in entries if "narrator" in e["traits"]]

@@ -6,7 +6,7 @@ token, an unknown one is split into several byte tokens. Split characters are re
 random: 笹 in 笹垣 (白夜行) came out as 33 different syllables in about 40 places, never
 tì, while rare characters that have their own token (筱, 冢, 菅, 阪) were read right every
 time. Written as a common character of the same sound (替垣), 19 of 24 takes said tì
-(docs/plan-v0.2.0.md §2).
+(design doc §5.14).
 
 So every split character in the text is replaced, when units are planned, by a common
 homophone: its reading from pypinyin (笹 -> tì), then the most frequent single-token
