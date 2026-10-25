@@ -27,6 +27,10 @@ environment or a git-ignored `.env`, and stop before a cost cap (`--max-cost`).
 | `title_tone_check.py` | 2026-09-26 | Tone of number-only chapter titles (「1」 read yì) | §5.13 |
 | `m6_mid_woman_brisk.json` | 2026-09-28 | The redesigned `mid_woman_brisk`: candidates by `exp1_candidates.py`, check by `exp1_stability.py --spec` | §5.6 |
 | `ending_padding_check.py` | 2026-09-27 | Does padding a unit's end stop the TTS from cutting its last syllable? (no) | §5.10 |
+| `v020_rare_chars.py` | 2026-10-25 | Rare characters by GB2312 level and Qwen3-TTS tokenizer splits | docs/plan-v0.2.0.md §2 |
+| `v020_unit_analysis.py` | 2026-10-25 | 白夜行 ch. 11: per-unit pace, slow outliers, how 笹 was heard (`v020_data/chapter11_units.json`) | docs/plan-v0.2.0.md §2, §4 |
+| `v020_tts_probe.py` | 2026-10-25 | 笹垣 readings, 「什么？」 instructs, nested quotes, outer quotes (`v020_data/probe_*.json`) | docs/plan-v0.2.0.md §2-4 |
+| `v020_short_line_delivery.py` | 2026-10-25 | Delivery labels for short lines from context (LLM, `--max-cost` as an argument; `v020_data/short_line_delivery.json`) | docs/plan-v0.2.0.md §3 |
 
 ## EXP-1 rounds 3a and 3b
 

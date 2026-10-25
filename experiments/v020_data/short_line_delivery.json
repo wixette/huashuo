@@ -1,0 +1,964 @@
+{
+ "usage": {
+  "requests": 6,
+  "cached": 0,
+  "input_tokens": 17243,
+  "output_tokens": 2417,
+  "cost": 0.0587,
+  "model": "gpt-6-sol"
+ },
+ "results": [
+  {
+   "id": "c000.p0007.02",
+   "speaker": "筱冢一成",
+   "text": "“真热！”",
+   "emotion": null,
+   "label": "感叹",
+   "note": "热得难受，随口感慨"
+  },
+  {
+   "id": "c000.p0008",
+   "speaker": "今枝",
+   "text": "“是啊。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "随和地附和"
+  },
+  {
+   "id": "c000.p0010.01",
+   "speaker": "今枝",
+   "text": "“没有。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "笑着随口回答"
+  },
+  {
+   "id": "c000.p0011",
+   "speaker": "筱冢一成",
+   "text": "“你是指……”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "试探着接话，欲言又止"
+  },
+  {
+   "id": "c000.p0012.01",
+   "speaker": "今枝",
+   "text": "“外遇。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "简短点明，语气笃定"
+  },
+  {
+   "id": "c000.p0015",
+   "speaker": "筱冢一成",
+   "text": "“真有这种事？”",
+   "emotion": null,
+   "label": "惊讶",
+   "note": "难以置信，带着追问"
+  },
+  {
+   "id": "c000.p0021",
+   "speaker": "今枝",
+   "text": "“好。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "干脆地答应"
+  },
+  {
+   "id": "c000.p0027",
+   "speaker": "今枝",
+   "text": "“的确。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "平静地表示认同"
+  },
+  {
+   "id": "c000.p0028.01",
+   "speaker": "筱冢一成",
+   "text": "“真让人意外。”",
+   "emotion": null,
+   "label": "惊讶",
+   "note": "轻声感慨，略显意外"
+  },
+  {
+   "id": "c000.p0029",
+   "speaker": "今枝",
+   "text": "“怎么？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "平静追问缘由"
+  },
+  {
+   "id": "c000.p0033.01",
+   "speaker": "今枝",
+   "text": "“没有。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "平淡回答，顺带摇头"
+  },
+  {
+   "id": "c000.p0037.01",
+   "speaker": "今枝",
+   "text": "“可是，”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "欲言又止，稍作停顿"
+  },
+  {
+   "id": "c000.p0039.01",
+   "speaker": "今枝",
+   "text": "“我有同感。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "带点笑意地赞同"
+  },
+  {
+   "id": "c000.p0042.01",
+   "speaker": "筱冢一成",
+   "text": "“高宫那里……”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "低声重复，心生忧虑"
+  },
+  {
+   "id": "c000.p0055.01",
+   "speaker": "筱冢一成",
+   "text": "“她有内线？”",
+   "emotion": "压低声音说",
+   "label": "疑惑",
+   "note": "压低声音，试探猜测"
+  },
+  {
+   "id": "c000.p0064",
+   "speaker": "今枝",
+   "text": "“什么？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "平静地请对方说明"
+  },
+  {
+   "id": "c000.p0067.02",
+   "speaker": "筱冢一成",
+   "text": "“奇怪。”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "沉吟后低声纳闷"
+  },
+  {
+   "id": "c000.p0070",
+   "speaker": "今枝",
+   "text": "“他怎么说？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "顺势追问详情"
+  },
+  {
+   "id": "c000.p0075.01",
+   "speaker": "筱冢一成",
+   "text": "“看来是这样。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "不快地承认事实"
+  },
+  {
+   "id": "c000.p0079",
+   "speaker": "筱冢一成",
+   "text": "“有几百万元？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "试探着估算金额"
+  },
+  {
+   "id": "c000.p0080",
+   "speaker": "今枝",
+   "text": "“可能不止。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "冷静推断，语气笃定"
+  },
+  {
+   "id": "c000.p0093.01",
+   "speaker": "筱冢一成",
+   "text": "“哦。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "轻声领会，若有所思"
+  },
+  {
+   "id": "c000.p0095",
+   "speaker": "筱冢一成",
+   "text": "“什么意思？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "认真追问，保持冷静"
+  },
+  {
+   "id": "c000.p0100.01",
+   "speaker": "今枝",
+   "text": "“我想，”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "稍作停顿，准备揭示"
+  },
+  {
+   "id": "c000.p0102.01",
+   "speaker": "今枝",
+   "text": "“嗯，”",
+   "emotion": null,
+   "label": "应答",
+   "note": "低声确认，态度沉稳"
+  },
+  {
+   "id": "c000.p0102.03",
+   "speaker": "今枝",
+   "text": "“不错。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "明确肯定，不疾不徐"
+  },
+  {
+   "id": "c000.p0104.03",
+   "speaker": "今枝",
+   "text": "“就是你。”",
+   "emotion": null,
+   "label": "",
+   "note": "直视对方，平静点明"
+  },
+  {
+   "id": "c000.p0105",
+   "speaker": "筱冢一成",
+   "text": "“什么？”",
+   "emotion": "用惊讶的语气说",
+   "label": "惊讶",
+   "note": "猝不及防，难以置信"
+  },
+  {
+   "id": "c000.p0107.02",
+   "speaker": "筱冢一成",
+   "text": "“别开玩笑。”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "轻笑否认，觉得荒唐"
+  },
+  {
+   "id": "c000.p0113",
+   "speaker": "今枝",
+   "text": "“我想也是。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "平静认同对方反应"
+  },
+  {
+   "id": "c000.p0118.01",
+   "speaker": "筱冢一成",
+   "text": "“这个……”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "一时语塞，接不下去"
+  },
+  {
+   "id": "c000.p0122",
+   "speaker": "筱冢一成",
+   "text": "“两次……吧？”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "回想次数，不太确定"
+  },
+  {
+   "id": "c000.p0126.01",
+   "speaker": "筱冢一成",
+   "text": "“这实在太……”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "苦笑着欲言又止"
+  },
+  {
+   "id": "c000.p0127.02",
+   "speaker": "今枝",
+   "text": "“太牵强？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "带点笑意，替他补完"
+  },
+  {
+   "id": "c000.p0132.04",
+   "speaker": "筱冢一成",
+   "text": "“川岛江利子。”",
+   "emotion": null,
+   "label": "",
+   "note": "脸色不佳，低声点名"
+  },
+  {
+   "id": "c000.p0134.02",
+   "speaker": "筱冢一成",
+   "text": "“她好吗？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "压着担忧，轻声关切"
+  },
+  {
+   "id": "c000.p0136.01",
+   "speaker": "筱冢一成",
+   "text": "“那就好。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "松一口气，轻声回应"
+  },
+  {
+   "id": "c000.p0136.03",
+   "speaker": "筱冢一成",
+   "text": "“她说了什么？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "收起情绪，认真追问"
+  },
+  {
+   "id": "c000.p0139.01",
+   "speaker": "今枝",
+   "text": "“但是，”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "试图插话，欲补充"
+  },
+  {
+   "id": "c000.p0140.01",
+   "speaker": "筱冢一成",
+   "text": "“怎么可能？”",
+   "emotion": null,
+   "label": "惊讶",
+   "note": "笑意骤收，难以置信"
+  },
+  {
+   "id": "c000.p0140.03",
+   "speaker": "筱冢一成",
+   "text": "“她这么说的？”",
+   "emotion": null,
+   "label": "惊讶",
+   "note": "笑容骤敛，难以置信"
+  },
+  {
+   "id": "c000.p0149",
+   "speaker": "筱冢一成",
+   "text": "“什么？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "平静追问细节"
+  },
+  {
+   "id": "c000.p0153.01",
+   "speaker": "筱冢一成",
+   "text": "“像又怎样？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "生硬反问，带着不快"
+  },
+  {
+   "id": "c000.p0158.02",
+   "speaker": "今枝",
+   "text": "“知道了。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "克制地接受要求"
+  },
+  {
+   "id": "c000.p0162",
+   "speaker": "今枝",
+   "text": "“我明白。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "沉稳表示理解"
+  },
+  {
+   "id": "c000.p0172",
+   "speaker": "今枝",
+   "text": "“什么事？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "顺势追问"
+  },
+  {
+   "id": "c000.p0174",
+   "speaker": "今枝",
+   "text": "“什么？”",
+   "emotion": "用惊讶的语气说",
+   "label": "惊讶",
+   "note": "听闻有人闯入，警觉起来"
+  },
+  {
+   "id": "c000.p0178",
+   "speaker": "今枝",
+   "text": "“凉鞋？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "不解地重复线索"
+  },
+  {
+   "id": "c000.p0180",
+   "speaker": "今枝",
+   "text": "“它却倒了？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "确认异常之处"
+  },
+  {
+   "id": "c000.p0182",
+   "speaker": "今枝",
+   "text": "“电话怎么了？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "追问电话的异常"
+  },
+  {
+   "id": "c000.p0191.01",
+   "speaker": "菅原绘里",
+   "text": "“嗯，好的。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "不安中答应"
+  },
+  {
+   "id": "c000.p0194.01",
+   "speaker": "菅原绘里",
+   "text": "“怎么回事？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "忧心地追问缘由"
+  },
+  {
+   "id": "c000.p0196.01",
+   "speaker": "菅原绘里",
+   "text": "“才不是。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "摇头否认，语气笃定"
+  },
+  {
+   "id": "c000.p0200",
+   "speaker": "今枝",
+   "text": "“电话呢？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "直接询问位置"
+  },
+  {
+   "id": "c000.p0201.01",
+   "speaker": "菅原绘里",
+   "text": "“那里。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "简短指明位置"
+  },
+  {
+   "id": "c000.p0207",
+   "speaker": "今枝",
+   "text": "“不，是修理。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "平静纠正对方"
+  },
+  {
+   "id": "c000.p0208",
+   "speaker": "菅原绘里",
+   "text": "“咦？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "不明所以，轻声反问"
+  },
+  {
+   "id": "c000.p0215.01",
+   "speaker": "菅原绘里",
+   "text": "“什么！”",
+   "emotion": "用惊讶的语气说",
+   "label": "惊讶",
+   "note": "大吃一惊，脱口而出"
+  },
+  {
+   "id": "c000.p0221",
+   "speaker": "菅原绘里",
+   "text": "“啊，好好好。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "回过神来，连忙答应"
+  },
+  {
+   "id": "c000.p0234.01",
+   "speaker": "今枝",
+   "text": "“聪明。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "带着赞许，肯定她的推测"
+  },
+  {
+   "id": "c000.p0236.03",
+   "speaker": "今枝",
+   "text": "“大人的事。”",
+   "emotion": null,
+   "label": "",
+   "note": "意味深长，轻描淡写"
+  },
+  {
+   "id": "c000.p0237.02",
+   "speaker": "菅原绘里",
+   "text": "“今枝先生”",
+   "emotion": null,
+   "label": "",
+   "note": "礼貌称呼，自然平稳"
+  },
+  {
+   "id": "c000.p0239",
+   "speaker": "今枝",
+   "text": "“真的？”",
+   "emotion": null,
+   "label": "惊讶",
+   "note": "意外地追问确认"
+  },
+  {
+   "id": "c000.p0243",
+   "speaker": "菅原绘里",
+   "text": "“带了。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "自然简短地回答"
+  },
+  {
+   "id": "c000.p0244",
+   "speaker": "今枝",
+   "text": "“放在包里？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "留心细节，接着追问"
+  },
+  {
+   "id": "c000.p0245",
+   "speaker": "菅原绘里",
+   "text": "“嗯。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "简短肯定"
+  },
+  {
+   "id": "c000.p0249.01",
+   "speaker": "菅原绘里",
+   "text": "“嗯。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "略带不安地点头确认"
+  },
+  {
+   "id": "c000.p0255",
+   "speaker": "菅原绘里",
+   "text": "“店长送的。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "随口解释"
+  },
+  {
+   "id": "c000.p0257",
+   "speaker": "菅原绘里",
+   "text": "“嗯。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "简短肯定"
+  },
+  {
+   "id": "c000.p0262.01",
+   "speaker": "今枝",
+   "text": "“没错。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "冷静而笃定"
+  },
+  {
+   "id": "c000.p0265",
+   "speaker": "菅原绘里",
+   "text": "“什么？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "不明白所指，反问"
+  },
+  {
+   "id": "c000.p0272.01",
+   "speaker": "今枝",
+   "text": "“那我走了。”",
+   "emotion": null,
+   "label": "",
+   "note": "自然告辞，稍带叮嘱"
+  },
+  {
+   "id": "c000.p0275.01",
+   "speaker": "菅原绘里",
+   "text": "“啊！”",
+   "emotion": "用害怕的语气说",
+   "label": "惊讶",
+   "note": "被吓到，短促惊呼"
+  },
+  {
+   "id": "c000.p0286.01",
+   "speaker": "笹垣润三",
+   "text": "“我要咖啡。”",
+   "emotion": null,
+   "label": "",
+   "note": "低沉平稳地点单"
+  },
+  {
+   "id": "c000.p0299.01",
+   "speaker": "今枝",
+   "text": "“有什么事？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "有所预料，谨慎发问"
+  },
+  {
+   "id": "c000.p0301",
+   "speaker": "今枝",
+   "text": "“是我。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "平静确认身份"
+  },
+  {
+   "id": "c000.p0313",
+   "speaker": "今枝",
+   "text": "“请进。”",
+   "emotion": null,
+   "label": "",
+   "note": "放下戒备，客气招呼"
+  },
+  {
+   "id": "c000.p0319",
+   "speaker": "笹垣润三",
+   "text": "“是。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "简短沉稳地确认"
+  },
+  {
+   "id": "c000.p0328.01",
+   "speaker": "笹垣润三",
+   "text": "“怎么样啊？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "步步紧逼地催问"
+  },
+  {
+   "id": "c000.p0329.01",
+   "speaker": "今枝",
+   "text": "“是，”",
+   "emotion": null,
+   "label": "应答",
+   "note": "被问中要害，勉强承认"
+  },
+  {
+   "id": "c000.p0329.03",
+   "speaker": "今枝",
+   "text": "“你还真清楚。”",
+   "emotion": null,
+   "label": "感叹",
+   "note": "无奈承认，略带佩服"
+  },
+  {
+   "id": "c000.p0330.03",
+   "speaker": "笹垣润三",
+   "text": "“你去做什么？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "笑意收起，暗中试探"
+  },
+  {
+   "id": "c000.p0331.02",
+   "speaker": "今枝",
+   "text": "“工作。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "简短克制，掩饰盘算"
+  },
+  {
+   "id": "c000.p0341.01",
+   "speaker": "今枝",
+   "text": "“是。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "平稳确认，心思另有所系"
+  },
+  {
+   "id": "c000.p0342.01",
+   "speaker": "笹垣润三",
+   "text": "“与婚事有关？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "突然切入，语带试探"
+  },
+  {
+   "id": "c000.p0343",
+   "speaker": "今枝",
+   "text": "“啊？”",
+   "emotion": "用惊讶的语气说",
+   "label": "惊讶",
+   "note": "猝不及防，短促出声"
+  },
+  {
+   "id": "c000.p0345",
+   "speaker": "今枝",
+   "text": "“你在说什么？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "听不明白，带着警惕"
+  },
+  {
+   "id": "c000.p0346.01",
+   "speaker": "笹垣润三",
+   "text": "“就是婚事啊。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "轻描淡写，笑里藏话"
+  },
+  {
+   "id": "c000.p0346.03",
+   "speaker": "笹垣润三",
+   "text": "“可以抽烟吗？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "随意开口，等对方许可"
+  },
+  {
+   "id": "c000.p0347.01",
+   "speaker": "今枝",
+   "text": "“请。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "简短客气"
+  },
+  {
+   "id": "c000.p0354",
+   "speaker": "今枝",
+   "text": "“什么？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "话题突变，一时没听明白"
+  },
+  {
+   "id": "c000.p0358.01",
+   "speaker": "今枝",
+   "text": "“是啊。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "勉强附和，暗自纳闷"
+  },
+  {
+   "id": "c000.p0360",
+   "speaker": "今枝",
+   "text": "“逃走了？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "顺着话头，试着确认"
+  },
+  {
+   "id": "c000.p0362",
+   "speaker": "今枝",
+   "text": "“没有。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "干脆否认，保持镇定"
+  },
+  {
+   "id": "c000.p0363.01",
+   "speaker": "笹垣润三",
+   "text": "“我想也是。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "早有预料，淡淡带过"
+  },
+  {
+   "id": "c000.p0366.01",
+   "speaker": "今枝",
+   "text": "“什么？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "听出话外音，追问缘由"
+  },
+  {
+   "id": "c000.p0370",
+   "speaker": "今枝",
+   "text": "“那为什么……”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "追问到一半，等他解释"
+  },
+  {
+   "id": "c000.p0372.03",
+   "speaker": "今枝",
+   "text": "“什么意思？”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "不解其意，接连追问"
+  },
+  {
+   "id": "c000.p0374",
+   "speaker": "今枝",
+   "text": "“不知道。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "如实作答，略感莫名"
+  },
+  {
+   "id": "c000.p0376.01",
+   "speaker": "今枝",
+   "text": "“请等一下，”",
+   "emotion": null,
+   "label": "疑惑",
+   "note": "抬手打断，急于弄清"
+  },
+  {
+   "id": "c000.p0386",
+   "speaker": "笹垣润三",
+   "text": "“什么资料？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "顺势追问，语气平稳"
+  },
+  {
+   "id": "c000.p0403",
+   "speaker": "今枝",
+   "text": "“什么？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "平静地请对方说明"
+  },
+  {
+   "id": "c000.p0406",
+   "speaker": "笹垣润三",
+   "text": "“什么？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "平静地等对方开口"
+  },
+  {
+   "id": "c000.p0413",
+   "speaker": "今枝",
+   "text": "“哦。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "恍然明白，轻声回应"
+  },
+  {
+   "id": "c000.p0416.01",
+   "speaker": "今枝",
+   "text": "“哪里。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "客气回应，略带敷衍"
+  },
+  {
+   "id": "c000.p0420",
+   "speaker": "今枝",
+   "text": "“没事，没事。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "连忙轻描淡写带过"
+  },
+  {
+   "id": "c000.p0422",
+   "speaker": "今枝",
+   "text": "“什么话？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "好奇地请对方说下去"
+  },
+  {
+   "id": "c000.p0424.01",
+   "speaker": "今枝",
+   "text": "“嗯，”",
+   "emotion": null,
+   "label": "应答",
+   "note": "点头附和，语气低沉"
+  },
+  {
+   "id": "c000.p0424.03",
+   "speaker": "今枝",
+   "text": "“这我知道。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "平静肯定，心中有数"
+  },
+  {
+   "id": "c000.p0429.02",
+   "speaker": "益田均",
+   "text": "“好久不见。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "久别重逢，随意招呼"
+  },
+  {
+   "id": "c000.p0431.01",
+   "speaker": "益田均",
+   "text": "“是啊。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "冷淡回应，心情不佳"
+  },
+  {
+   "id": "c000.p0437.01",
+   "speaker": "益田均",
+   "text": "“哦，随便吧。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "不再追问，冷淡带过"
+  },
+  {
+   "id": "c000.p0459.01",
+   "speaker": "高宫诚",
+   "text": "“哦。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "认出对方，略带困惑"
+  },
+  {
+   "id": "c000.p0461",
+   "speaker": "高宫诚",
+   "text": "“什么事？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "平静询问来意"
+  },
+  {
+   "id": "c000.p0463",
+   "speaker": "高宫诚",
+   "text": "“明天没问题。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "爽快确认时间"
+  },
+  {
+   "id": "c000.p0466",
+   "speaker": "今枝",
+   "text": "“什么事？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "留意起来，平静追问"
+  },
+  {
+   "id": "c000.p0467.01",
+   "speaker": "高宫诚",
+   "text": "“其实，”",
+   "emotion": null,
+   "label": "迟疑",
+   "note": "欲言又止，压低声音"
+  },
+  {
+   "id": "c000.p0468",
+   "speaker": "今枝",
+   "text": "“然后呢？”",
+   "emotion": null,
+   "label": "询问",
+   "note": "留意下文，催促继续"
+  },
+  {
+   "id": "c000.p0473.01",
+   "speaker": "高宫诚",
+   "text": "“是啊。”",
+   "emotion": null,
+   "label": "应答",
+   "note": "如实确认，语气平常"
+  }
+ ]
+}

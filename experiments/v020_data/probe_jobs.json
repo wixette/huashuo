@@ -1,0 +1,522 @@
+[
+ {
+  "group": "e1_s1",
+  "cond": "orig",
+  "text": "笹垣笑了，脸上的皱纹形成复杂的图案。",
+  "reference": "笹垣笑了，脸上的皱纹形成复杂的图案。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s1",
+  "cond": "pinyin",
+  "text": "tì垣笑了，脸上的皱纹形成复杂的图案。",
+  "reference": "笹垣笑了，脸上的皱纹形成复杂的图案。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s1",
+  "cond": "homophone",
+  "text": "替垣笑了，脸上的皱纹形成复杂的图案。",
+  "reference": "笹垣笑了，脸上的皱纹形成复杂的图案。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s2",
+  "cond": "orig",
+  "text": "笹垣把伞立在身前，双手放在伞柄上。",
+  "reference": "笹垣把伞立在身前，双手放在伞柄上。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s2",
+  "cond": "pinyin",
+  "text": "tì垣把伞立在身前，双手放在伞柄上。",
+  "reference": "笹垣把伞立在身前，双手放在伞柄上。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s2",
+  "cond": "homophone",
+  "text": "替垣把伞立在身前，双手放在伞柄上。",
+  "reference": "笹垣把伞立在身前，双手放在伞柄上。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s3",
+  "cond": "orig",
+  "text": "笹垣突然问。",
+  "reference": "笹垣突然问。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s3",
+  "cond": "pinyin",
+  "text": "tì垣突然问。",
+  "reference": "笹垣突然问。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s3",
+  "cond": "homophone",
+  "text": "替垣突然问。",
+  "reference": "笹垣突然问。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s4",
+  "cond": "orig",
+  "text": "看完，笹垣抬起头来。",
+  "reference": "看完，笹垣抬起头来。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s4",
+  "cond": "pinyin",
+  "text": "看完，tì垣抬起头来。",
+  "reference": "看完，笹垣抬起头来。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s4",
+  "cond": "homophone",
+  "text": "看完，替垣抬起头来。",
+  "reference": "看完，笹垣抬起头来。",
+  "voice": "library:zh/narrator_male",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s5",
+  "cond": "orig",
+  "text": "“敝姓笹垣，从大阪来。”",
+  "reference": "“敝姓笹垣，从大阪来。”",
+  "voice": "library:zh/old_man_hoarse",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s5",
+  "cond": "pinyin",
+  "text": "“敝姓tì垣，从大阪来。”",
+  "reference": "“敝姓笹垣，从大阪来。”",
+  "voice": "library:zh/old_man_hoarse",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s5",
+  "cond": "homophone",
+  "text": "“敝姓替垣，从大阪来。”",
+  "reference": "“敝姓笹垣，从大阪来。”",
+  "voice": "library:zh/old_man_hoarse",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s6",
+  "cond": "orig",
+  "text": "“笹垣先生，你明知故问。”",
+  "reference": "“笹垣先生，你明知故问。”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s6",
+  "cond": "pinyin",
+  "text": "“tì垣先生，你明知故问。”",
+  "reference": "“笹垣先生，你明知故问。”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e1_s6",
+  "cond": "homophone",
+  "text": "“替垣先生，你明知故问。”",
+  "reference": "“笹垣先生，你明知故问。”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   101,
+   102,
+   103,
+   104
+  ]
+ },
+ {
+  "group": "e2_shenme",
+  "cond": "plain",
+  "text": "“什么？”",
+  "voice": "library:zh/mid_man_steady",
+  "instruct": null,
+  "seeds": [
+   201,
+   202,
+   203,
+   204,
+   205,
+   206
+  ]
+ },
+ {
+  "group": "e2_shenme",
+  "cond": "label_surprised",
+  "text": "“什么？”",
+  "voice": "library:zh/mid_man_steady",
+  "instruct": "用惊讶的语气说",
+  "seeds": [
+   201,
+   202,
+   203,
+   204,
+   205,
+   206
+  ]
+ },
+ {
+  "group": "e2_shenme",
+  "cond": "prompting",
+  "text": "“什么？”",
+  "voice": "library:zh/mid_man_steady",
+  "instruct": "平静地问对方要说的是什么，等对方说下去",
+  "seeds": [
+   201,
+   202,
+   203,
+   204,
+   205,
+   206
+  ]
+ },
+ {
+  "group": "e2_shenme",
+  "cond": "puzzled",
+  "text": "“什么？”",
+  "voice": "library:zh/mid_man_steady",
+  "instruct": "没听懂对方的意思，疑惑地反问",
+  "seeds": [
+   201,
+   202,
+   203,
+   204,
+   205,
+   206
+  ]
+ },
+ {
+  "group": "e2_shenme",
+  "cond": "shocked",
+  "text": "“什么？”",
+  "voice": "library:zh/mid_man_steady",
+  "instruct": "大吃一惊，难以置信地脱口而出",
+  "seeds": [
+   201,
+   202,
+   203,
+   204,
+   205,
+   206
+  ]
+ },
+ {
+  "group": "e3_mario",
+  "cond": "hoarse_orig",
+  "text": "“‘超级马里奥兄弟’，小朋友的玩意儿。不过，听说最近连大人都很着迷。”",
+  "voice": "library:zh/old_man_hoarse",
+  "seeds": [
+   301,
+   302,
+   303,
+   304,
+   305,
+   306,
+   307,
+   308
+  ]
+ },
+ {
+  "group": "e3_mario",
+  "cond": "hoarse_noquote",
+  "text": "“超级马里奥兄弟，小朋友的玩意儿。不过，听说最近连大人都很着迷。”",
+  "reference": "“‘超级马里奥兄弟’，小朋友的玩意儿。不过，听说最近连大人都很着迷。”",
+  "voice": "library:zh/old_man_hoarse",
+  "seeds": [
+   301,
+   302,
+   303,
+   304,
+   305,
+   306,
+   307,
+   308
+  ]
+ },
+ {
+  "group": "e3_mario",
+  "cond": "kind_orig",
+  "text": "“‘超级马里奥兄弟’，小朋友的玩意儿。不过，听说最近连大人都很着迷。”",
+  "voice": "library:zh/old_man_kind",
+  "seeds": [
+   301,
+   302,
+   303,
+   304,
+   305,
+   306,
+   307,
+   308
+  ]
+ },
+ {
+  "group": "e3_mario0",
+  "cond": "hoarse_orig",
+  "text": "“今枝先生，你记得‘马里奥’吗？”",
+  "voice": "library:zh/old_man_hoarse",
+  "seeds": [
+   301,
+   302,
+   303,
+   304,
+   305,
+   306
+  ]
+ },
+ {
+  "group": "e3_mario0",
+  "cond": "hoarse_noquote",
+  "text": "“今枝先生，你记得马里奥吗？”",
+  "reference": "“今枝先生，你记得‘马里奥’吗？”",
+  "voice": "library:zh/old_man_hoarse",
+  "seeds": [
+   301,
+   302,
+   303,
+   304,
+   305,
+   306
+  ]
+ },
+ {
+  "group": "e3_mario",
+  "cond": "kind_noquote",
+  "text": "“超级马里奥兄弟，小朋友的玩意儿。不过，听说最近连大人都很着迷。”",
+  "reference": "“‘超级马里奥兄弟’，小朋友的玩意儿。不过，听说最近连大人都很着迷。”",
+  "voice": "library:zh/old_man_kind",
+  "seeds": [
+   301,
+   302,
+   303,
+   304,
+   305,
+   306,
+   307,
+   308
+  ]
+ },
+ {
+  "group": "e4_l1",
+  "cond": "quoted",
+  "text": "“我不知道，但有这种感觉。”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ },
+ {
+  "group": "e4_l1",
+  "cond": "bare",
+  "text": "我不知道，但有这种感觉。",
+  "reference": "“我不知道，但有这种感觉。”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ },
+ {
+  "group": "e4_l2",
+  "cond": "quoted",
+  "text": "“不，是修理。”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ },
+ {
+  "group": "e4_l2",
+  "cond": "bare",
+  "text": "不，是修理。",
+  "reference": "“不，是修理。”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ },
+ {
+  "group": "e4_l3",
+  "cond": "quoted",
+  "text": "“那天你带钱包了吗？”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ },
+ {
+  "group": "e4_l3",
+  "cond": "bare",
+  "text": "那天你带钱包了吗？",
+  "reference": "“那天你带钱包了吗？”",
+  "voice": "library:zh/mid_man_steady",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ },
+ {
+  "group": "e4_l4",
+  "cond": "quoted",
+  "text": "“你在做什么？要把电话弄坏？”",
+  "voice": "library:zh/young_woman_warm",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ },
+ {
+  "group": "e4_l4",
+  "cond": "bare",
+  "text": "你在做什么？要把电话弄坏？",
+  "reference": "“你在做什么？要把电话弄坏？”",
+  "voice": "library:zh/young_woman_warm",
+  "seeds": [
+   401,
+   402,
+   403,
+   404,
+   405,
+   406
+  ]
+ }
+]
