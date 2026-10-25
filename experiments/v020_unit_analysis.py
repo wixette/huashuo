@@ -1,7 +1,10 @@
 """v0.2.0 issues 1 and 3: analyze a synthesized work directory. Pace of every unit against its
 voice's median, slow outliers, the 马里奥 passage, what the ASR heard for 笹, instruct effects.
 
-usage: .venv/bin/python experiments/v020_unit_analysis.py WORKDIR OUT.json
+usage: .venv/bin/python experiments/v020_unit_analysis.py WORKDIR OUT.json [BOOK.txt]
+
+With the book, only the units of its current plan are analyzed; otherwise every unit in the
+cache, including those of earlier runs that the plan no longer uses.
 """
 import difflib
 import json
@@ -62,11 +65,24 @@ def _py(text):
     return [lazy_pinyin(c)[0] if "一" <= c <= "鿿" else c for c in text]
 
 
+def plan_keys(book):
+    """The cache keys of the book's current plan, as `huashuo package BOOK` computes them."""
+    from huashuo import cli
+    from huashuo.synth import unit_keys
+
+    args = cli._parser().parse_args(["package", str(book)])
+    _, project, plan = cli._prepare(args)
+    return set(unit_keys(plan.units, cli._engine(args), project.language))
+
+
 def main():
     wd, out = Path(sys.argv[1]), Path(sys.argv[2])
     rows = []
+    current = plan_keys(Path(sys.argv[3])) if len(sys.argv) > 3 else None
     for meta_path in sorted((wd / "cache" / "units").glob("*.json")):
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if current is not None and meta["key"] not in current:
+            continue
         audio, sr = read_wav(meta_path.with_suffix(".wav"))
         a, b = trim_bounds(audio, sr)
         clip = audio[a:b]
@@ -128,8 +144,10 @@ def main():
     print("\n笹 readings heard by ASR:")
     heard = defaultdict(int)
     for r in rows:
-        if "笹" in r["text"] and r["asr"]:
-            h = heard_at(r["text"], r["asr"], "笹")
+        # since v0.2.0 the TTS is given the homophone: 替垣 (rare.py)
+        target = "笹" if "笹" in r["text"] else "替" if "替垣" in r["text"] else None
+        if target and r["asr"]:
+            h = heard_at(r["text"], r["asr"], target)
             r["heard_笹"] = h
             for x in h:
                 heard[x] += 1
