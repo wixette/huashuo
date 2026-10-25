@@ -112,7 +112,8 @@ huashuo clean book.epub            # 删除合成过程中缓存的音频（有�
 ## LLM 的选择与费用
 
 多角色朗读需要 LLM 读一遍全书，找出每句对白是谁说的。可以任选一种方式，配置写在运行 `huashuo`
-的目录下的 `.env` 文件里（这个文件不会被提交到 Git）。
+的目录下的 `.env` 文件里（这个文件不会被提交到 Git）。仓库里的 [`.env.example`](.env.example) 是带说明的模板，
+复制一份改名为 `.env` 再填写：`cp .env.example .env`。
 
 **云端 LLM**（默认，质量最好）：任何兼容 OpenAI 接口的服务都可以，默认模型是 `gpt-6-sol`。
 

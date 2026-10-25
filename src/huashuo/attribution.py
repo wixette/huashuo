@@ -23,6 +23,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -94,7 +95,16 @@ def load_dotenv(paths: list[Path] | None = None) -> None:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
-                os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+                os.environ.setdefault(key.strip(), _dotenv_value(value))
+
+
+def _dotenv_value(value: str) -> str:
+    """A quoted value is what is inside the quotes; an unquoted one ends at a comment
+    (`URL=http://localhost:1234/v1   # LM Studio`, as in the README and .env.example)."""
+    value = value.strip()
+    if value[:1] in ("'", '"') and value[0] in value[1:]:
+        return value[1:value.index(value[0], 1)]
+    return re.split(r"\s+#", value, maxsplit=1)[0]
 
 
 @dataclass

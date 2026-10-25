@@ -132,7 +132,8 @@ options: `huashuo --help` and `huashuo <command> --help`.
 
 Multiple voices need an LLM to read the book once and find who says each line. Choose one of
 the options below; the settings go in a `.env` file (git-ignored) in the directory you run
-`huashuo` from.
+`huashuo` from. [`.env.example`](.env.example) is a commented template: `cp .env.example .env`,
+then fill it in.
 
 **A cloud LLM** (the default, best quality): any OpenAI-compatible service; the default model
 is `gpt-6-sol`.

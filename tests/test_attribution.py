@@ -88,6 +88,32 @@ def test_config_needs_a_key_and_known_prices(monkeypatch):
     assert llm_config(base_url="http://localhost:1234/v1", model="local-model").price_in == 0.0
 
 
+def test_dotenv_values_end_at_a_comment_unless_quoted(tmp_path, monkeypatch):
+    from huashuo.attribution import load_dotenv
+    env = tmp_path / ".env"
+    env.write_text("# a comment\n"
+                   "HUASHUO_LLM_BASE_URL=http://localhost:1234/v1   # LM Studio\n"
+                   "HUASHUO_LLM_MODEL=\"model #1\"  # quoted\n"
+                   "HUASHUO_LLM_API_KEY=\n", encoding="utf-8")
+    monkeypatch.delenv("HUASHUO_NO_DOTENV")
+    for name in ("HUASHUO_LLM_BASE_URL", "HUASHUO_LLM_MODEL", "HUASHUO_LLM_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    load_dotenv([env])
+    import os
+    assert os.environ["HUASHUO_LLM_BASE_URL"] == "http://localhost:1234/v1"
+    assert os.environ["HUASHUO_LLM_MODEL"] == "model #1"
+    assert llm_config().api_key == "local"          # the empty key line does not count as a key
+
+
+def test_env_example_documents_every_setting():
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    documented = set(re.findall(r"HUASHUO_LLM_[A-Z_]+", (root / ".env.example").read_text(encoding="utf-8")))
+    read = set(re.findall(r"HUASHUO_LLM_[A-Z_]+", (root / "src/huashuo/attribution.py").read_text(encoding="utf-8")))
+    assert read <= documented, f"not in .env.example: {sorted(read - documented)}"
+
+
 # ---- through import_book ------------------------------------------------------------
 
 
