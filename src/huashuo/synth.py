@@ -61,6 +61,11 @@ def seed_for(key: str, attempt: int, rerolls: int = 0) -> int:
     return int(key[:8], 16) + REROLL_STRIDE * rerolls + attempt
 
 
+# The longest a unit of under 8 characters may last, untrimmed: 0.8 s plus 0.5 s a
+# character. On 白夜行 chapter 11 it flags 3 of 197 such units (docs/plan-v0.2.0.md §4.3).
+SHORT_BASE_SECONDS, SHORT_CHAR_SECONDS = 0.8, 0.5
+
+
 def duration_problem(text: str, seconds: float, language: str, max_seconds: float | None) -> str | None:
     if seconds < 0.1:
         return "empty audio"
@@ -68,7 +73,12 @@ def duration_problem(text: str, seconds: float, language: str, max_seconds: floa
         return f"hit the length ceiling ({seconds:.0f}s), probably ran away"
     counted = len(_COUNTED.get(language, _COUNTED["zh"]).findall(text))
     if counted < 8:
-        return None  # too short for a rate to mean anything
+        # Too short for a rate to mean anything, but not for a length: two characters
+        # dragged out to a second and a half (「外遇。」1.8 s, 「哪里。」2.1 s).
+        longest = SHORT_BASE_SECONDS + SHORT_CHAR_SECONDS * counted
+        if counted and seconds > longest:
+            return f"drawn out ({seconds:.1f}s for {counted} characters, at most {longest:.1f}s)"
+        return None
     rate, (low, high) = counted / seconds, _RATE_LIMITS.get(language, _RATE_LIMITS["zh"])
     if rate < low:
         return f"too slow ({rate:.1f}/s): stalled or repeating"
@@ -79,40 +89,59 @@ def duration_problem(text: str, seconds: float, language: str, max_seconds: floa
 
 # The pace check (design doc §5.13): a take read much faster or slower than the voice's
 # own median in this book is tried again, like one that fails the ASR check. The TTS
-# sometimes rushes a whole unit, reading every word right but with its pauses shrunk.
-PACE_FAST, PACE_SLOW = 1.2, 0.75
-PACE_MIN_CHARS = 40          # shorter units vary too much for their pace to mean anything
-PACE_MIN_SAMPLES = 8         # units of the voice needed before its median is trusted
+# sometimes rushes a whole unit, reading every word right but with its pauses shrunk, or
+# drags a short one (马里奥: 16.3 s for a line other seeds read in 10.5-12.5 s).
+#
+# Long and short units are compared with their own kind: a short unit has relatively
+# more breath at its start and end, and most character voices have too few long units
+# for a median (old_man_hoarse: 3 in 白夜行 chapter 11, against 45 short ones). Short
+# units vary more, so their limits are wider; on chapter 11 they flag 15 of 376 short
+# units (docs/plan-v0.2.0.md §4.3).
+PACE_MIN_CHARS = 8           # below this a rate means nothing (duration_problem caps the length)
+PACE_LONG_CHARS = 40         # long units from here
+PACE_LIMITS = {"long": (0.75, 1.2), "short": (0.65, 1.6)}   # (slowest, fastest) times the median
+PACE_MIN_SAMPLES = 8         # units of the voice and kind needed before their median is trusted
 
 
 class PaceBook:
-    """The pace (characters per second) of each voice's accepted units in this book."""
+    """The pace (characters per second) of each voice's accepted units in this book, long
+    and short units apart."""
 
     def __init__(self) -> None:
-        self.rates: dict[str, list[float]] = {}
+        self.rates: dict[tuple[str, str], list[float]] = {}
 
     @staticmethod
     def rate(text: str, seconds: float, language: str) -> tuple[int, float]:
         counted = len(_COUNTED.get(language, _COUNTED["zh"]).findall(text))
         return counted, counted / max(seconds, 0.1)
 
+    @staticmethod
+    def kind(counted: int) -> str | None:
+        if counted >= PACE_LONG_CHARS:
+            return "long"
+        return "short" if counted >= PACE_MIN_CHARS else None
+
     def add(self, voice: str, text: str, seconds: float, language: str) -> None:
         counted, rate = self.rate(text, seconds, language)
-        if counted >= PACE_MIN_CHARS:
-            self.rates.setdefault(voice, []).append(rate)
+        kind = self.kind(counted)
+        if kind:
+            self.rates.setdefault((voice, kind), []).append(rate)
 
     def problem(self, voice: str, text: str, seconds: float, language: str) -> tuple[str | None, float]:
         """(a problem if the take is off pace, how far off it is: 1.0 is the median)."""
         counted, rate = self.rate(text, seconds, language)
-        known = self.rates.get(voice, [])
-        if counted < PACE_MIN_CHARS or len(known) < PACE_MIN_SAMPLES:
+        kind = self.kind(counted)
+        known = self.rates.get((voice, kind), [])
+        if kind is None or len(known) < PACE_MIN_SAMPLES:
             return None, 1.0
         median = float(np.median(known))
         ratio = rate / median
-        if ratio > PACE_FAST:
-            return f"rushed ({rate:.1f} chars/s, {ratio:.2f}x this voice's usual {median:.1f})", ratio
-        if ratio < PACE_SLOW:
-            return f"dragging ({rate:.1f} chars/s, {ratio:.2f}x this voice's usual {median:.1f})", ratio
+        slowest, fastest = PACE_LIMITS[kind]
+        usual = f"{ratio:.2f}x this voice's usual {median:.1f} for {kind} units"
+        if ratio > fastest:
+            return f"rushed ({rate:.1f} chars/s, {usual})", ratio
+        if ratio < slowest:
+            return f"dragging ({rate:.1f} chars/s, {usual})", ratio
         return None, ratio
 
 

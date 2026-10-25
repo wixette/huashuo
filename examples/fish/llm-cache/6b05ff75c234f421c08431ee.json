@@ -6,14 +6,14 @@
       {
         "index": 205,
         "speaker": "我",
-        "confidence": 0.96,
+        "confidence": 0.94,
         "emotion": ""
       }
     ]
   },
   "usage": {
-    "input": 1418,
+    "input": 1547,
     "output": 29,
-    "cost": 0.003126
+    "cost": 0.003384
   }
 }

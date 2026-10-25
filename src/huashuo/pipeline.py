@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from huashuo import __version__, pron, punct
+from huashuo import __version__, pron, punct, rare
 from huashuo.cast import default_cast, load_cast, merge_cast
 from huashuo.chinese import is_traditional, to_simplified
 from huashuo.huaben import Script, check, merge, read_script, write_script
@@ -153,7 +153,8 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
         offline = Caller(offline_config(config.model), cache, offline=True)
         attribution = attribute_script(script, language, offline, options.progress, voices, narrator)
         missing = sum(1 for b in attribution.blocks if b.get("type") == "dialogue" and "conf" not in b)
-        if not missing and not attribution.without_emotions and not attribution.profiles_pending:
+        if not (missing or attribution.without_emotions or attribution.without_delivery
+                or attribution.profiles_pending):
             return attribution, LLMReport("cache", config.model, offline.usage, None, None, attribution.review,
                                           suggestions_failed=attribution.suggestions_failed)
         quotes = sum(1 for b in script.blocks if b.get("type") == "dialogue")
@@ -162,6 +163,8 @@ def run_llm_stage(script: Script, language: str, wd: Workdir, record: dict,
                    f"cap, or the text changed since)")
         elif attribution.without_emotions:
             gap = "the cached answers predate emotion hints"
+        elif attribution.without_delivery:
+            gap = "the cached answers predate the hints for reading short lines (什么？ asked or astonished)"
         else:
             gap = "the genders and ages the text does not state have not been inferred yet"
         estimate = estimate_cost(script, language, config, cache)       # answers in the cache are free
@@ -544,12 +547,11 @@ def make_plan(project: Project, *, read_titles: bool = True, max_chars: int = DE
     full = plan(project.script, project.cast, project.language, max_chars, read_titles, emotions,
                 project.single_voice)
     _announce(full, project, project.cast["narrator"]["voice"], opening, closing, credit)
-    readings = pron.load(project.workdir.pron)
     convert = speaks_simplified(project) if simplify is None else (simplify and project.language == "zh")
-    if convert:
-        readings = readings.mapped(to_simplified)            # entries match in either script
-    for unit in full.units:
-        spoken = readings.apply(to_simplified(unit.text) if convert else unit.text)
+    texts = [to_simplified(u.text) if convert else u.text for u in full.units]
+    readings = spoken_readings(project, texts, convert)
+    for unit, text in zip(full.units, texts):
+        spoken = readings.apply(text)
         if spoken != unit.text:
             unit.reference, unit.text = unit.text, spoken
     if chapters:
@@ -564,6 +566,16 @@ def make_plan(project: Project, *, read_titles: bool = True, max_chars: int = DE
                 break
         return _subset(full, keep)
     return full
+
+
+def spoken_readings(project: Project, texts: list[str], convert: bool) -> pron.Dictionary:
+    """pron.txt, on top of a homophone for every character the TTS does not know (rare.py)."""
+    readings = pron.load(project.workdir.pron)
+    if convert:
+        readings = readings.mapped(to_simplified)            # entries match in either script
+    if project.language == "zh":
+        readings = readings.with_defaults({ch: sub for ch, (sub, _, _) in rare.replacements(texts).items()})
+    return readings
 
 
 def speaks_simplified(project: Project) -> bool:

@@ -97,7 +97,7 @@ huashuo clean book.epub            # 删除合成过程中缓存的音频（有�
 | 想要 | 做法 |
 |---|---|
 | 换某个角色的声音 | 修改 `cast.json` 里该角色的 `voice`；`huashuo voices` 列出所有可选的声音，`huashuo audition book.epub --library` 逐一试听 |
-| 纠正读错的字 | 在 `pron.txt` 里加一行，例如 `单于 = chán yú`（写拼音或同音字都可以） |
+| 纠正读错的字 | 在 `pron.txt` 里加一行，例如 `单于 = chán yú`（写拼音或同音字都可以）。TTS 不认识的生僻字（如「笹垣」的「笹」）会自动换成同音常用字来读，导入时会列出来 |
 | 纠正认错的说话人 | LLM 没有把握的对白列在 `review.txt` 里；在 `script.huaben.jsonl` 里修改那句对白的 `speaker` |
 | 换旁白的声音 | `--narrator female`（女声）、`--narrator male`（男声）或某个具体的声音；`--narrator auto` 恢复自动选择 |
 | 由旁白一个声音读全书 | `--single-voice`；`--multi-voice` 恢复多角色朗读 |

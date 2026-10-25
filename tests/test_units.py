@@ -115,3 +115,15 @@ def test_emotion_becomes_instruct_and_can_be_switched_off():
     assert p.units[1].after == "sentence"                 # same speaker: not a turn of voice
     off = plan(s, cast, "zh", emotions=False)
     assert off.units[1].text == "“来一壶热酒。”“快点！”" and off.units[1].instruct is None
+
+
+def test_quotes_inside_a_line_of_dialogue_are_not_read():
+    cast = {**CAST, "characters": {"笹垣": {"voice": "preset:uncle_fu"}}}
+    s = script(("chapter", "第一章", {"level": 1}),
+               ("dialogue", "“你记得‘马里奥’吗？”", {"id": "c1.p1.01", "speaker": "笹垣"}),
+               ("narration", "他从“波丽露”出来。", {"id": "c1.p2"}),
+               ("dialogue", "“‘超级马里奥兄弟’，小朋友的玩意儿。", {"id": "c1.p3"}),
+               ("dialogue", "「他说『走』」", {"id": "c1.p4", "say": "「他说『走』」"}))
+    texts = [u.text for u in plan(s, cast, "zh").units[1:]]
+    assert texts == ["“你记得马里奥吗？”", "他从“波丽露”出来。", "“超级马里奥兄弟，小朋友的玩意儿。",
+                     "「他说『走』」"]                        # narration and a hand-written `say` keep theirs

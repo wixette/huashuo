@@ -537,11 +537,28 @@ EMOTIONS = {
     "en": {"happy": "Speak happily", "angry": "Speak angrily", "sad": "Speak sadly", "afraid": "Speak fearfully",
            "surprised": "Speak in a surprised tone", "hushed": "Speak in a lowered voice", "stern": "Speak sternly"},
 }
+# Short lines (v0.2.0, docs/plan-v0.2.0.md §3). A line of a few characters is synthesized
+# with no context, and the same 「什么？」 by one voice was one clip for the whole book,
+# whether it asked the other to go on or could not believe its ears. On a short line the
+# TTS does follow an instruct that says what is meant: in a blind test (今枝's 「什么？」, 6
+# seeds each) the shocked and the puzzled readings came through, while 「用惊讶的语气说」
+# hardly changed two characters and a calm, prompting reading could not be had at all (it
+# came out between prompting and puzzled; plain reads are much the same). So two labels get
+# their own phrase on a short line: 惊讶, and 疑惑, which a long line leaves unread (doubt
+# is inaudible there, §5.9). Chinese only for now, where it was tested.
+SHORT_LINE_CHARS = 8
+SHORT_LINE_EMOTIONS = {
+    "zh": {"惊讶": "大吃一惊，难以置信地脱口而出", "疑惑": "没听懂对方的意思，疑惑地反问"},
+}
 EMOTION_INSTRUCTIONS = {
     "zh": """
 
 另外给出 emotion：这句话的情绪。只在情绪明显、正好是可选的几种之一时填写（叙述写了「怒道」「低声说」「哭着说」之类，
-或者话语本身明显带着这种情绪），否则留空字符串。讥讽、疑惑、冷淡之类的复杂语气也留空。大多数对白应当留空；拿不准时留空。""",
+或者话语本身明显带着这种情绪），否则留空字符串。讥讽、冷淡之类的复杂语气也留空。大多数对白应当留空；拿不准时留空。
+
+很短的台词（八个字以内，如「什么？」「真的？」「你说什么？」）要特别留意：它会被单独朗读，听不出上下文，
+所以请根据上下文判断它是怎么说的。吃惊、难以置信，填「惊讶」；没听懂、不明白对方为什么这么说而反问，填「疑惑」
+（「疑惑」只用于这样的短台词）；平静地询问、请对方说下去，或者应答、附和，都留空。""",
     "en": """
 
 Also give emotion: the feeling in the line. Fill it in only when it is obvious and is one of the options (a tag such
@@ -549,6 +566,32 @@ as "she snapped" or "he whispered", or unmistakable feeling in the words); other
 Leave complex attitudes such as sarcasm, doubt or coldness empty too. Most lines should be left empty; when unsure,
 leave it empty.""",
 }
+# The Chinese emotion prompt before short-line labels (v0.1). Answers cached with it still
+# serve when no calls are allowed, as answers from before emotion hints do; a re-import
+# asks before paying to label the short lines.
+EMOTION_INSTRUCTIONS_V1 = {
+    "zh": """
+
+另外给出 emotion：这句话的情绪。只在情绪明显、正好是可选的几种之一时填写（叙述写了「怒道」「低声说」「哭着说」之类，
+或者话语本身明显带着这种情绪），否则留空字符串。讥讽、疑惑、冷淡之类的复杂语气也留空。大多数对白应当留空；拿不准时留空。""",
+}
+
+
+def emotion_labels(language: str) -> list[str]:
+    labels = list(EMOTIONS.get(language, EMOTIONS["zh"]))
+    return labels + [label for label in SHORT_LINE_EMOTIONS.get(language, {}) if label not in labels]
+
+
+def is_short_line(text: str) -> bool:
+    return len(re.findall(r"\w", text)) <= SHORT_LINE_CHARS
+
+
+def emotion_phrase(label: str, text: str, language: str) -> str | None:
+    """The instruct for an emotion label on this line, or None if the label is not read
+    on a line this long (疑惑 on a long line)."""
+    if is_short_line(text) and label in SHORT_LINE_EMOTIONS.get(language, {}):
+        return SHORT_LINE_EMOTIONS[language][label]
+    return EMOTIONS.get(language, EMOTIONS["zh"]).get(label)
 
 
 def _answers_type(names: list[str], emotions: list[str] | None = None):
@@ -605,7 +648,21 @@ def _speaker_request(cast: dict[str, dict], language: str, emotions: bool = True
     if not emotions:
         return instructions, _answers_type(list(cast))
     return (instructions + EMOTION_INSTRUCTIONS.get(language, EMOTION_INSTRUCTIONS["zh"]),
-            _answers_type(list(cast), list(EMOTIONS.get(language, EMOTIONS["zh"]))))
+            _answers_type(list(cast), emotion_labels(language)))
+
+
+def _older_requests(cast: dict[str, dict], language: str, emotions: bool) -> list[tuple[str, type, str]]:
+    """Earlier versions of pass 2's request, whose cached answers serve when no calls are
+    allowed, each with what its answers lack: (instructions, answer type, "delivery" or
+    "emotions")."""
+    if not emotions:
+        return []
+    instructions = SPEAKER_INSTRUCTIONS.get(language, SPEAKER_INSTRUCTIONS["zh"])
+    older = []
+    if language in EMOTION_INSTRUCTIONS_V1:
+        older.append((instructions + EMOTION_INSTRUCTIONS_V1[language],
+                      _answers_type(list(cast), list(EMOTIONS[language])), "delivery"))
+    return older + [(*_speaker_request(cast, language, emotions=False), "emotions")]
 
 
 def _speaker_cost(todo: list[tuple[str, list[int]]], instructions: str, output_type, language: str,
@@ -629,10 +686,11 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
     """Chunks are independent once the cast is known, so they run concurrently. The first
     error (budget, API) is raised after everything else has finished; answers so far stay.
 
-    With `emotions`, each answer also carries an emotion label. The prompt without them is
-    kept exactly as before, so answers cached before emotion hints existed stay valid: with
-    no calls allowed, a chunk not cached with emotions falls back to the plain answer."""
-    plain_instructions, plain_type = _speaker_request(cast, language, emotions=False)
+    With `emotions`, each answer also carries an emotion label. Earlier prompts are kept
+    exactly as they were, so answers cached with them stay valid: with no calls allowed, a
+    chunk not cached with the current prompt falls back to the answer from before short-line
+    labels, then to the one from before emotion hints (`fallbacks` records what each lacks)."""
+    older = _older_requests(cast, language, emotions)
     instructions, output_type = _speaker_request(cast, language, emotions)
     cast_list = _cast_summary(cast, language)
     answers = {} if answers is None else answers        # filled in place: kept if a call fails
@@ -645,11 +703,18 @@ def attribute_segments(segments: list[Segment], cast: dict[str, dict], language:
                 try:
                     result = await caller.acall("speakers", instructions, prompt, output_type)
                 except LLMError:
-                    if not (caller.offline and emotions):
+                    if not caller.offline:
                         raise
-                    result = await caller.acall("speakers", plain_instructions, prompt, plain_type)
+                    for old_instructions, old_type, lacking in older:
+                        try:
+                            result = await caller.acall("speakers", old_instructions, prompt, old_type)
+                            break
+                        except LLMError:
+                            continue
+                    else:
+                        raise
                     if fallbacks is not None:
-                        fallbacks.append(core[0].index)
+                        fallbacks.append(lacking)
                 for a in result.answers:
                     if a.index in wanted:               # drop answers nobody asked for
                         answers[a.index] = (a.speaker, round(float(a.confidence), 2), getattr(a, "emotion", ""))
@@ -702,6 +767,7 @@ class Attribution:
     without_emotions: int = 0               # chunks answered from answers cached before emotion hints
     profiles_pending: bool = False          # no calls allowed, and the gender and age inference is not cached
     profiles_failed: str | None = None      # that call failed: those genders and ages stay unknown
+    without_delivery: int = 0               # chunks answered from answers cached before short-line labels
 
 
 # --------------------------------------------------------------------------------------
@@ -860,7 +926,7 @@ def attribute_script(script: Script, language: str, caller: Caller,
     stopped = None
     suggested: dict[str, str] = {}
     suggestions_failed = None
-    fallbacks: list[int] = []
+    fallbacks: list[str] = []
     profiles_pending, profiles_failed = False, None
     if any(s.kind == "quote" for s in segments):
         try:
@@ -901,8 +967,8 @@ def attribute_script(script: Script, language: str, caller: Caller,
             block.pop("speaker", None)
             continue
         block["speaker"] = speaker
-        if emotion:
-            block["emotion"] = EMOTIONS.get(language, EMOTIONS["zh"])[emotion]
+        if emotion and (phrase := emotion_phrase(emotion, block["text"], language)):
+            block["emotion"] = phrase
         if conf is not None:
             block["conf"] = conf
         if speaker == "unknown" or (conf is not None and conf < LOW_CONFIDENCE):
@@ -914,4 +980,5 @@ def attribute_script(script: Script, language: str, caller: Caller,
             lines[block["speaker"]] = lines.get(block["speaker"], 0) + 1
     characters = {name: {**entry, "lines": lines.get(name, 0)} for name, entry in cast.items()}
     return Attribution(blocks, characters, caller.usage, stopped, review, suggested, suggestions_failed,
-                       len(fallbacks), profiles_pending, profiles_failed)
+                       fallbacks.count("emotions"), profiles_pending, profiles_failed,
+                       fallbacks.count("delivery"))

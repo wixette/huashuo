@@ -31,6 +31,9 @@ environment or a git-ignored `.env`, and stop before a cost cap (`--max-cost`).
 | `v020_unit_analysis.py` | 2026-10-25 | 白夜行 ch. 11: per-unit pace, slow outliers, how 笹 was heard (`v020_data/chapter11_units.json`) | docs/plan-v0.2.0.md §2, §4 |
 | `v020_tts_probe.py` | 2026-10-25 | 笹垣 readings, 「什么？」 instructs, nested quotes, outer quotes (`v020_data/probe_*.json`) | docs/plan-v0.2.0.md §2-4 |
 | `v020_short_line_delivery.py` | 2026-10-25 | Delivery labels for short lines from context (LLM, `--max-cost` as an argument; `v020_data/short_line_delivery.json`) | docs/plan-v0.2.0.md §3 |
+| `v020_tts_probe.py` | 2026-10-25 | Quotes in narration, with and without (`v020_data/narration_quotes.json`, rates only) | docs/plan-v0.2.0.md §9.3 |
+| `v020_voice_pace.py` | 2026-10-25 | The pace of every library voice against the narrators; candidate vectors with `--file` (`v020_data/voice_pace.json`) | docs/plan-v0.2.0.md §9.5 |
+| `v020_old_man_hoarse.json` | 2026-10-25 | old_man_hoarse redesigned as slightly slow: spec for `exp1_candidates.py` / `exp1_stability.py` | docs/plan-v0.2.0.md §9.5 |
 
 ## EXP-1 rounds 3a and 3b
 

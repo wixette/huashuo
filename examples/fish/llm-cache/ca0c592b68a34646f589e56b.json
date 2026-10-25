@@ -13,7 +13,7 @@
         "index": 127,
         "speaker": "我",
         "confidence": 0.99,
-        "emotion": ""
+        "emotion": "惊讶"
       },
       {
         "index": 129,
@@ -55,7 +55,7 @@
         "index": 137,
         "speaker": "我",
         "confidence": 0.99,
-        "emotion": ""
+        "emotion": "疑惑"
       },
       {
         "index": 138,
@@ -79,7 +79,7 @@
         "index": 141,
         "speaker": "栖芒",
         "confidence": 0.99,
-        "emotion": ""
+        "emotion": "害怕"
       },
       {
         "index": 143,
@@ -96,8 +96,8 @@
     ]
   },
   "usage": {
-    "input": 2323,
-    "output": 306,
-    "cost": 0.007706
+    "input": 2452,
+    "output": 310,
+    "cost": 0.008004
   }
 }

@@ -42,7 +42,7 @@
       {
         "index": 48,
         "speaker": "栖芒",
-        "confidence": 0.99,
+        "confidence": 1.0,
         "emotion": ""
       },
       {
@@ -85,7 +85,7 @@
         "index": 62,
         "speaker": "我",
         "confidence": 0.99,
-        "emotion": ""
+        "emotion": "疑惑"
       },
       {
         "index": 63,
@@ -96,8 +96,8 @@
     ]
   },
   "usage": {
-    "input": 2684,
-    "output": 299,
-    "cost": 0.008358
+    "input": 2813,
+    "output": 298,
+    "cost": 0.008606
   }
 }

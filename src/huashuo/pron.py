@@ -72,6 +72,11 @@ class Dictionary:
             entries.setdefault(convert(word), reading)
         return Dictionary(entries, self.problems)
 
+    def with_defaults(self, defaults: dict[str, str]) -> "Dictionary":
+        """These entries on top of `defaults` (the homophones of rare.py): an entry for the
+        same word, or a longer word containing it, wins."""
+        return Dictionary({**defaults, **self.entries}, self.problems)
+
     def apply(self, text: str) -> str:
         if self._pattern is None:
             return text

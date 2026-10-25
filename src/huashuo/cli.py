@@ -292,20 +292,35 @@ def _llm_summary(report) -> str:
 
 
 def _print_pron(wd, script) -> None:
-    """How the pronunciation dictionary matches this book, so a typo is noticed."""
-    from huashuo import pron
+    """How the pronunciation dictionary matches this book, so a typo is noticed, and which
+    characters the TTS does not know are read through a homophone."""
+    from huashuo import pron, rare
+    from huashuo.chinese import to_simplified
     from huashuo.huaben import spoken_text
+    from huashuo.pipeline import load_project, speaks_simplified
 
     readings = pron.load(wd.pron)
     for problem in readings.problems:
         print(f"warning: {problem}")
-    if not readings.entries:
+    texts = [spoken_text(b) for b in script.blocks if b.get("type") != "skip"]
+    if readings.entries:
+        counts = readings.matches(texts)
+        found = [f"{word} ×{n}" for word, n in counts.items() if n]
+        missing = [word for word, n in counts.items() if not n]
+        print(f"pron.txt: {len(readings.entries)} entries" + (f"; {', '.join(found)}" if found else "")
+              + (f"; not in the book: {', '.join(missing)}" if missing else ""))
+    project = load_project(wd)
+    if project.language != "zh":
         return
-    counts = readings.matches(spoken_text(b) for b in script.blocks if b.get("type") != "skip")
-    found = [f"{word} ×{n}" for word, n in counts.items() if n]
-    missing = [word for word, n in counts.items() if not n]
-    print(f"pron.txt: {len(readings.entries)} entries" + (f"; {', '.join(found)}" if found else "")
-          + (f"; not in the book: {', '.join(missing)}" if missing else ""))
+    if speaks_simplified(project):
+        texts = [to_simplified(t) for t in texts]
+    found = {ch: sub for ch, sub in rare.replacements(texts).items() if ch not in readings.entries}
+    if found:
+        shown = [f"{ch} → {sub} ({sound}) ×{n}" if sub != sound else f"{ch} → {sound} ×{n}"
+                 for ch, (sub, sound, n) in sorted(found.items(), key=lambda kv: -kv[1][2])]
+        print(f"characters the TTS does not know, read as: {', '.join(shown[:12])}"
+              + (f" and {len(shown) - 12} more" if len(shown) > 12 else "")
+              + f" (another reading in pron.txt, e.g. \"{next(iter(found))} = ...\", replaces one)")
 
 
 class LLMProgress:

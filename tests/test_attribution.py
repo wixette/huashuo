@@ -177,7 +177,7 @@ def test_a_run_the_cap_stopped_resumes_paying_only_for_the_rest(tmp_path, monkey
         unknown = sum(b.get("speaker") == "unknown" for b in read_script(wd.script).blocks if b["type"] == "dialogue")
         return result.llm, llm.calls, asked, unknown
 
-    report, calls, _, unknown = run(3.0)
+    report, calls, _, unknown = run(3.2)
     assert "cap" in report.stopped and calls == {"cast": 3, "speakers": 3, "voices": 0} and 0 < unknown < 150
     wd.ingest_record.unlink()                      # as after a run stopped with Ctrl-C (白夜行)
     report, calls, asked, unknown = run(10.0)
@@ -367,6 +367,39 @@ def test_emotion_hints_come_with_the_speakers(tmp_path):
     assert llm.calls["speakers"] == 1                          # no extra call for them
 
 
+def test_short_lines_get_a_reading_the_tts_follows(tmp_path):
+    """On a line of a few characters 惊讶 gets a stronger phrase and 疑惑 one of its own; on a
+    long line 疑惑 is not read at all (docs/plan-v0.2.0.md §3)."""
+    from huashuo.attribution import SHORT_LINE_EMOTIONS
+
+    llm = ScriptedLLM(emotions={"“从哪儿来不重要。”": "惊讶", "“店家，来一壶热酒。”": "疑惑",
+                                "“客官面生得很，是从北边来的？”": "疑惑"})
+    result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, model=llm.model()))
+    emotion = {b["text"]: b.get("emotion") for b in result.blocks if b["type"] == "dialogue"}
+    assert emotion == {"“从哪儿来不重要。”": SHORT_LINE_EMOTIONS["zh"]["惊讶"],
+                       "“店家，来一壶热酒。”": SHORT_LINE_EMOTIONS["zh"]["疑惑"],
+                       "“客官面生得很，是从北边来的？”": None}
+
+
+def _cache_v1_answers(cache, monkeypatch, built=None):
+    """Answers as a v0.1 import cached them: the emotion prompt without short-line labels."""
+    from huashuo import attribution
+
+    with monkeypatch.context() as m:
+        m.setitem(attribution.EMOTION_INSTRUCTIONS, "zh", attribution.EMOTION_INSTRUCTIONS_V1["zh"])
+        m.setitem(attribution.SHORT_LINE_EMOTIONS, "zh", {})
+        llm = ScriptedLLM(emotions={"“从哪儿来不重要。”": "生气"})
+        attribute_script((built or script()).script, "zh", Caller(REMOTE, cache, model=llm.model()))
+
+
+def test_answers_cached_before_short_line_labels_still_serve_offline(tmp_path, monkeypatch):
+    _cache_v1_answers(tmp_path, monkeypatch)
+    result = attribute_script(script().script, "zh", Caller(LOCAL, tmp_path, offline=True))
+    assert speakers(result.blocks)["“客官面生得很，是从北边来的？”"] == "老者" and not result.stopped
+    assert result.without_delivery == 1 and result.without_emotions == 0
+    assert {b.get("emotion") for b in result.blocks if b["type"] == "dialogue"} == {None, "用生气的语气说"}
+
+
 def test_answers_cached_before_emotion_hints_still_serve_offline(tmp_path):
     """Books imported before SCR-12 have plain answers cached; without a key they must keep
     their speakers (a key would buy fresh answers with emotions)."""
@@ -442,4 +475,22 @@ def test_answers_from_before_emotion_hints_ask_before_labelling_again(book):
     import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=llm.model(),
                                          confirm=lambda m: asked.append(m) or False))
     assert asked and "predate emotion hints" in asked[0] and llm.calls["speakers"] == 0
+    assert speakers(read_script(wd.script).blocks)["“店家，来一壶热酒。”"] == "林渊"
+
+
+def test_answers_from_before_short_line_labels_ask_before_labelling_again(book, monkeypatch):
+    from huashuo.ingest import read_book
+    from huashuo.pipeline import machine_output
+
+    wd = Workdir.for_input(book)
+    import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=ScriptedLLM().model(),
+                                         assume_yes=True))
+    cache = wd.state / "llm-cache"
+    for f in cache.iterdir():
+        f.unlink()
+    _cache_v1_answers(cache, monkeypatch, machine_output(read_book(book), None, False))
+    asked, llm = [], ScriptedLLM()
+    import_book(book, wd, llm=LLMOptions(config_override=REMOTE, model_override=llm.model(),
+                                         confirm=lambda m: asked.append(m) or False))
+    assert asked and "predate the hints for reading short lines" in asked[0] and llm.calls["speakers"] == 0
     assert speakers(read_script(wd.script).blocks)["“店家，来一壶热酒。”"] == "林渊"

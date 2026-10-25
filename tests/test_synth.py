@@ -32,7 +32,8 @@ def test_duration_checks():
     assert "too fast" in duration_problem(TEXT, 1.0, "zh", None)
     assert "ceiling" in duration_problem(TEXT, 320.0, "zh", 327.0)
     assert duration_problem(TEXT, 4.0, "zh", None) is None
-    assert duration_problem("好。", 5.0, "zh", None) is None       # too short to judge a rate
+    assert duration_problem("好。", 1.2, "zh", None) is None       # too short to judge a rate
+    assert "drawn out" in duration_problem("外遇。", 2.0, "zh", None)  # but not a length: 1.8 s at most
 
 
 def test_asr_retries_keep_the_best_attempt(tmp_path):
@@ -152,7 +153,12 @@ def test_the_pace_check_knows_each_voices_usual_pace():
     assert "rushed" in book.problem("v", text, 11.0, "zh")[0]               # 5.5 chars/s, 1.36x
     assert "dragging" in book.problem("v", text, 22.0, "zh")[0]
     assert book.problem("other voice", text, 11.0, "zh")[0] is None
-    assert book.problem("v", "雪" * 20, 2.0, "zh")[0] is None               # too short to judge
+    assert book.problem("v", "雪" * 20, 2.0, "zh")[0] is None               # short units: their own median
+    for seconds in (5, 5, 6, 5, 4, 5, 6, 5):                               # about 4 chars/s
+        book.add("v", "雪" * 20, seconds, "zh")
+    assert book.problem("v", "雪" * 20, 7.0, "zh")[0] is None               # 0.71x: short units vary more
+    assert "dragging" in book.problem("v", "雪" * 20, 8.5, "zh")[0]         # 0.59x
+    assert book.problem("v", "雪" * 7, 9.0, "zh")[0] is None                # under 8: only a length cap
 
 
 def test_a_rushed_take_is_tried_again(tmp_path):

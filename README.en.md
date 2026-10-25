@@ -116,7 +116,7 @@ Each book has a work directory, `book.huashuo/`, next to the book. Edit the file
 | To | Do |
 |---|---|
 | change a character's voice | edit the character's `voice` in `cast.json`; `huashuo voices` lists every voice, `huashuo audition book.epub --library` plays each |
-| fix a misread word | add a line to `pron.txt`, e.g. `单于 = chán yú` (pinyin or a homophone) |
+| fix a misread word | add a line to `pron.txt`, e.g. `单于 = chán yú` (pinyin or a homophone). Characters the TTS does not know (笹 in 笹垣) are read through a common homophone automatically; the import lists them |
 | fix a wrongly attributed line | lines the LLM was unsure of are listed in `review.txt`; change the line's `speaker` in `script.huaben.jsonl` |
 | change the narrator's voice | `--narrator female`, `--narrator male` or a specific voice; `--narrator auto` for the automatic choice |
 | have the narrator read everything | `--single-voice`; `--multi-voice` switches back |

@@ -18,7 +18,7 @@
       {
         "index": 151,
         "speaker": "我",
-        "confidence": 0.99,
+        "confidence": 0.98,
         "emotion": ""
       },
       {
@@ -72,8 +72,8 @@
     ]
   },
   "usage": {
-    "input": 2709,
+    "input": 2838,
     "output": 229,
-    "cost": 0.007708
+    "cost": 0.007966
   }
 }

@@ -112,6 +112,23 @@ def _balanced(pieces: list[str], max_chars: int) -> list[str]:
     return ["".join(pieces[a:b]) for a, b in zip(cuts, cuts[1:])]
 
 
+_OPENING, _CLOSING = "“‘「『", "”’」』"
+_DROP_QUOTES = str.maketrans("", "", _OPENING + _CLOSING)
+
+
+def without_inner_quotes(text: str) -> str:
+    """A quote inside a line of dialogue is left out of what the TTS reads:
+    “你记得‘马里奥’吗？” -> “你记得马里奥吗？”. Inner quotes slowed a line by about a fifth,
+    and with one voice turned half the takes into gibberish, while the line without them
+    was read right every time (docs/plan-v0.2.0.md §4.2). The outer quotes stay: they made
+    no consistent difference, and every cached unit would change without them. Quotes in
+    narration stay too: they cost about 5% of pace and no misreadings (§9.3), about what a
+    narrator's stress on a quoted name costs."""
+    head = 1 if text[:1] in _OPENING else 0
+    tail = 1 if len(text) > head and text[-1] in _CLOSING else 0
+    return text[:head] + text[head:len(text) - tail].translate(_DROP_QUOTES) + text[len(text) - tail:]
+
+
 def voice_of(block: dict, cast: dict, emotions: bool = True,
              single_voice: bool = False) -> tuple[str, str | None]:
     narrator = cast["narrator"]["voice"]
@@ -178,6 +195,8 @@ def plan(script: Script, cast: dict, language: str, max_chars: int = DEFAULT_MAX
             text = spoken_text(block).strip()
             if not text:
                 continue
+            if kind == "dialogue" and language == "zh" and not isinstance(block.get("say"), str):
+                text = without_inner_quotes(text)
             new_paragraph = bool(group) and paragraph_of(group[-1][0]["id"]) != paragraph_of(block["id"])
             # A paragraph in one voice stays one group, however long: flush() cuts it at
             # sentence ends. Cutting here, where the next block starts, would split

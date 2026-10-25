@@ -37,7 +37,7 @@
         "index": 21,
         "speaker": "我",
         "confidence": 1.0,
-        "emotion": "高兴"
+        "emotion": ""
       },
       {
         "index": 23,
@@ -60,8 +60,8 @@
     ]
   },
   "usage": {
-    "input": 2773,
-    "output": 177,
-    "cost": 0.007316
+    "input": 2902,
+    "output": 176,
+    "cost": 0.007564
   }
 }
